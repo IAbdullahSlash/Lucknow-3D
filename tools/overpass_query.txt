@@ -1,0 +1,20 @@
+[out:json][timeout:120][bbox:26.8650,80.8985,26.8795,80.9180];
+(
+  way["building"];
+  relation["building"];
+  way["highway"];
+  way["natural"];
+  relation["natural"="water"];
+  way["leisure"];
+  way["landuse"];
+  way["waterway"];
+  nwr["historic"];
+  nwr["tourism"];
+  nwr["amenity"];
+  way["barrier"];
+  nwr["man_made"];
+  node["natural"="tree"];
+  node["shop"];
+  node["place"];
+);
+out body geom;

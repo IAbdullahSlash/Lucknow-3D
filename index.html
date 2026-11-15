@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Hussainabad, Live — Lucknow's heritage mile in 3D</title>
+<meta name="description" content="An animated, walkable 3D model of Hussainabad, Lucknow: Clock Tower, Talab, Chota Imambara, Rumi Darwaza and Bara Imambara on the real street map.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/style.css?v=4">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="labels"></div>
+
+<div id="load"><div><b>HUSSAINABAD</b><span>हुसैनाबाद · حسین آباد</span><small id="loadmsg">Fetching the map of Lucknow…</small><i></i></div></div>
+
+<div id="ui">
+  <header id="title" class="panel">
+    <h1>HUSSAINABAD<span>हुसैनाबाद</span></h1>
+    <p>Lucknow · the Nawabi heritage mile on its real street map</p>
+  </header>
+
+  <nav id="modes" aria-label="View mode">
+    <button data-mode="orbit" class="on" title="Fly around (1)">Explore</button>
+    <button data-mode="walk" title="Walk the streets at eye level (2)">Walk</button>
+    <button data-mode="ride" title="Ride along in a vehicle (3)">Ride</button>
+    <button id="bTour" title="Guided fly-through">Tour</button>
+    <button id="bOptions" title="Options (O)" aria-expanded="false">Options</button>
+  </nav>
+
+  <div id="placesWrap">
+    <button id="bPlaces" class="mini">Places</button>
+    <div id="places"></div>
+  </div>
+
+  <aside id="card" class="panel" aria-live="polite">
+    <button class="x" aria-label="Close">✕</button>
+    <div class="hi"></div><h2></h2><div class="yr"></div><p></p>
+    <button id="cardWalk" class="mini">Walk here</button>
+  </aside>
+
+  <aside id="options" class="panel" aria-label="Options"></aside>
+
+  <div id="timebar" class="panel">
+    <div id="clock">--:--<small>IST</small></div>
+    <button data-t="live">Live</button>
+    <button data-t="sunrise">Sunrise</button>
+    <button data-t="noon">Midday</button>
+    <button data-t="golden">Golden hour</button>
+    <button data-t="dusk">Dusk</button>
+    <button data-t="night">Night</button>
+    <input id="slider" type="range" min="0" max="24" step="0.05" aria-label="Time of day">
+    <button data-t="cycle" title="Run a whole day">▶ Day</button>
+  </div>
+
+  <div id="walkhud">
+    <div id="cross"></div>
+    <div id="where" class="panel"></div>
+    <div id="keys" class="panel"></div>
+    <div id="joy"><i></i></div>
+    <div id="touchbtns"><button id="tRun">Run</button><button id="tExit">Exit</button></div>
+  </div>
+  <div id="ridehud" class="panel"><span id="rideName"></span><button id="rideNext" class="mini">Next vehicle</button><button id="rideExit" class="mini">Get off</button></div>
+
+  <div id="mapWrap" class="panel"><canvas id="minimap" width="200" height="200"></canvas><span id="compassN">N</span></div>
+  <div id="toast" class="panel"></div>
+  <div id="hint">Drag to orbit · right-drag to pan · scroll to zoom · double-click the ground to walk there</div>
+  <div id="credit">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+window.THREE = THREE; window.ADDONS = { OrbitControls, CSS2DRenderer, CSS2DObject, mergeGeometries };
+const fail = e => { const m = document.getElementById('loadmsg'); if (m) { m.textContent = 'Could not start: ' + (e && e.message || e); m.style.color = '#ffb4a2'; } console.error(e); };
+addEventListener('error', e => fail(e.error || e.message));
+addEventListener('unhandledrejection', e => fail(e.reason));
+// plain scripts sharing one scope, so the folder also works when opened straight from disk
+for (const f of ['data/map.js', 'src/core.js', 'src/sky.js', 'src/city.js', 'src/monuments.js', 'src/life.js', 'src/ui.js']) {
+  await new Promise((ok, no) => { const s = document.createElement('script'); s.src = f + '?v=4'; s.onload = ok; s.onerror = () => no(new Error('missing ' + f)); document.body.append(s); });
+}
+</script>
+<noscript>This 3D scene needs JavaScript and WebGL.</noscript>
+</body>
+</html>

@@ -1,0 +1,462 @@
+'use strict';
+/* monuments.js — the heritage buildings, each in its surveyed position and orientation (see FRAME in core.js) */
+
+const FOUNTAINS = [], VENDORS = [], PARKED = [], SEATS = [], ZONES = [], CLOCK_HANDS = [], FESTIVE = [], RIDE_LOOPS = [];
+const WORLD = { x: 0, z: 0, rot: 0 };
+const zone = (f, x0, z0, x1, z1, n, y = 0) => ZONES.push({ f, x0, z0, x1, z1, n, y });
+const seatAt = (f, lx, lz, y, yaw) => { const w = toWorld(f, lx, lz); SEATS.push([w[0], y, w[1], yaw + f.rot]); };
+const vendor = (f, lx, lz, yaw, type) => { const w = toWorld(f, lx, lz); VENDORS.push([w[0], w[1], yaw + f.rot, type]); };
+const parkAt = (f, lx, lz, yaw, type) => { const w = toWorld(f, lx, lz); PARKED.push([w[0], w[1], yaw + f.rot, type]); };
+const lampAt = (f, lx, lz, kind, yaw = 0) => { const w = toWorld(f, lx, lz); LAMPS.push([w[0], w[1], yaw + f.rot, kind]); };
+const treeAt = (f, lx, lz, kind = 0, s = 1) => { const w = toWorld(f, lx, lz); treeSpots.push([w[0], w[1], kind, s]); };
+const jet = (f, lx, lz, y, h, spread, n = 36) => { const w = toWorld(f, lx, lz); FOUNTAINS.push({ x: w[0], y, z: w[1], h, spread, n, ph: rnd() * TAU }); };
+/** string of festive bulbs along a polyline given in a frame's coordinates: [[x, y, z], …] */
+function lights(f, pts, step = 0.75) {
+  for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], b = pts[i], n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / step)); for (let k = 0; k < n; k++) { const t = k / n, w = toWorld(f, lerp(a[0], b[0], t), lerp(a[2], b[2], t)); FESTIVE.push(w[0], lerp(a[1], b[1], t), w[1]); } }
+}
+const boxLights = (f, cx, cz, w, d, y) => lights(f, [[cx - w / 2, y, cz - d / 2], [cx + w / 2, y, cz - d / 2], [cx + w / 2, y, cz + d / 2], [cx - w / 2, y, cz + d / 2], [cx - w / 2, y, cz - d / 2]]);
+function wallRun(p, mat, x0, z0, x1, z1, h, t = 0.9, crenel = true) {
+  const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz); if (len < 0.5) return;
+  const g = grp(p, (x0 + x1) / 2, (z0 + z1) / 2, Math.atan2(-dz, dx)); B(g, mat, len, h, t, 0, 0, 0);
+  if (crenel) merlons(g, mat, -len / 2, len / 2, h, 0, Math.max(2, Math.round(len / 1.7)), 0.85, 0.6, t);
+}
+function signBoard(p, w, x, y, z, cell = ri(0, 63)) {
+  const g = new THREE.PlaneGeometry(w, w / 4), u0 = (cell % 4) / 4, v1 = 1 - ((cell / 4) | 0) / 16, v0 = v1 - 1 / 16, uv = g.attributes.uv;
+  uv.setXY(0, u0, v1); uv.setXY(1, u0 + 0.25, v1); uv.setXY(2, u0, v0); uv.setXY(3, u0 + 0.25, v0);
+  const m = new THREE.Mesh(g, signMats[0]); m.position.set(x, y + w / 8, z + 0.12); p.add(m); return m;
+}
+function crownFinials(p, Wd, H, mat, z, tip = mat) {
+  const { pts, hs } = archHead(Wd, H, 12);
+  pts.forEach(q => { if (q[1] < hs + 0.6) return; const ang = Math.atan2(q[0], q[1] - hs * 0.7), m = cone(p, mat, 0.22, 1.35, q[0], q[1] - 0.15, z, 5); m.rotation.z = -ang; S(p, tip, 0.2, q[0] + Math.sin(ang) * 0.75, q[1] + 0.5 + Math.cos(ang) * 0.75, z); });
+}
+function bench(g, f, x, z, rot) { const b = grp(g, x, z, rot); B(b, MAT.pink, 2.3, 0.12, 0.62, 0, 0.36, 0, true); B(b, MAT.pinkD, 0.3, 0.36, 0.55, -0.85, 0, 0, true); B(b, MAT.pinkD, 0.3, 0.36, 0.55, 0.85, 0, 0, true); seatAt(f, x + Math.sin(rot) * 0.1, z + Math.cos(rot) * 0.1, 0.48, rot); }
+const tuft = (g, x, y, z, s = 1) => { S(g, MAT.hedge, 0.55 * s, x, y + 0.2, z, 0.8); S(g, MAT.lawn, 0.4 * s, x + 0.5 * s, y + 0.15, z + 0.2, 0.9); };
+const festiveOutline = (f, Wd, H, z, x = 0, y0 = 0) => lights(f, archHead(Wd, H, 14).pts.map(q => [x + q[0], y0 + q[1] + 0.3, z]));
+
+/* ═════════════ Clock Tower, Talab and Picture Gallery (the park north of the road) ═════════════ */
+function clockTower(g) {
+  P(g, MAT.stone, 15, 0.45, 15, 0, 0, 0); P(g, MAT.stone, 12.6, 0.45, 12.6, 0, 0.45, 0); P(g, MAT.stoneD, 10.2, 0.45, 10.2, 0, 0.9, 0);
+  let y = 1.35;
+  taper(g, MAT.brick, 7.7, 7.0, 7.9, 0, y, 0); B(g, MAT.stone, 7.55, 0.35, 7.55, 0, y + 4.1, 0, true);
+  for (let k = 0; k < 4; k++) decal(grp(g, 0, 0, k * Math.PI / 2), 2.3, 3.8, 0, y + 0.1, 3.74, { mat: k % 2 ? MAT.recess : MAT.door, trim: MAT.trim });
+  y = 9.25; B(g, MAT.stone, 8.8, 0.5, 8.8, 0, y, 0, true);                                    // corbelled balcony
+  for (const [bx, bz, w, d] of [[0, 4.25, 8.8, 0.25], [0, -4.25, 8.8, 0.25], [4.25, 0, 0.25, 8.8], [-4.25, 0, 0.25, 8.8]]) B(g, MAT.brickD, w, 1.1, d, bx, y + 0.5, bz, true);
+  arcadeBox(g, 0, 0, 8.76, 8.76, y + 0.62, 0.85, 7, 7, { mat: MAT.trim, fill: 0.5 });
+  taper(g, MAT.brick, 6.7, 6.4, 4.5, 0, y + 0.5, 0);
+  for (let k = 0; k < 4; k++) decal(grp(g, 0, 0, k * Math.PI / 2), 1.7, 3.2, 0, y + 1.0, 3.32, { trim: MAT.trimW });
+  y = 14.25; B(g, MAT.stone, 7.1, 0.35, 7.1, 0, y, 0, true);
+  taper(g, MAT.brick, 6.3, 5.7, 29.8, 0, y + 0.35, 0);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) B(g, MAT.brickD, 0.8, 29.8, 0.8, sx * 2.82, y + 0.35, sz * 2.82, true);
+  for (const yy of [19, 27, 35]) for (let k = 0; k < 4; k++) decal(grp(g, 0, 0, k * Math.PI / 2), 0.75, 2.5, 0, yy, 3.16 - 0.3 * (yy - 14.6) / 29.8, { trim: MAT.trimW });
+  y = 44.4; B(g, MAT.stone, 6.5, 0.35, 6.5, 0, y, 0, true); B(g, MAT.brick, 6.0, 3.3, 6.0, 0, y + 0.35, 0, true);
+  for (let k = 0; k < 4; k++) rectDecal(grp(g, 0, 0, k * Math.PI / 2), MAT.diaper, 5.0, 2.5, 0, y + 0.75, 3.0);
+  B(g, MAT.stone, 6.6, 0.4, 6.6, 0, y + 3.65, 0, true);
+  y = 48.45; B(g, MAT.brick, 6.6, 7.4, 6.6, 0, y, 0, true);
+  for (let k = 0; k < 4; k++) { const d = new THREE.Mesh(new THREE.PlaneGeometry(5.7, 5.7), MAT.dial); d.position.set(0, y + 3.7, 3.37); grp(g, 0, 0, k * Math.PI / 2).add(d); }
+  B(g, MAT.stone, 7.5, 0.5, 7.5, 0, y + 7.4, 0, true);
+  y = 56.35;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { C(g, MAT.brickD, 0.5, 0.62, 2.4, sx * 3.2, y, sz * 3.2, 8, true, true); dome(g, MAT.copper, 0.75, sx * 3.2, y + 2.4, sz * 3.2); }
+  B(g, MAT.brick, 5.0, 4.6, 5.0, 0, y, 0, true); arcadeBox(g, 0, 0, 5.0, 5.0, y + 0.5, 3.3, 3, 3, { trim: MAT.trimW, fill: 0.6 });
+  B(g, MAT.stone, 5.8, 0.4, 5.8, 0, y + 4.6, 0, true);
+  y = 61.35; C(g, MAT.brick, 2.0, 2.2, 2.3, 0, y, 0, 8, true, true);
+  for (let k = 0; k < 8; k++) decal(grp(g, 0, 0, (k + 0.5) * Math.PI / 4), 0.8, 1.6, 0, y + 0.35, 2.0 * Math.cos(Math.PI / 8), { trim: MAT.trimW });
+  C(g, MAT.stone, 2.5, 2.5, 0.25, 0, y + 2.3, 0, 8, true, true);
+  const top = dome(g, MAT.copper, 2.35, 0, y + 2.55, 0, 0.95);
+  B(g, MAT.gold, 1.2, 0.06, 0.06, 0, top + 0.15, 0, true); cone(g, MAT.gold, 0.16, 0.7, 0.42, top + 0.06, 0, 5).rotation.z = -Math.PI / 2; S(g, MAT.gold, 0.2, -0.3, top + 0.4, 0, 0.7);
+  lights(FRAME.park, [[3.4, 1.4, 3.4], [3.0, 44, 3.0]], 1); lights(FRAME.park, [[-3.4, 1.4, 3.4], [-3.0, 44, 3.0]], 1); lights(FRAME.park, [[3.4, 1.4, -3.4], [3.0, 44, -3.0]], 1); lights(FRAME.park, [[-3.4, 1.4, -3.4], [-3.0, 44, -3.0]], 1);
+  boxLights(FRAME.park, 0, 0, 7.6, 7.6, 56); boxLights(FRAME.park, 0, 0, 6.7, 6.7, 48.3); boxLights(FRAME.park, 0, 0, 9, 9, 9.9);
+}
+function gallery(g) {
+  const F = FRAME.park, T = { trim: MAT.trim, lit: 0.45 };
+  P(g, MAT.pink, 54, 1.3, 42, -90, 0, -81);                                                   // terrace overlooking the tank
+  stairs(g, MAT.pink, 18, 4, 0.325, 0.5, -90, 0, -58);
+  B(g, MAT.red, 27, 11.6, 23, -88.5, 1.3, -82.5); B(g, MAT.red, 27, 11.6, 6, -88.5, 1.3, -68);
+  const f = grp(g, -88.5, -65); arcade(f, 7, -13, 13, 1.6, 0, 4.4, T); arcade(f, 7, -13, 13, 7.5, 0, 3.9, T);
+  arcade(grp(g, -75, -79.5, Math.PI / 2), 6, -14, 14, 1.6, 0, 4.4, T); arcade(grp(g, -75, -79.5, Math.PI / 2), 6, -14, 14, 7.5, 0, 3.9, T);
+  arcade(grp(g, -88.5, -94, Math.PI), 7, -13, 13, 1.6, 0, 4.4, T); arcade(grp(g, -88.5, -94, Math.PI), 7, -13, 13, 7.5, 0, 3.9, T);
+  for (const yy of [6.9, 12.9]) B(g, MAT.cream, 27.6, 0.4, 29.6, -88.5, yy, -79.5, true);
+  merlons(g, MAT.cream, -102, -75, 13.3, -65.2, 16, 0.7, 0.55, 0.35);
+  B(g, MAT.redD, 11, 14.6, 19, -107.5, 1.3, -79.5);                                           // taller west wing
+  const fw = grp(g, -107.5, -70); arcade(fw, 3, -5, 5, 1.6, 0, 4.2, T); arcade(fw, 3, -5, 5, 7.5, 0, 3.6, T); arcade(fw, 3, -5, 5, 12.3, 0, 2.6, T);
+  const fs = grp(g, -113, -79.5, -Math.PI / 2); arcade(fs, 5, -9, 9, 1.6, 0, 4.2, T); arcade(fs, 5, -9, 9, 7.5, 0, 3.6, T); arcade(fs, 5, -9, 9, 12.3, 0, 2.6, T);
+  B(g, MAT.cream, 11.6, 0.4, 19.6, -107.5, 15.9, -79.5, true);
+  const pr = cone(g, MAT.tin, 8.2, 3.4, -107.5, 16.3, -79.5, 4); pr.rotation.y = Math.PI / 4; pr.scale.z = 1.55;
+  B(g, MAT.red, 9.6, 8.6, 15, -70.2, 1.3, -80.5); arcade(grp(g, -70.2, -73), 3, -4.2, 4.2, 1.6, 0, 4.2, T); arcade(grp(g, -65.4, -80.5, Math.PI / 2), 4, -7, 7, 1.6, 0, 4.2, T);
+  B(g, MAT.cream, 10.2, 0.4, 15.6, -70.2, 9.9, -80.5, true);
+  for (const x of [-96.5, -88.5, -80.5]) { B(g, MAT.red, 5, 1.4, 5, x, 13.3, -80, true); cone(g, MAT.tin, 4.2, 2.3, x, 14.7, -80, 4).rotation.y = Math.PI / 4; }
+  [[-118, -57], [-122, -53], [-115, -52], [-62, -56]].forEach(q => treeAt(F, q[0], q[1], 2, 1.1));
+  zone(F, -112, -64.4, -66, -60.6, 8, 1.3);
+  boxLights(F, -88.5, -79.5, 27.6, 29.6, 13.4); lights(F, [[-102, 7.3, -65], [-75, 7.3, -65]]);
+}
+function buildPark() {
+  setLoad('Raising the Clock Tower and digging the talab…');
+  const F = FRAME.park, g = frameGroup(F), T = TALAB, cx = T.cx, cz = T.cz, off = a => a.map(q => [q[0] + cx, q[1] + cz]);
+  { // paved "pond square" with the tank cut out
+    const s = new THREE.Shape(); [[-140, -60], [-40.5, -60], [-40.5, 82], [-140, 82]].forEach((q, i) => i ? s.lineTo(q[0], -q[1]) : s.moveTo(q[0], -q[1]));
+    const h = new THREE.Path(); off(talabOct(-0.7)).forEach((q, i) => i ? h.lineTo(q[0], -q[1]) : h.moveTo(q[0], -q[1])); s.holes.push(h);
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(s), GM.herring); m.rotation.x = -Math.PI / 2; m.position.y = 0.012; m.receiveShadow = true; g.add(m);
+  }
+  flatRect(g, GM.herring, 46, 46, 0, 0, 0.012); flatRect(g, GM.herring, 10, 60, 0, 52, 0.012); flatRect(g, GM.herring, 14, 9, -29, 0, 0.012);
+  // the stepped tank: ghats descend on all eight sides to the water
+  for (let i = 0; i <= T.n; i++) g.add(ringPoly(i % 4 === 0 ? MAT.pinkD : MAT.pink, off(talabOct(i === 0 ? -0.7 : (i - 1) * T.tread)), off(talabOct(i * T.tread)), i === 0 ? 0.03 : -i * T.rise, i === T.n ? 2.4 : T.rise + 0.06));
+  const yW = -(T.n * T.rise) - 0.25;
+  flatPoly(g, talabWater, off(talabOct(T.n * T.tread)), yW);
+  const R = off(talabOct(-0.35));
+  for (let i = 0; i < 8; i++) {
+    const p = R[i], q = R[(i + 1) % 8];
+    if (i % 2 === 0) { const mx = (p[0] + q[0]) / 2, mz = (p[1] + q[1]) / 2, l = Math.hypot(q[0] - p[0], q[1] - p[1]), gx = (q[0] - p[0]) / l * 4.5, gz = (q[1] - p[1]) / l * 4.5; railing(g, p[0], p[1], mx - gx, mz - gz); railing(g, mx + gx, mz + gz, q[0], q[1]); }
+    else railing(g, p[0], p[1], q[0], q[1]);
+  }
+  B(g, MAT.stoneD, 21, 0.6, 6.4, cx, yW - 0.2, cz, true);                                    // fountain deck in the water
+  for (let k = -4; k <= 4; k++) jet(F, cx + k * 2.3, cz, yW + 0.45, k === 0 ? 11 : 4.5 + (k % 2 ? 2 : 0), 1.3, 30);
+  chhatri(g, MAT.pink, MAT.pink, 4.2, cx - 44, 0, cz - 8); chhatri(g, MAT.pink, MAT.pink, 4.2, cx + 6, 0, cz + 46);
+  for (let i = 0; i < 46; i++) {              // people sit on the ghats
+    const e = ri(0, 7), lvl = ri(1, 6), O = off(talabOct((lvl - 0.45) * T.tread)), a = O[e], b = O[(e + 1) % 8], t = rr(0.1, 0.9), x = lerp(a[0], b[0], t), z = lerp(a[1], b[1], t);
+    seatAt(F, x, z, -lvl * T.rise + 0.42, Math.atan2(cx - x, cz - z));
+  }
+  [[-134, 30], [-134, -40], [-46, 70], [-46, -52], [22, 30], [20, -28]].forEach(q => lampAt(F, q[0], q[1], 2));
+  [[-126, 46, 0], [-108, 60, 0], [-88, 62, 0], [-66, 60, 0], [-126, -20, Math.PI / 2], [-126, 10, Math.PI / 2], [-44, 20, -Math.PI / 2], [-44, -20, -Math.PI / 2], [-100, -54, 0], [-76, -54, 0], [12, 16, Math.PI], [-12, 16, Math.PI]].forEach(q => bench(g, F, q[0], q[1], q[2]));
+  // kebab canopy by the road, the corner tea stall, play area and bandstand
+  { const k = grp(g, -52, 60); for (const sx of [-1, 1]) for (const sz of [-1, 1]) C(k, MAT.iron, 0.07, 0.07, 3, sx * 3.6, 0, sz * 3.6, 6, false, true); const c = cone(k, MAT.white, 5.6, 2.2, 0, 3, 0, 4); c.rotation.y = Math.PI / 4; B(k, MAT.wood, 5, 0.9, 1.1, 0, 0, 2.6); B(k, MAT.iron, 1.6, 0.5, 0.9, -1.2, 0.9, 2.6, true); signBoard(k, 5.2, 0, 2.2, 3.7); vendor(F, -52, 61.4, 0, 'cook'); }
+  { const k = grp(g, -142, 4, Math.PI / 2); B(k, MAT.teal, 3.6, 2.6, 2.6, 0, 0, 0); B(k, MAT.cloth, 4, 0.08, 1.6, 0, 2.5, 2, true).rotation.x = 0.25; rectDecal(k, MAT.black, 2.6, 1.1, 0, 1.0, 1.3); signBoard(k, 3.6, 0, 2.7, 1.3, 21); vendor(F, -140.5, 4, Math.PI / 2, 'cook'); }
+  const toy = c => M(c, { roughness: 0.5 }), RD = toy(0xd7352c), YL = toy(0xf0b90b), BL = toy(0x2f6fc4), GR = toy(0x3d9a4c);
+  { const pa = grp(g, 39, -47); B(pa, BL, 2, 0.1, 2, -8, 2.2, 0, true); for (const sx of [-1, 1]) for (const sz of [-1, 1]) C(pa, YL, 0.07, 0.07, 2.2, -8 + sx * 0.9, 0, sz * 0.9, 6, false, true);
+    const sl = B(pa, RD, 0.9, 0.08, 4.4, -8, 1.1, 2.9, true); sl.rotation.x = 0.52; cone(pa, GR, 1.6, 1.1, -8, 2.9, 0, 4).rotation.y = Math.PI / 4;
+    for (const x of [-1.6, 1.6]) { const a = C(pa, BL, 0.06, 0.06, 2.9, x, 0, 0.7, 6, false, true); a.rotation.x = -0.28; const b = C(pa, BL, 0.06, 0.06, 2.9, x, 0, -0.7, 6, false, true); b.rotation.x = 0.28; }
+    B(pa, YL, 3.4, 0.08, 0.08, 0, 2.72, 0, true); for (const x of [-0.7, 0.7]) { B(pa, RD, 0.45, 0.05, 0.25, x, 0.55, 0, true); B(pa, MAT.iron, 0.02, 2.2, 0.02, x - 0.2, 0.55, 0, true); B(pa, MAT.iron, 0.02, 2.2, 0.02, x + 0.2, 0.55, 0, true); }
+    C(pa, GR, 1.7, 1.7, 0.2, 7, 0.3, 2, 14, false, true); for (let i = 0; i < 6; i++) C(pa, YL, 0.04, 0.04, 0.9, 7 + Math.cos(i) * 1.5, 0.5, 2 + Math.sin(i) * 1.5, 5, false, true);
+    const ss = B(pa, RD, 3.2, 0.08, 0.3, 6, 0.7, -5, true); ss.rotation.z = 0.2; B(pa, BL, 0.2, 0.6, 0.4, 6, 0, -5, true); }
+  { const bs = grp(g, 30, -25); C(bs, MAT.pink, 7, 7.3, 0.5, 0, 0, 0, 20, false, true); addPlat(bs, 0, 0, 6.2, 6.2, 0, 0.5); for (let i = 0; i < 10; i++) { const a = i * TAU / 10; C(bs, MAT.cream, 0.16, 0.2, 3.1, Math.cos(a) * 6, 0.5, Math.sin(a) * 6, 8, false, true); const b = B(bs, MAT.woodL, 6.2, 0.14, 0.2, Math.cos(a) * 3, 3.6, Math.sin(a) * 3, true); b.rotation.y = -a; }
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(6, 0.16, 6, 28), MAT.cream); ring.rotation.x = Math.PI / 2; ring.position.y = 3.65; bs.add(ring); }
+  [[-128, 70], [-100, 76], [-62, 77], [-136, -52], [-132, 6], [24, 60], [-24, 62], [30, -62], [62, 6], [70, 44], [48, 70], [-18, -40]].forEach(q => treeAt(F, q[0], q[1], 0, rr(1, 1.4)));
+  clockTower(g); gallery(g);
+  bake(g);
+  for (let k = 0; k < 4; k++) {               // the hands stay live
+    const w = toWorld(F, Math.sin(k * Math.PI / 2) * 3.47, Math.cos(k * Math.PI / 2) * 3.47), hd = new THREE.Group(); hd.position.set(w[0], 52.15, w[1]); hd.rotation.y = F.rot + k * Math.PI / 2;
+    const h = new THREE.Mesh(new THREE.BoxGeometry(0.36, 1.9, 0.06).translate(0, 0.75, 0), MAT.black), m = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.55, 0.06).translate(0, 1.05, 0.05), MAT.black);
+    hd.add(h, m); scene.add(hd); CLOCK_HANDS.push({ h, m });
+  }
+  // life in the square
+  zone(F, -134, 45, -42, 79, 62); zone(F, -138, -40, -127, 40, 12); zone(F, -44, -58, -33, 79, 24); zone(F, -120, -58, -52, -43, 14);
+  zone(F, -22, 9, 22, 21, 9); zone(F, -22, -21, 22, -9, 5); zone(F, 9, -9, 21, 9, 3); zone(F, -21, -9, -9, 9, 3); zone(F, -5, 22, 5, 78, 12); zone(F, 26, -58, 60, -36, 10);
+  const stalls = ['chaat', 'fruit', 'juice', 'icecream', 'corn', 'chaat', 'toys', 'fruit', 'tea', 'chaat', 'candy'];
+  stalls.forEach((t, i) => vendor(F, -132 + i * 8.4, 75.5, 0, t));
+  [[14, 30, 'balloon'], [-9, 26, 'candy'], [10, 40, 'icecream'], [-30, 40, 'corn'], [-38, 22, 'chaat'], [-36, -30, 'tea'], [-124, -50, 'chaat'], [-60, -50, 'icecream'], [32, -40, 'balloon'], [40, 60, 'chaat'], [-134, 60, 'toys']].forEach(q => vendor(F, q[0], q[1], rr(0, TAU), q[2]));
+  RIDE_LOOPS.push([[30, 12], [72, 22], [86, 58], [44, 74], [18, 50]].flatMap(q => toWorld(F, q[0], q[1])));
+  [[20, 74, 'baggi'], [29, 74, 'tonga'], [38, 74, 'baggi'], [-18, 74, 'erick'], [-24, 74, 'erick'], [-30, 74, 'auto'], [24, 36, 'horse'], [27.5, 38, 'horse']].forEach(q => parkAt(F, q[0], q[1], q[2] === 'horse' ? 0.6 : Math.PI / 2, q[2]));
+  for (let i = 0; i < 9; i++) parkAt(F, -150, -44 + i * 6.2, 0, pick(['hatch', 'sedan', 'suv', 'hatch']));
+  LABELS.push({ id: 'clock', en: 'Clock Tower', hi: 'घंटाघर', ur: 'گھنٹہ گھر', pos: [0, 73, 0], cam: [-95, 34, 62], tgt: [-5, 30, -5], walk: [-34, 62, 0, 0], yr: 'Husainabad Ghanta Ghar · 1881–87',
+    text: 'At 67 m (221 ft) this is widely described as the tallest clock tower in India. The Husainabad Trust raised it to welcome Sir George Couper, first Lieutenant-Governor of the United Provinces; Richard Roskell Bayne designed it in red brick. Each dial is shaped like a twelve-petalled flower. The hands here show the time in the bar below.' });
+  const tw = toWorld(F, cx, cz);
+  LABELS.push({ id: 'talab', en: 'Husainabad Talab', hi: 'हुसैनाबाद तालाब', ur: 'حسین آباد تالاب', pos: [tw[0], 7, tw[1]], cam: [-62, 30, 38], tgt: [tw[0], -3, tw[1]], walk: [-90, 28, tw[0], tw[1]], yr: 'Stepped tank · 1837–42',
+    text: 'A deep stepped tank laid out under Muhammad Ali Shah. Ghats run down all eight sides to the water, behind red-sandstone jaali railings; a fountain deck sits in the middle. Families fill the steps every evening while chaat, kulfi and bhutta carts work the square above.' });
+  const gw = toWorld(F, -90, -80);
+  LABELS.push({ id: 'gallery', en: 'Picture Gallery', hi: 'पिक्चर गैलरी', ur: 'تصویر گیلری', pos: [gw[0], 22, gw[1]], cam: [-54, 16, -49], tgt: [gw[0], 6, gw[1]], walk: [...toWorld(F, -90, -50), gw[0], gw[1]], yr: 'Baradari · c. 1838',
+    text: 'A deep-red baradari built by Muhammad Ali Shah as a summer house on the north bank of the tank. It now holds life-size portraits of the Nawabs of Awadh.' });
+}
+
+/* ═════════════ Satkhanda ═════════════ */
+function buildSatkhanda() {
+  const F = { x: -203, z: -88, rot: 0.2 }, g = frameGroup(F);
+  flatPoly(g, GM.paver, circlePoly(0, 0, 17, 16).reduce((a, v, i, arr) => (i % 2 ? a : a.concat([[v, arr[i + 1]]])), []), 0.012);
+  C(g, MAT.pinkD, 11.6, 12, 0.6, 0, 0, 0, 8, true, true); addPlat(g, 0, 0, 10.4, 10.4, 0, 0.6);
+  const R = [9.2, 8.3, 7.4, 6.5], H = [5.6, 5.2, 5.0, 4.8]; let y = 0.6;
+  R.forEach((r, i) => {
+    C(g, i ? MAT.red : MAT.redD, r, r, H[i], 0, y, 0, 8, true); C(g, MAT.redD, r + 0.8, r + 0.25, 0.3, 0, y + H[i], 0, 8, true, true);
+    const ap = r * Math.cos(Math.PI / 8), fw = 2 * r * Math.sin(Math.PI / 8);
+    for (let k = 0; k < 8; k++) { const f = grp(g, 0, 0, (k + 0.5) * Math.PI / 4); if (i === 0) decal(f, 2.7, 4.2, 0, y + 0.1, ap, { trim: MAT.trimW, mat: k % 2 ? MAT.door : MAT.recessLit }); else for (const dx of [-0.3, 0, 0.3]) decal(f, fw * 0.2, H[i] * 0.62, dx * fw, y + 0.85, ap, { trim: MAT.trimW, mat: MAT.recessLit, cusps: 3 }); }
+    lights(F, Array.from({ length: 9 }, (_, k) => [Math.sin(k * Math.PI / 4) * (r + 0.6), y + H[i] + 0.35, Math.cos(k * Math.PI / 4) * (r + 0.6)]));
+    y += H[i] + 0.3;
+  });
+  for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; C(g, MAT.iron, 0.08, 0.08, 3, Math.sin(a) * 5.6, y, Math.cos(a) * 5.6, 5, false, true); const b = B(g, MAT.iron, 4.4, 0.1, 0.1, Math.sin(a + Math.PI / 8) * 5.2, y + 2.9, Math.cos(a + Math.PI / 8) * 5.2, true); b.rotation.y = a + Math.PI / 8; }
+  C(g, MAT.iron, 5.9, 5.9, 0.08, 0, y + 3, 0, 8, true, true);
+  // garden to the east, hedge and lamps
+  flatRect(g, GM.lawnTop, 34, 40, 34, -6, 0.008); for (const [x, z, w, d] of [[34, -26.2, 34, 0.5], [34, 14.2, 34, 0.5], [16.8, -6, 0.5, 40], [51.2, -6, 0.5, 40]]) B(g, MAT.hedge, w, 0.7, d, x, 0, z, true);
+  [[24, -18], [44, -18], [24, 6], [44, 6], [34, -6]].forEach(q => treeAt(F, q[0], q[1], q[0] === 34 ? 2 : 0, 1.1)); [[-14, 12], [14, 14], [0, -17]].forEach(q => lampAt(F, q[0], q[1], 3));
+  bake(g);
+  zone(F, -15, 11, 15, 22, 10); zone(F, 12, -14, 16, 12, 4);
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 9; c++) if (chance(0.8)) PARKED.push([-196 + c * 3.1 - r * 4.6, -44 + r * 6.2 - c * 1.5, 0.46 + (r % 2 ? Math.PI : 0), pick(['hatch', 'sedan', 'suv', 'hatch', 'hatch'])]);
+  LABELS.push({ id: 'satkhanda', en: 'Satkhanda', hi: 'सतखंडा', ur: 'ست کھنڈا', pos: [-203, 29, -88], cam: [-158, 22, -44], tgt: [-203, 11, -88], walk: [-184, -66, -203, -88], yr: 'Unfinished watch-tower · 1837–42',
+    text: '“Sat-khanda” means seven storeys, but only four were raised before Muhammad Ali Shah died in 1842 and the work stopped for good. Tradition says it was meant for sighting the Eid moon. The red tower has been refurbished and is lit from inside after dark.' });
+}
+
+/* ═════════════ Husainabad gateways ═════════════ */
+function buildHGate(F, id) {
+  const g = frameGroup(F), m = MAT.whiteW;
+  gateSlab(g, m, 11.9, 15.6, 5, [{ x: 0, w: 7.5, h: 11, cusps: 5 }], { outline: true });
+  for (const s of [-1, 1]) {
+    const b = grp(g, s * 9.05, 0); gateSlab(b, m, 6.2, 12, 5, [{ x: -s * 0.7, w: 4.3, h: 8, cusps: 4 }], { outline: true });
+    for (const z of [-2.5, 2.5]) crownFinials(b, 6.2, 12, m, z);
+    for (const z of [-2.75, 2.75]) { C(g, m, 0.42, 0.52, 16.6, s * 5.95, 0, z, 8, true, true); dome(g, m, 0.66, s * 5.95, 16.6, z); C(g, m, 0.4, 0.5, 13.2, s * 12.15, 0, z, 8, true, true); dome(g, m, 0.62, s * 12.15, 13.2, z); }
+    const wl = 9, wx = s * (12.15 + wl / 2);                                                       // two-storey arcaded wing
+    B(g, m, wl, 8.6, 5.5, wx, 0, 0); arcadeBox(g, wx, 0, wl, 5.5, 0.3, 3.7, 2, 0, { cusps: 3 }); arcadeBox(g, wx, 0, wl, 5.5, 4.9, 2.9, 3, 0, { cusps: 3, lit: 0.3 });
+    B(g, MAT.whiteD, wl + 0.5, 0.35, 6, wx, 4.4, 0, true); merlons(g, m, wx - wl / 2, wx + wl / 2, 8.6, 2.5, 6, 0.7, 0.6, 0.4); merlons(g, m, wx - wl / 2, wx + wl / 2, 8.6, -2.5, 6, 0.7, 0.6, 0.4);
+    for (let i = 0; i < 4; i++) tuft(g, wx + rr(-4, 4), 8.6, rr(-2, 2), rr(0.7, 1.2));
+  }
+  for (const z of [-2.5, 2.5]) crownFinials(g, 11.9, 15.6, m, z);
+  chhatri(g, m, m, 2.7, 0, 15.3, 0, 8); tuft(g, 3.5, 13.6, 0.6); tuft(g, -4.2, 12.9, -0.4, 0.8);
+  bake(g);
+  festiveOutline(F, 11.9, 15.6, 2.7); festiveOutline(F, 6.2, 12, 2.7, 9.05); festiveOutline(F, 6.2, 12, 2.7, -9.05);
+  LABELS.push({ id, small: true, en: 'Husainabad Gate', hi: 'हुसैनाबाद दरवाज़ा', ur: 'حسین آباد دروازہ', pos: [F.x, 22, F.z] });
+}
+
+/* ═════════════ Chota Imambara ═════════════ */
+function tajReplica(g, F, x, z) {
+  const t = grp(g, x, z), w = MAT.white;
+  P(t, w, 17, 1.1, 17); B(t, w, 11.5, 8, 11.5, 0, 1.1, 0);
+  for (let k = 0; k < 4; k++) { const f = grp(t, 0, 0, k * Math.PI / 2); decal(f, 4.2, 6.3, 0, 1.25, 5.75, { trim: MAT.trimW, cusps: 4, mat: MAT.recessLit }); for (const sx of [-4.1, 4.1]) { decal(f, 1.5, 2.5, sx, 1.4, 5.75, { trim: MAT.trimW }); decal(f, 1.5, 2.4, sx, 5.2, 5.75, { trim: MAT.trimW }); } }
+  B(t, MAT.whiteD, 12.3, 0.45, 12.3, 0, 9.1, 0, true); C(t, w, 3.9, 4.1, 1.8, 0, 9.55, 0, 16, false, true); dome(t, w, 4.3, 0, 11.35, 0, 1.05);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { chhatri(t, w, w, 2.2, sx * 4.5, 9.55, sz * 4.5); minaret(t, w, w, 10.5, 0.7, sx * 7.7, 1.1, sz * 7.7, 2); }
+  boxLights(F, x, z, 12.3, 12.3, 9.7);
+}
+function buildChota() {
+  setLoad('Gilding the Chota Imambara…');
+  const F = FRAME.chota, g = frameGroup(F), Wd = 64.5, D = 150, w = MAT.white;
+  flatRect(g, GM.paver, Wd * 2, D, 0, D / 2, 0.012);
+  wallRun(g, MAT.aged, -Wd, 0, -11, 0, 5.6); wallRun(g, MAT.aged, 11, 0, Wd, 0, 5.6);
+  wallRun(g, MAT.whiteD, -Wd, 0, -Wd, D, 5); wallRun(g, MAT.whiteD, Wd, 0, Wd, D, 5); wallRun(g, MAT.whiteD, -Wd, D, Wd, D, 5);
+  for (const [x, z] of [[-Wd, 0], [Wd, 0], [-Wd, D], [Wd, D]]) { C(g, MAT.aged, 3.4, 3.6, 5.6, x, 0, z, 8, true); C(g, MAT.aged, 3.9, 3.9, 0.4, x, 5.6, z, 8, true, true); chhatri(g, MAT.cream, MAT.cream, 5.2, x, 6, z, 8); }
+  for (const s of [-1, 1]) {                    // the row of little shops built against the street wall
+    B(g, MAT.whiteD, 50, 3.3, 3.2, s * 37.5, 0, -2.05); const f = grp(g, s * 37.5, -3.65, Math.PI);
+    for (let i = 0; i < 12; i++) { const x = -22.9 + i * 4.16; rectDecal(f, chance(0.4) ? MAT.recessLit : MAT.shutter, 3.3, 2.3, x, 0.05, 0); signBoard(f, 3.7, x, 2.42, 0.02); if (chance(0.5)) { const a = B(f, pick([MAT.cloth, MAT.fabricG, MAT.teal, MAT.gold]), 3.6, 0.06, 1.5, x, 2.3, 0.85, true); a.rotation.x = 0.28; } }
+    for (let i = 0; i < 16; i++) C(g, MAT.wood, 0.11, 0.13, 0.75, s * (13 + i * 3.1), 0, -5.4, 6, false, true);          // kerb posts
+  }
+  // main gateway, white with gilded pinnacles
+  gateSlab(g, w, 22, 12.5, 6, [{ x: 0, w: 6.4, h: 9, cusps: 5 }, { x: -7.4, w: 3.2, h: 5.8, cusps: 4 }, { x: 7.4, w: 3.2, h: 5.8, cusps: 4 }]);
+  B(g, MAT.whiteD, 23, 0.6, 6.8, 0, 12.5, 0, true); B(g, w, 12, 3, 5, 0, 13.1, 0, true); arcadeBox(g, 0, 0, 12, 5, 13.4, 2.1, 5, 0, { cusps: 3, trim: MAT.trimW, lit: 0.6 }); B(g, MAT.whiteD, 12.8, 0.4, 5.6, 0, 16.1, 0, true);
+  for (const x of [-10.4, -4.4, 4.4, 10.4]) for (const z of [-2.7, 2.7]) { C(g, w, 0.34, 0.46, x * x > 50 ? 4.2 : 5.4, x, 12.5, z, 8, true, true); dome(g, MAT.gold, 0.72, x, 12.5 + (x * x > 50 ? 4.2 : 5.4), z); }
+  chhatri(g, w, MAT.gold, 3.3, 0, 16.5, 0, 8); S(g, MAT.gold, 0.45, 0, 21.9, 0, 0.55).scale.z = 0.3; cone(g, MAT.gold, 0.3, 0.6, 0.55, 21.6, 0, 4).rotation.z = Math.PI / 2;
+  guldastas(g, w, -10.5, 10.5, 13.1, 3.1, 8, 0.85, MAT.gold); guldastas(g, w, -10.5, 10.5, 13.1, -3.1, 8, 0.85, MAT.gold);
+  // Husainabad mosque (north-west corner) and the Shahi Hammam facing it
+  { const m = grp(g, -46, 24, Math.PI / 2); P(m, MAT.stone, 28, 1, 16); B(m, w, 23, 7.4, 10, 0, 1, -1.5); arcade(m, 5, -11, 11, 1.2, 3.5, 5.5, { cusps: 4, trim: MAT.trimW, lit: 0.5 }); B(m, MAT.whiteD, 24, 0.5, 11, 0, 8.4, -1.5, true);
+    C(m, w, 2.9, 3, 0.9, 0, 8.9, -1.5, 14, false, true); dome(m, w, 3.1, 0, 9.8, -1.5); for (const x of [-7.6, 7.6]) { C(m, w, 2.1, 2.2, 0.7, x, 8.9, -1.5, 14, false, true); dome(m, w, 2.3, x, 9.6, -1.5); }
+    for (const x of [-12, 12]) minaret(m, w, w, 16.5, 0.9, x, 1, 3.3, 3); guldastas(m, w, -10.8, 10.8, 8.9, 3.4, 9, 0.8, MAT.gold); }
+  { const h = grp(g, 44, 28, -Math.PI / 2); B(h, w, 23, 6, 11, 0, 0, 0); arcade(h, 5, -11, 11, 0.3, 5.5, 4.6, { cusps: 3, trim: MAT.trimW }); B(h, MAT.whiteD, 24, 0.45, 12, 0, 6, 0, true); for (const x of [-7.5, -2.5, 2.5, 7.5]) dome(h, w, 1.7, x, 6.45, 0, 0.8); guldastas(h, w, -11, 11, 6.45, 5.3, 8, 0.7); }
+  // garden: long water channel, bridge, lawns
+  for (const x of [-4.75, 4.75]) B(g, MAT.stone, 0.5, 0.55, 69, x, 0, 66); for (const z of [31.75, 100.25]) B(g, MAT.stone, 10, 0.55, 0.5, 0, 0, z);
+  flatRect(g, waterMat, 9, 68, 0, 66, 0.3);
+  P(g, w, 12.4, 0.95, 3.2, 0, 0, 66); for (const s of [-1, 1]) { P(g, w, 1.1, 0.5, 3.2, s * 6.75, 0, 66); for (const z of [64.5, 67.5]) B(g, w, 12.4, 0.5, 0.16, 0, 0.95, z, true); }
+  for (const z of [38, 50, 82, 94]) jet(F, 0, z, 0.35, 4.2, 1.5, 34); jet(F, 0, 59.5, 0.35, 2.6, 1, 20); jet(F, 0, 72.5, 0.35, 2.6, 1, 20);
+  for (const s of [-1, 1]) for (const z of [43, 66, 89]) { const x = s * 18.5; flatRect(g, GM.lawnTop, 19, 19, x, z, 0.02); for (const [dx, dz, ww, dd] of [[0, -9.7, 19.6, 0.5], [0, 9.7, 19.6, 0.5], [-9.7, 0, 0.5, 19.6], [9.7, 0, 0.5, 19.6]]) B(g, MAT.hedge, ww, 0.6, dd, x + dx, 0, z + dz, true); treeAt(F, x - 6, z - 6, 3, 0.9); treeAt(F, x + 6, z + 6, 3, 0.9); treeAt(F, x + 6, z - 6, 3, 0.7); }
+  for (const z of [36, 54, 78, 96]) for (const x of [-6.6, 6.6]) lampAt(F, x, z, 3);
+  tajReplica(g, F, -42, 62); tajReplica(g, F, 42, 62);
+  // the Imambara itself (front looks back toward the gate)
+  const h = grp(g, 0, 129, Math.PI), HF = { x: F.x + Math.sin(F.rot) * 129, z: F.z + Math.cos(F.rot) * 129, rot: F.rot + Math.PI };
+  P(h, MAT.stone, 62, 1.5, 32, 0, 0, 1); stairs(h, MAT.stone, 22, 5, 0.3, 0.45, 0, 0, 19.25);
+  B(h, w, 46, 10.2, 20, 0, 1.5, 0); B(h, MAT.cloth, 3, 0.05, 8.6, 0, 1.5, 14.4, true);
+  for (const [x, ww, hh] of [[0, 5.6, 7.2], [-9.2, 4.6, 6.4], [9.2, 4.6, 6.4], [-18.4, 4.6, 6.4], [18.4, 4.6, 6.4]]) { decal(h, ww, hh, x, 1.7, 10, { cusps: 5, trim: MAT.trimW, mat: MAT.recessLit }); rectDecal(h, MAT.calli, 5.4, 1.35, x, 9.4, 10.02); }
+  for (const x of [-22.9, -13.8, -4.6, 4.6, 13.8, 22.9]) { B(h, MAT.whiteD, 0.55, 10.2, 0.4, x, 1.5, 10.15, true); if (Math.abs(x) > 5) rectDecal(h, MAT.black, 1.3, 4.6, x > 0 ? x - 2.3 : x + 2.3, 3.2, 10.01); }
+  arcade(grp(h, 23, 0, Math.PI / 2), 4, -9, 9, 1.8, 0, 6.2, { cusps: 4, trim: MAT.trimW, mat: MAT.stain }); arcade(grp(h, -23, 0, -Math.PI / 2), 4, -9, 9, 1.8, 0, 6.2, { cusps: 4, trim: MAT.trimW, mat: MAT.stainR });
+  B(h, MAT.whiteD, 48.6, 0.25, 22.8, 0, 11.7, 0, true); B(h, w, 46.4, 1.5, 20.4, 0, 11.95, 0, true); arcadeBox(h, 0, 0, 46.4, 20.4, 12.1, 1.1, 23, 10, { fill: 0.55 });
+  guldastas(h, w, -22.6, 22.6, 13.45, 10, 17, 1.05, MAT.gold); guldastas(h, w, -22.6, 22.6, 13.45, -10, 17, 1.05, MAT.gold);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) minaret(h, w, w, 7.4, 0.55, sx * 23.3, 11.95, sz * 10.3, 2);
+  C(h, w, 6.3, 6.6, 3.0, 0, 13.45, 0, 16, false, true); arcadeBox(h, 0, 0, 9, 9, 13.9, 1.8, 0, 0); C(h, MAT.gold, 6.75, 6.75, 0.3, 0, 16.45, 0, 16, false, true);
+  const top = dome(h, MAT.gold, 6.4, 0, 16.75, 0, 1.0);
+  { const cr = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.08, 6, 14, Math.PI * 1.45), MAT.gold); cr.position.set(0, top + 0.5, 0); cr.rotation.z = Math.PI * 0.78; h.add(cr); }
+  for (const x of [-12.5, 12.5]) { C(h, w, 1.5, 1.6, 1, x, 13.45, 0, 10, false, true); dome(h, MAT.gold, 1.6, x, 14.45, 0); }
+  for (const s of [-1, 1]) { B(h, w, 8, 7.4, 16, s * 27, 1.5, 0); for (const x of [-2, 2]) decal(h, 2.1, 4.4, s * 27 + x, 2.2, 8, { cusps: 4, trim: MAT.trimW, mat: x * s > 0 ? MAT.stain : MAT.stainR }); B(h, MAT.whiteD, 8.6, 0.4, 16.6, s * 27, 8.9, 0, true); guldastas(h, w, s * 23.6, s * 30.4, 9.3, 8, 4, 0.8, MAT.gold); }
+  [[38, 18, 1.3], [54, 44, 1.2], [-54, 96, 1.2], [54, 100, 1.3], [-56, 140, 1.1], [56, 142, 1.2], [40, 124, 1.1], [-40, 122, 1.0], [-58, 60, 1.2]].forEach(q => treeAt(F, q[0], q[1], 1, q[2]));
+  bake(g);
+  boxLights(HF, 0, 0, 46.4, 20.4, 13.6); boxLights(HF, 0, 0, 48.6, 22.8, 11.95); for (let k = 0; k < 8; k++) { const a = k * TAU / 8; lights(HF, Array.from({ length: 9 }, (_, i) => { const t = i / 8 * 1.45, r = 6.5 * Math.cos(t - 0.3) / Math.cos(-0.3); return [Math.sin(a) * Math.max(0.2, r), 16.8 + i * 1.25, Math.cos(a) * Math.max(0.2, r)]; }), 0.9); }
+  for (const x of [-18.4, -9.2, 0, 9.2, 18.4]) festiveOutline(HF, x ? 4.6 : 5.6, x ? 6.4 : 7.2, 10.3, x, 1.7);
+  boxLights(F, 0, 0, 23, 6.8, 12.9); festiveOutline(F, 6.4, 9, -3.2);
+  zone(F, -30, 4, 30, 27, 16); zone(F, 6, 30, 9.6, 101, 9); zone(F, -9.6, 30, -6, 101, 9); zone(F, -28, 102, 28, 109, 12); zone(F, -20, 113, 20, 118.5, 8, 1.5); zone(F, -60, -22, 60, -6, 26);
+  [[-50, -9, 'tea'], [-30, -8.5, 'chaat'], [22, -9, 'fruit'], [44, -8.5, 'juice'], [56, -10, 'chaat'], [-16, -20, 'candy'], [14, -24, 'balloon']].forEach(q => vendor(F, q[0], q[1], Math.PI, q[2]));
+  [[-34, -30, 'auto'], [-28, -31, 'erick'], [-22, -30, 'erick'], [30, -32, 'tonga'], [38, -32, 'baggi']].forEach(q => parkAt(F, q[0], q[1], -Math.PI / 2 + rr(-0.15, 0.15), q[2]));
+  for (let i = 0; i < 14; i++) parkAt(F, -58 + i * 2.1 + (i > 6 ? 70 : 0), -8.2, Math.PI + rr(-0.2, 0.2), pick(['scooter', 'bike', 'scooter', 'cycle']));
+  const hw = toWorld(F, 0, 129);
+  LABELS.push({ id: 'chota', en: 'Chota Imambara', hi: 'छोटा इमामबाड़ा', ur: 'چھوٹا امام باڑہ', pos: [hw[0], 40, hw[1]], cam: [-324, 15, -10], tgt: [-380, 9, 72], walk: [...toWorld(F, 0, 14), hw[0], hw[1]], yr: 'Imambara Husainabad Mubarak · 1838',
+    text: 'Built by Muhammad Ali Shah, third King of Awadh, as a congregation hall and his own mausoleum. Black calligraphy panels band the white facade under a gilded dome; chandeliers inside earned it the name “Palace of Lights”. Across the water channel two small Taj-inspired tombs face each other, with the Husainabad mosque and the royal hammam by the gate.' });
+  LABELS.push({ id: 'chowk', small: true, en: 'Husainabad Chowk', hi: 'हुसैनाबाद चौक', ur: 'حسین آباد چوک', pos: [...toWorld(F, 0, -26).slice(0, 1), 5, toWorld(F, 0, -26)[1]] });
+  // Naubat Khana across the open ground, facing the gate
+  const n = frameGroup({ x: toWorld(F, 0, -66)[0], z: toWorld(F, 0, -66)[1], rot: F.rot });
+  B(n, MAT.stone, 31, 0.7, 14); B(n, MAT.whiteW, 28, 5.4, 12, 0, 0.7, 0); arcadeBox(n, 0, 0, 28, 12, 0.9, 4, 5, 2, { cusps: 3, lit: 0.4 }); B(n, MAT.whiteD, 29, 0.45, 13, 0, 6.1, 0, true);
+  B(n, MAT.whiteW, 19, 4.6, 9.5, 0, 6.55, 0, true); arcadeBox(n, 0, 0, 19, 9.5, 6.9, 3.4, 3, 1, { cusps: 3, lit: 0.5 }); B(n, MAT.whiteD, 20, 0.45, 10.5, 0, 11.15, 0, true);
+  for (const s of [-1, 1]) { chhatri(n, MAT.whiteW, MAT.whiteW, 2.6, s * 11.5, 6.55, 3.5); chhatri(n, MAT.whiteW, MAT.whiteW, 2.2, s * 7.5, 11.6, 0); } tuft(n, 4, 11.6, 2); tuft(n, -12, 6.6, -3, 0.8);
+  bake(n);
+  LABELS.push({ id: 'naubatC', small: true, en: 'Naubat Khana', hi: 'नौबत ख़ाना', ur: 'نوبت خانہ', pos: [n.position.x, 16, n.position.z] });
+}
+
+/* ═════════════ Rumi Darwaza ═════════════ */
+function buildRumi() {
+  setLoad('Restoring Rumi Darwaza…');
+  const F = FRAME.rumi, g = frameGroup(F), m = MAT.surkhi, L = MAT.surkhiL, T = { trim: L, lit: 0.25 };
+  // east half: a three-storey front toward the Bara Imambara
+  gateSlab(g, m, 21, 13, 5, [{ x: 0, w: 5.4, h: 8.2, cusps: 4 }, { x: -6.6, w: 3.2, h: 5.8, cusps: 4 }, { x: 6.6, w: 3.2, h: 5.8, cusps: 4 }], { z: -2.5 });
+  B(g, L, 21.6, 0.4, 5.6, 0, 13, -2.5, true); B(g, m, 17, 4.6, 4.2, 0, 13.4, -2.9, true); B(g, L, 17.6, 0.35, 4.8, 0, 18, -2.9, true);
+  const fe = grp(g, 0, -5, Math.PI); arcade(fe, 9, -9.8, 9.8, 9.3, 0, 2.9, T); arcade(fe, 7, -8, 8, 13.8, 0, 3.3, T); merlons(g, m, -8.3, 8.3, 18.35, -4.8, 13, 0.7, 0.6, 0.35);
+  for (const s of [-1, 1]) { C(g, m, 0.6, 0.72, 6.2, s * 10.1, 13.4, -4.6, 8, true, true); dome(g, m, 0.95, s * 10.1, 19.6, -4.6); C(g, m, 0.5, 0.6, 3, s * 8.3, 18.35, -1, 8, true, true); dome(g, m, 0.8, s * 8.3, 21.35, -1); }
+  // west half: the great arch with its half-dome and radiating leaves
+  gateSlab(g, m, 21, 20.5, 2.2, [{ x: 0, w: 14.4, h: 16.2, cusps: 6 }], { outline: true, z: 3.9 });
+  gateSlab(g, L, 16.6, 17.6, 0.5, [{ x: 0, w: 12.6, h: 15, cusps: 6 }], { outline: true, z: 2.6, free: true });
+  for (const s of [-1, 1]) B(g, m, 1.3, 13, 2.9, s * 9.85, 0, 1.4);
+  { const sh = new THREE.Mesh(new THREE.SphereGeometry(7.3, 20, 10, Math.PI, Math.PI, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xead2b2, map: TEX.plaster, roughness: 0.95, side: THREE.DoubleSide, emissive: 0xffb774, emissiveMap: TEX.plaster })); sh.scale.set(1, 1, 0.4); sh.position.set(0, 9.3, 2.85); sh.receiveShadow = true; g.add(sh); FLOOD.push(sh.material); }
+  arcade(g, 7, -6.6, 6.6, 9.2, 0, 2.5, { trim: L, lit: 0.5 });
+  crownFinials(g, 21, 20.5, m, 4.4, L); crownFinials(g, 21, 20.5, m, 3.4, L);
+  C(g, m, 1.75, 1.95, 1.5, 0, 19.9, 1.6, 8, true, true); chhatri(g, m, m, 3.5, 0, 21.4, 1.6, 8);
+  for (const s of [-1, 1]) { C(g, m, 0.62, 0.8, 19.6, s * 11.2, 0, 4, 8, true); for (const yy of [7, 13, 19.2]) C(g, L, 0.95, 0.75, 0.3, s * 11.2, yy, 4, 8, true, true); dome(g, m, 0.95, s * 11.2, 19.6, 4); }
+  // two-storey arcaded wings ending in octagonal bastions
+  for (const s of [-1, 1]) {
+    const cx = s * 20.75; B(g, m, 20.5, 6.6, 7, cx, 0, 0); arcadeBox(g, cx, 0, 20.5, 7, 0.3, 4.7, 5, 0, T); B(g, L, 21, 0.35, 7.6, cx, 6.6, 0, true);
+    B(g, m, 20.5, 3.8, 6, cx, 6.95, 0, true); arcadeBox(g, cx, 0, 20.5, 6, 7.3, 2.6, 12, 0, { trim: L, fill: 0.6, lit: 0.3 }); B(g, L, 21, 0.3, 6.5, cx, 10.75, 0, true);
+    merlons(g, m, cx - 10, cx + 10, 11.05, 2.8, 16, 0.6, 0.55, 0.35); merlons(g, m, cx - 10, cx + 10, 11.05, -2.8, 16, 0.6, 0.55, 0.35);
+    const bx = s * 34.4; C(g, m, 4.2, 4.4, 12.6, bx, 0, 0, 8, true); C(g, L, 4.7, 4.7, 0.45, bx, 12.6, 0, 8, true, true); C(g, m, 4.5, 4.5, 0.9, bx, 13.05, 0, 8, true, true);
+    for (let k = 0; k < 8; k++) { const f = grp(g, bx, 0, (k + 0.5) * Math.PI / 4); for (const yy of [0.5, 4.6, 8.7]) decal(f, 1.9, 2.9, 0, yy, 4.2 * Math.cos(Math.PI / 8), T); }
+  }
+  bake(g);
+  festiveOutline(F, 21, 20.5, 5.1); festiveOutline(F, 14.4, 16.2, 5.1); lights(F, [[-31, 11.2, 3.6], [-10.6, 11.2, 3.6]]); lights(F, [[10.6, 11.2, 3.6], [31, 11.2, 3.6]]); lights(F, [[-31, 11.2, -3.6], [31, 11.2, -3.6]]);
+  // bollards keeping traffic out, parked cars to the west, rows of motorbikes to the east
+  const bol = new THREE.Group(), bp = MAP.barriers.find(b => b.k === 'bollard'), bl = polyline(bp ? bp.p : [414, 263, 391, 335]);
+  for (let s = 0; s < bl.len; s += 1.7) { const a = polyAt(bl, s); C(bol, MAT.iron, 0.16, 0.19, 0.95, a[0], 0, a[1], 8, false, true); S(bol, MAT.gold, 0.2, a[0], 1, a[1]); }
+  for (let i = 0; i < 12; i++) { const w = toWorld(F, -6 + i * 1.1, -9.5); C(bol, MAT.iron, 0.15, 0.18, 0.9, w[0], 0, w[1], 8, false, true); }
+  bake(bol);
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 8; c++) if (chance(0.85)) parkAt(F, -22 + c * 3 + r * 0, 34 + r * 6.5, Math.PI + rr(-0.06, 0.06), pick(['hatch', 'sedan', 'suv', 'hatch']));
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 22; c++) if (chance(0.9)) parkAt(F, -24 + c * 1.15, -17 - r * 2.6, rr(-0.2, 0.2), pick(['bike', 'scooter', 'bike']));
+  [[16, -20, 'baggi'], [24, -21, 'tonga'], [32, -20, 'baggi'], [-30, 26, 'erick'], [-34, 30, 'auto']].forEach(q => parkAt(F, q[0], q[1], Math.PI / 2 + rr(-0.2, 0.2), q[2]));
+  zone(F, -30, 8, 30, 30, 26); zone(F, -30, -28, 30, -7, 22); zone(F, -2.2, -4, 2.2, 4, 4);
+  [[-14, 12, 'candy'], [12, 14, 'balloon'], [-22, 22, 'chaat'], [20, 24, 'corn'], [-16, -12, 'fruit'], [8, -12, 'icecream'], [26, -12, 'tea'], [0, 26, 'toys']].forEach(q => vendor(F, q[0], q[1], rr(0, TAU), q[2]));
+  [[-36, 14], [36, 16], [-38, -12], [38, -12], [-26, 44], [0, 50], [26, 46]].forEach(q => treeAt(F, q[0], q[1], 2, 1.05));
+  LABELS.push({ id: 'rumi', en: 'Rumi Darwaza', hi: 'रूमी दरवाज़ा', ur: 'رومی دروازہ', pos: [F.x, 31, F.z], cam: [354, 13, 289], tgt: [F.x, 11, F.z], walk: [...toWorld(F, 9, 42), F.x, F.z], yr: 'The Turkish Gate · 1784',
+    text: 'Raised by Nawab Asaf-ud-Daula in the same famine-relief works as the Bara Imambara. The west face is one great cusped arch with a half-dome, fringed by radiating stucco leaves and crowned by an octagonal chhatri; the east face is a three-storey front of small arches. Traffic was taken off the gate in late 2022, conservation in lime-and-surkhi mortar finished in 2024, and vehicles now loop around its north end.' });
+}
+
+/* ═════════════ Bara Imambara and the Asfi Mosque ═════════════ */
+function buildAsfi() {
+  const F = FRAME.asfi, m = frameGroup(F), c = MAT.cream;
+  P(m, MAT.creamD, 88, 3, 54, 0, 0, 16); stairs(m, MAT.stoneD, 44, 10, 0.3, 0.55, 0, 0, 48.5);
+  flatRect(m, GM.herring, 86, 34, 0, 26, 3.02);
+  B(m, c, 62, 12.5, 16, 0, 3, -1); arcade(m, 11, -30, 30, 3.3, 7, 8.6, { cusps: 5, trim: MAT.surkhiL, lit: 0.3 });
+  B(m, c, 13, 16.2, 1.2, 0, 3, 7.4, true); decal(m, 7.6, 11.8, 0, 3.3, 8, { cusps: 6, trim: MAT.surkhiL }); guldastas(m, c, -6, 6, 19.2, 7.4, 5, 1);
+  B(m, MAT.creamD, 63.5, 0.6, 17.5, 0, 15.5, -1, true); guldastas(m, c, -30.5, -8, 16.1, 6.6, 9, 1.1); guldastas(m, c, 8, 30.5, 16.1, 6.6, 9, 1.1); merlons(m, c, -31, 31, 16.1, -8.6, 30, 0.8, 0.7, 0.4);
+  C(m, c, 6.8, 7, 2.2, 0, 16.1, -1, 20, false, true); dome(m, MAT.creamD, 7.2, 0, 18.3, -1, 1.0);
+  for (const s of [-1, 1]) { C(m, c, 5.6, 5.8, 1.9, s * 19.5, 16.1, -1, 20, false, true); dome(m, MAT.creamD, 6, s * 19.5, 18, -1, 1.0); minaret(m, c, MAT.aged, 40, 2.2, s * 33, 3, 6.4, 4); C(m, c, 1, 1.2, 15, s * 31.4, 3, -8.4, 8, true, true); dome(m, MAT.aged, 1.5, s * 31.4, 18, -8.4); }
+  for (const [x, z, ww, dd] of [[0, 23.2, 6.4, 0.4], [0, 29.2, 6.4, 0.4], [-3.2, 26.2, 0.4, 6.4], [3.2, 26.2, 0.4, 6.4]]) B(m, MAT.stone, ww, 0.55, dd, x, 3, z); flatRect(m, waterMat, 6, 5.6, 0, 26.2, 3.3);
+  bake(m);
+  boxLights(F, 0, -1, 63.5, 17.5, 16.3); festiveOutline(F, 7.6, 11.8, 8.3, 0, 3.3); lights(F, [[-33, 3.5, 6.4], [-33, 43, 6.4]], 1); lights(F, [[33, 3.5, 6.4], [33, 43, 6.4]], 1);
+  zone(F, -38, 9.5, 38, 41, 16, 3);
+  LABELS.push({ id: 'asfi', small: true, en: 'Asfi Mosque', hi: 'आसफ़ी मस्जिद', ur: 'آصفی مسجد', pos: [F.x, 50, F.z], cam: [504, 24, 522], tgt: [F.x, 15, F.z] });
+}
+function buildBara() {
+  setLoad('Vaulting the Bara Imambara…');
+  const F = FRAME.bara, g = frameGroup(F), c = MAT.cream, A = MAT.aged, T = { cusps: 3, trim: MAT.creamD, lit: 0.2 };
+  flatRect(g, GM.paver, 122, 92, 0, 51, 0.012); flatRect(g, GM.lawnTop, 118, 86, 0, 51, 0.016); flatRect(g, GM.pathTop, 7, 90, 0, 51, 0.03);
+  { const r = new THREE.Mesh(new THREE.RingGeometry(27, 31.5, 48), GM.pathTop); r.rotation.x = -Math.PI / 2; r.position.set(1.4, 0.03, 44.8); r.receiveShadow = true; g.add(r); }
+  C(g, MAT.stone, 4.2, 4.6, 0.6, 1.4, 0, 44.8, 16); jet(F, 1.4, 44.8, 0.6, 3.6, 1.6, 30);
+  // street range with its row of little domes, and the first gateway
+  for (const s of [-1, 1]) {
+    const cx = s * 36.5; B(g, c, 46, 7.2, 6, cx, 0, 3); arcadeBox(g, cx, 3, 46, 6, 0.4, 4.8, 9, 0, T); B(g, MAT.creamD, 46.6, 0.4, 6.6, cx, 7.2, 3, true);
+    for (let i = 0; i < 8; i++) { const x = cx - 19.6 + i * 5.6; C(g, c, 1.25, 1.35, 0.7, x, 7.6, 3, 10, false, true); dome(g, c, 1.4, x, 8.3, 3, 0.9); }
+    merlons(g, c, cx - 23, cx + 23, 7.6, 0.3, 30, 0.7, 0.6, 0.35); C(g, c, 1.6, 1.8, 16, s * 13.6, 0, 3, 8, true); dome(g, c, 2, s * 13.6, 16, 3);
+    wallRun(g, A, s * 59.5, 1, s < 0 ? -126 : 173, 1, 4.6);
+  }
+  gateSlab(g, c, 27, 14, 8, [{ x: 0, w: 6.4, h: 9.6, cusps: 5 }, { x: -8.6, w: 4.2, h: 7, cusps: 4 }, { x: 8.6, w: 4.2, h: 7, cusps: 4 }], { z: 3 });
+  B(g, MAT.creamD, 28, 0.6, 8.8, 0, 14, 3, true); for (const x of [-9, 0, 9]) chhatri(g, c, c, 3.3, x, 14.6, 3); guldastas(g, c, -13, 13, 14.6, -0.6, 12, 1); guldastas(g, c, -13, 13, 14.6, 6.6, 12, 1);
+  for (let i = 0; i < 10; i++) { const a = i * TAU / 10 + 0.3; treeAt(F, 1.4 + Math.cos(a) * 36, 44.8 + Math.sin(a) * 36, 2, 1.05); } for (let i = 0; i < 14; i++) { const a = i * TAU / 14; treeAt(F, 1.4 + Math.cos(a) * 22, 44.8 + Math.sin(a) * 22, 3, 1); }
+  // second gateway range
+  for (const s of [-1, 1]) { const cx = s * 32; B(g, A, 36, 10, 10, cx, 0, 101); arcadeBox(g, cx, 101, 36, 10, 0.4, 4.3, 8, 0, T); arcadeBox(g, cx, 101, 36, 10, 5.6, 3.5, 8, 0, T); B(g, MAT.creamD, 36.6, 0.4, 10.6, cx, 10, 101, true); for (let i = 0; i < 4; i++) chhatri(g, A, A, 2.8, cx - 12 + i * 8, 10.4, 101); }
+  gateSlab(g, c, 28, 15.5, 11, [{ x: 0, w: 6.6, h: 10.2, cusps: 5 }, { x: -9, w: 4.4, h: 7.4, cusps: 4 }, { x: 9, w: 4.4, h: 7.4, cusps: 4 }], { z: 101 });
+  B(g, MAT.creamD, 29, 0.6, 11.8, 0, 15.5, 101, true); for (const x of [-9.5, 0, 9.5]) chhatri(g, c, c, 3.4, x, 16.1, 101); guldastas(g, c, -13.5, 13.5, 16.1, 96, 12, 1); guldastas(g, c, -13.5, 13.5, 16.1, 106, 12, 1);
+  // main court
+  flatRect(g, GM.paver, 104, 128, 0, 169, 0.012); for (const [x, z, ww, dd] of [[24, 135, 40, 44], [24, 198, 40, 56], [-14, 204, 22, 44]]) { flatRect(g, GM.lawnTop, ww, dd, x, z, 0.02); for (let i = 0; i < 5; i++) treeAt(F, x + rr(-ww / 2 + 2, ww / 2 - 2), z + rr(-dd / 2 + 2, dd / 2 - 2), 3, 1); }
+  [[40, 120], [44, 180], [8, 226], [-44, 228], [46, 228]].forEach(q => treeAt(F, q[0], q[1], 2, 1.1)); [[30, 150, 1.2], [36, 214, 1.3]].forEach(q => treeAt(F, q[0], q[1], 1, q[2]));
+  // the great steps, plinth and hall
+  stairs(grp(g, 0, 248, Math.PI), MAT.stoneD, 96, 20, 0.25, 0.8, 0, 0, 16);
+  P(g, MAT.creamD, 106, 5, 52, 0, 0, 274);
+  B(g, c, 99, 12, 42, 0, 5, 273);
+  const hf = grp(g, 0, 252, Math.PI);
+  for (let i = 0; i < 9; i++) { const x = -42.4 + i * 10.6; decal(hf, 7.2, 9.4, x, 5.2, 0, { cusps: 5, trim: MAT.surkhiL, mat: i % 2 ? MAT.recess : MAT.recessLit }); if (i < 8) decal(hf, 1.2, 1.9, x + 5.3, 9.4, 0, { trim: MAT.surkhiL }); }
+  arcade(hf, 19, -47.5, 47.5, 15, 0, 1.5, { fill: 0.4 });
+  for (const x of [-26.5, 26.5]) { B(hf, c, 3, 0.3, 1.6, x, 11.2, 0.8, true); B(hf, c, 2.6, 2.6, 1.3, x, 11.5, 0.65, true); dome(hf, c, 1.35, x, 14.1, 0.65, 0.8); }
+  for (const s of [-1, 1]) arcade(grp(g, s * 49.5, 273, s * Math.PI / 2), 4, -19, 19, 5.3, 0, 9.4, { cusps: 5, trim: MAT.surkhiL, fill: 0.6 });
+  B(g, MAT.creamD, 100.6, 0.7, 43.6, 0, 17, 273, true);
+  B(g, A, 95, 6.6, 38, 0, 17.7, 273, true); arcadeBox(g, 0, 273, 95, 38, 18.4, 4.4, 27, 10, { fill: 0.58 });      // the labyrinth storey
+  B(g, A, 95.6, 1.6, 38.6, 0, 24.3, 273, true); arcadeBox(g, 0, 273, 95.6, 38.6, 24.5, 1.1, 40, 16, { fill: 0.5 });
+  for (let i = 0; i < 9; i++) chhatri(g, A, A, 2.5, -44 + i * 11, 25.9, 256.5);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { C(g, c, 3.6, 3.9, 22.5, sx * 51, 5, 273 + sz * 20, 8, true); C(g, MAT.creamD, 4.3, 4.3, 0.5, sx * 51, 27.5, 273 + sz * 20, 8, true, true); chhatri(g, c, A, 6, sx * 51, 28, 273 + sz * 20, 8); }
+  // Shahi Baoli
+  B(g, A, 16, 9, 42, 97, 0, 172); const bf = grp(g, 89, 172, -Math.PI / 2); arcade(bf, 6, -20, 20, 0.4, 0, 3.9, T); arcade(bf, 6, -20, 20, 5.1, 0, 3.2, T); B(g, MAT.creamD, 16.6, 0.4, 42.6, 97, 9, 172, true);
+  for (const [x, z, ww, dd] of [[81, 155.4, 15, 0.6], [81, 188.6, 15, 0.6], [73.5, 172, 0.6, 33.8]]) B(g, A, ww, 1.1, dd, x, 0, z); flatRect(g, talabWater, 14, 32.6, 81, 172, 0.25);
+  B(g, A, 1, 3, 1, 73.5, 0, 172, true);
+  // Naubat Khana across the road
+  const nk = grp(g, 46, -33); B(nk, A, 124, 8.6, 12, 0, 0, 0); arcadeBox(nk, 0, 0, 124, 12, 0.4, 3.6, 22, 0, T); arcadeBox(nk, 0, 0, 124, 12, 4.9, 2.9, 22, 0, T); B(nk, MAT.creamD, 124.6, 0.4, 12.6, 0, 8.6, 0, true);
+  B(nk, c, 16, 13.5, 14, 0, 0, 1); arcade(grp(nk, 0, 8), 3, -7, 7, 0.5, 0, 5, T); arcade(grp(nk, 0, 8), 3, -7, 7, 7.2, 0, 4.2, T); C(nk, c, 4.6, 4.8, 9, 0, 0, 8.4, 12); dome(nk, c, 4.4, 0, 9, 8.4, 0.7);
+  for (const x of [-5.5, 0, 5.5]) chhatri(nk, c, c, 2.8, x, 13.5, 1); merlons(nk, A, -62, 62, 9, 5.8, 70, 0.7, 0.6, 0.35);
+  // boundary walls from the survey (the street side is handled above)
+  const poly = (MAP.areas.find(a => /Naubatkhana/.test(a.n || '')) || { p: [] }).p, wg = new THREE.Group();
+  for (let i = 0; i < poly.length; i += 2) { const j = (i + 2) % poly.length, a = toLocal(F, poly[i], poly[i + 1]), b = toLocal(F, poly[j], poly[j + 1]); if (a[1] < 8 && b[1] < 8) continue; const wa = toLocal(FRAME.asfi, poly[i], poly[i + 1]), wb = toLocal(FRAME.asfi, poly[j], poly[j + 1]); if (Math.abs(wa[0]) < 46 && Math.abs(wb[0]) < 46 && wa[1] < 0 && wb[1] < 0) continue; wallRun(wg, A, poly[i], poly[i + 1], poly[j], poly[j + 1], 4.4, 0.9, false); }
+  bake(g); bake(wg);
+  boxLights(F, 0, 273, 95.6, 38.6, 26); boxLights(F, 0, 273, 100.6, 43.6, 17.8); for (let i = 0; i < 9; i++) festiveOutline({ x: F.x, z: F.z, rot: F.rot }, 7.2, 9.4, 251.6, -42.4 + i * 10.6, 5.2);
+  boxLights(F, 0, 3, 28, 8.8, 14.7); boxLights(F, 0, 101, 29, 11.8, 16.2);
+  zone(F, -40, 10, 40, 92, 26); zone(F, -44, 110, 44, 228, 34); zone(F, -44, 248.5, 44, 251.4, 14, 5); zone(F, -30, -6, 30, -1, 12);
+  for (let i = 0; i < 26; i++) { const st = ri(2, 16); seatAt(F, rr(-44, 44), 232 + (st + 0.75) * 0.8, (st + 2) * 0.25, Math.PI); }
+  [[-22, -4, 'chaat'], [-14, -5, 'fruit'], [16, -4.5, 'icecream'], [24, -5, 'candy'], [34, -4, 'toys'], [-34, -4.5, 'juice'], [6, 14, 'balloon']].forEach(q => vendor(F, q[0], q[1], Math.PI, q[2]));
+  [[-50, -5, 'tonga'], [-58, -5, 'baggi'], [-66, -5, 'tonga'], [50, -5, 'erick'], [56, -5, 'auto'], [62, -5, 'erick']].forEach(q => parkAt(F, q[0], q[1], Math.PI / 2, q[2]));
+  const hw = toWorld(F, 0, 273);
+  LABELS.push({ id: 'bara', en: 'Bara Imambara', hi: 'बड़ा इमामबाड़ा', ur: 'بڑا امام باڑہ', pos: [hw[0], 44, hw[1]], cam: [540, 48, 478], tgt: [hw[0], 12, hw[1] - 14], walk: [...toWorld(F, 0, 122), hw[0], hw[1]], yr: 'Asafi Imambara · 1784',
+    text: 'Commissioned by Nawab Asaf-ud-Daula in the famine of 1784 to give the city work. Two gateways and a garden court lead to a full-width flight of steps; the central hall behind the nine arches, about 50 m long and 15 m high, is vaulted without a single beam, and the Bhul-Bhulaiya labyrinth threads the storey above. The Asfi Mosque stands askew on the west, the Shahi Baoli stepwell on the east.' });
+  LABELS.push({ id: 'baoli', small: true, en: 'Shahi Baoli', hi: 'शाही बावली', ur: 'شاہی باؤلی', pos: [...toWorld(F, 90, 172).slice(0, 1), 14, toWorld(F, 90, 172)[1]] });
+  const nw = toWorld(F, 46, -33); LABELS.push({ id: 'naubatB', small: true, en: 'Naubat Khana', hi: 'नौबत ख़ाना', ur: 'نوبت خانہ', pos: [nw[0], 19, nw[1]] });
+  buildAsfi();
+}
+
+/* ═════════════ Jama Masjid, Teele Wali Masjid ═════════════ */
+function mosque(F, o) {
+  const j = frameGroup(F), w = o.mat, hw = o.w / 2;
+  if (o.plinth) { P(j, MAT.creamD, o.w + 12, o.plinth, o.court + o.d + 4, 0, 0, o.court / 2); stairs(j, MAT.stone, o.w * 0.4, Math.round(o.plinth / 0.3), 0.3, 0.5, 0, 0, o.court + o.d / 2 + 2 + Math.round(o.plinth / 0.3) * 0.5); }
+  const y = o.plinth || 0;
+  B(j, w, o.w, o.h, o.d, 0, y, 0); arcade(j, o.n, -hw + 1, hw - 1, y + 0.3, o.d / 2, o.h * 0.68, { cusps: 5, trim: MAT.trimW, lit: 0.3 });
+  B(j, w, o.w * 0.2, o.h * 1.4, 1.2, 0, y, o.d / 2 + 0.4, true); decal(j, o.w * 0.12, o.h * 1.05, 0, y + 0.3, o.d / 2 + 1, { cusps: 6, trim: MAT.trimW });
+  B(j, MAT.whiteD, o.w + 1.4, 0.6, o.d + 1.4, 0, y + o.h, 0, true); guldastas(j, w, -hw, hw, y + o.h + 0.6, o.d / 2, Math.round(o.w / 3.4), 1.1, MAT.gold);
+  const r = o.d * 0.42; C(j, w, r * 0.95, r, 2, 0, y + o.h + 0.6, 0, 20, false, true); dome(j, w, r, 0, y + o.h + 2.6, 0, 1);
+  for (const s of [-1, 1]) { C(j, w, r * 0.76, r * 0.8, 1.7, s * o.w * 0.31, y + o.h + 0.6, 0, 20, false, true); dome(j, w, r * 0.8, s * o.w * 0.31, y + o.h + 2.3, 0, 1); minaret(j, w, w, o.min, o.w * 0.031, s * (hw + 1.4), y, o.d / 2 - 0.4, 4); }
+  bake(j);
+  boxLights(F, 0, 0, o.w + 1.4, o.d + 1.4, y + o.h + 0.8);
+}
+function buildOuterMosques() {
+  mosque(FRAME.jama, { mat: MAT.white, w: 72, h: 13, d: 17, n: 11, plinth: 4.5, court: 30, min: 44 });
+  zone(FRAME.jama, -30, 12, 30, 34, 10, 4.5);
+  LABELS.push({ id: 'jama', en: 'Jama Masjid', hi: 'जामा मस्जिद', ur: 'جامع مسجد', pos: [-700, 46, 121], cam: [-612, 40, 74], tgt: [-700, 16, 121], yr: 'Begun 1839',
+    text: 'Muhammad Ali Shah began this great congregational mosque in 1839, wanting it to outdo the Jama Masjid of Delhi; it was completed after his death by his queen. Three domes and two tall minarets rise over a deep arcaded front, on a plinth reached by a broad stair.' });
+  const TF = { x: 640, z: 268, rot: Math.PI / 2 }, mg = new THREE.Group();
+  { const md = new THREE.Mesh(new THREE.SphereGeometry(48, 24, 10, 0, TAU, 0, Math.PI / 2), MAT.lawn); md.scale.y = 0.15; md.position.set(640, 0, 268); md.receiveShadow = true; mg.add(md); }
+  bake(mg);
+  const tf = { x: 640, z: 268, rot: Math.PI / 2 }, t = frameGroup(tf); t.position.y = 6.6;
+  B(t, MAT.white, 36, 9, 12, 0, 0, 0, true); arcade(t, 7, -17, 17, 0.3, 6, 6.2, { cusps: 5, trim: MAT.trimW, lit: 0.3 }); B(t, MAT.whiteD, 37, 0.5, 13, 0, 9, 0, true);
+  C(t, MAT.white, 4.6, 4.8, 1.6, 0, 9.5, 0, 18, false, true); dome(t, MAT.white, 5, 0, 11.1, 0); for (const s of [-1, 1]) { C(t, MAT.white, 3.6, 3.8, 1.3, s * 11.5, 9.5, 0, 18, false, true); dome(t, MAT.white, 3.9, s * 11.5, 10.8, 0); minaret(t, MAT.white, MAT.white, 26, 1.3, s * 19, 0, 5.4, 3); }
+  bake(t);
+  LABELS.push({ id: 'teele', small: true, en: 'Teele Wali Masjid', hi: 'टीले वाली मस्जिद', ur: 'ٹیلے والی مسجد', pos: [640, 46, 268] });
+}
+
+/* ═════════════ Husainabad food court and museum (2025) ═════════════ */
+function buildFoodCourt() {
+  const F = FRAME.food, g = frameGroup(F), cc = MAT.concrete, bk = MAT.brickM;
+  flatRect(g, GM.paver, 64, 86, 2, -8, 0.012);
+  B(g, cc, 36, 6.8, 18, -6, 0, -40); B(g, bk, 20, 3.6, 12, -10, 6.8, -42, true); B(g, MAT.iron, 37, 0.25, 5, -6, 3.5, -28.6, true); for (let i = 0; i < 7; i++) C(g, MAT.iron, 0.09, 0.09, 3.5, -22 + i * 5.4, 0, -26.6, 6, false, true);
+  const ff = grp(g, -6, -31); for (let i = 0; i < 6; i++) { rectDecal(ff, MAT.glass, 4.6, 2.7, -13.5 + i * 5.4, 0.3, 0); signBoard(ff, 4.4, -13.5 + i * 5.4, 3.75, 0.02, [19, 2, 6, 1, 20, 34][i]); }
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { const x = -14 + c * 9, z = -18 + r * 8; B(g, MAT.pink, 2.3, 0.6, 2.3, x, 0, z); treeAt(F, x, z, 0, 0.55); bench(g, F, x + 3.2, z, Math.PI / 2); }
+  B(g, bk, 36, 9.5, 14, 4, 0, 12); for (let i = 0; i < 9; i++) B(g, cc, 0.5, 9.5, 1.4, -12 + i * 4, 0, 4.6, true); rectDecal(grp(g, 4, 5), MAT.glass, 9, 4.2, 0, 0.2, 0); B(g, cc, 37, 0.6, 15, 4, 9.5, 12, true); B(g, cc, 10, 0.3, 4, 4, 4.6, 3.6, true);
+  { const s = new THREE.Shape(); [[22, 5], [62, 36], [56, 44], [22, 19]].forEach((q, i) => i ? s.lineTo(q[0], q[1]) : s.moveTo(q[0], q[1])); const geo = new THREE.ExtrudeGeometry(s, { depth: 8, bevelEnabled: false }); geo.rotateX(Math.PI / 2); geo.translate(0, 8, 0); const m = new THREE.Mesh(geo, bk); m.castShadow = m.receiveShadow = true; g.add(m); addCol(g, 40, 24, 21, 6, 0, 8, -0.66); }
+  flatPoly(g, GM.lawnTop, [[-6, 22], [18, 22], [10, 46], [-8, 40]], 0.02); flatPoly(g, GM.lawnTop, [[24, 34], [50, 48], [40, 64], [18, 54]], 0.02);
+  [[-2, 30], [8, 38], [30, 44], [38, 56]].forEach(q => treeAt(F, q[0], q[1], 0, 0.9)); [[-26, -22], [-26, 0], [22, -20]].forEach(q => lampAt(F, q[0], q[1], 2));
+  bake(g);
+  zone(F, -22, -26, 14, 2, 26); zone(F, -14, 20, 14, 30, 6);
+  for (let i = 0; i < 6; i++) parkAt(F, -31, -56 + i * 12.4, 0.02, i % 3 ? 'bus' : 'traveller');
+  [[-24, -8, 'juice'], [-25, 4, 'chaat'], [-24, 14, 'corn']].forEach(q => vendor(F, q[0], q[1], -Math.PI / 2, q[2]));
+  LABELS.push({ id: 'food', en: 'Food Court & Museum', hi: 'फ़ूड कोर्ट व संग्रहालय', ur: 'فوڈ کورٹ و عجائب گھر', pos: [F.x, 20, F.z - 6], cam: [118, 34, 156], tgt: [F.x, 4, F.z], walk: [...toWorld(F, -4, -4), ...toWorld(F, -6, -40)], yr: 'Opened 2025',
+    text: 'The newest piece of the precinct, on the old substation plot between Durgadevi Marg and the riverside road: a brick-and-concrete food court around a planted courtyard, opened to the public in early 2025, with an art and heritage museum alongside. Tourist buses line the kerb outside.' });
+}
+
+/* festive illumination: thousands of small bulbs tracing the monuments */
+function buildFestive() {
+  const mat = new THREE.PointsMaterial({ map: glowTex, size: 1.25, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffd27a });
+  const pts = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(FESTIVE, 3)), mat); pts.frustumCulled = false; scene.add(pts);
+  let tw = 0;
+  UPDATERS.push((dt, t) => { tw = 0.82 + 0.18 * Math.sin(t * 3.1); });
+  NIGHTFX.push(n => { const on = OPT.festive && n > 0.25; pts.visible = on; if (on) mat.opacity = Math.min(1, (n - 0.25) * 2.2) * tw; });
+}
+function buildMonuments() {
+  buildPark(); buildSatkhanda(); buildHGate(FRAME.gateE, 'gateE'); buildHGate(FRAME.gateW, 'gateW'); buildChota(); buildRumi(); buildBara(); buildOuterMosques(); buildFoodCourt();
+  LABELS.push({ id: 'all', en: 'Whole precinct', hi: 'पूरा इलाक़ा', ur: 'پورا علاقہ', cam: [170, 560, 800], tgt: [20, 0, 170], nolabel: true });
+  [['Husainabad Trust Road', 'हुसैनाबाद ट्रस्ट रोड', 'حسین آباد ٹرسٹ روڈ', 60, 128], ['Gomti', 'गोमती', 'گومتی', 560, 30], ['Gulab Vatika', 'गुलाब वाटिका', 'گلاب واٹیکا', 450, 232], ['Nimbu Park', 'नींबू पार्क', 'نیبو پارک', 330, 440], ['Daulatganj Road', 'दौलतगंज रोड', 'دولت گنج روڈ', -268, -170], ['Kudiya Ghat', 'कुड़िया घाट', 'کڑیا گھاٹ', 300, -40], ['Durgadevi Marg', 'दुर्गादेवी मार्ग', 'درگا دیوی مارگ', 118, -30]].forEach(q => LABELS.push({ id: 'r' + q[3], road: true, en: q[0], hi: q[1], ur: q[2], pos: [q[3], 3, q[4]] }));
+  buildFestive();
+}
