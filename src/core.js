@@ -10,10 +10,11 @@ const TAU = Math.PI * 2;
 /* ───────────── user options (persisted) ───────────── */
 const OPT = {
   quality: 'medium', shadows: true, labels: 'hi', shopTags: true, minimap: true, weather: 'haze',
-  traffic: 1, crowd: 1, carriages: true, kites: true, birds: true, festive: false,
-  sound: false, volume: 0.6, walkSpeed: 1, fov: 42, cycleMin: 3, lookSens: 1,
+  festive: false, sound: false, volume: 0.6, walkSpeed: 1,
 };
 try { Object.assign(OPT, JSON.parse(localStorage.getItem('hussainabad-options') || '{}')); } catch (e) { /* private mode */ }
+for (const k of ['traffic', 'crowd', 'carriages', 'kites', 'birds', 'fov', 'cycleMin', 'lookSens']) delete OPT[k];   // settings that were retired
+const FOV = 42;
 function saveOptions() { try { localStorage.setItem('hussainabad-options', JSON.stringify(OPT)); } catch (e) { /* ignore */ } }
 const QUALITY = {
   low: { pr: 1, shadow: 0, people: 0.45, cars: 0.6, houses: 0.7 },
@@ -35,7 +36,7 @@ labelRenderer.setSize(innerWidth, innerHeight);
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xcfe4f5, 500, 1700);
-const camera = new THREE.PerspectiveCamera(OPT.fov, innerWidth / innerHeight, 2, 9000);
+const camera = new THREE.PerspectiveCamera(FOV, innerWidth / innerHeight, 2, 9000);
 camera.position.set(420, 380, 620);
 
 const hemi = new THREE.HemisphereLight(0xcfe4f5, 0x8a7a60, 1);

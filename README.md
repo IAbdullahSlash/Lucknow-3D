@@ -20,10 +20,9 @@ then visit `http://localhost:8123`.
 | --- | --- |
 | **Explore** | Drag to orbit, right-drag to pan, scroll to zoom. Click a label or a name in the list to fly there. |
 | **Walk** | Press `2`, double-click any spot on the ground, or use *Walk here* on a place card. `W A S D` to move, mouse to look, `Shift` to run, `Space` to hop. Buildings, railings and water block you; steps and plinths can be climbed. On a phone a joystick appears. |
-| **Ride** | Press `3` to sit in a tonga, baggi, e-rickshaw, auto, cycle rickshaw, motorbike or bus as it moves through traffic. |
 | **Tour** | A guided fly-through of every landmark. |
 
-**Options** (`O`) cover label language (Hindi, Urdu, English), weather (clear, haze, overcast, winter fog, monsoon rain), festive night illumination, traffic and crowd density, horse carriages, kites, birds, walking pace, graphics quality, shadows and synthesised street sound. The time bar follows live Indian Standard Time with the real sun path for Lucknow, or any hour you pick.
+**Options** (`O`) cover label language (Hindi, Urdu, English), weather (clear, haze, overcast, winter fog, monsoon rain), festive night illumination, walking pace, graphics quality, shadows and synthesised street sound. The time bar follows live Indian Standard Time with the real sun path for Lucknow, or jumps to sunrise, midday, golden hour, dusk or night. Crowds and traffic follow the hour on their own: near-empty before dawn, a morning rush, and the busiest streets in the evening.
 
 Other keys: `H` photo mode, `P` save a screenshot, `M` minimap, `L` cycle label language, `T` tour.
 
@@ -38,7 +37,7 @@ Other keys: `H` photo mode, `P` save a screenshot, `M` minimap, `L` cycle label 
 | `src/city.js` | Ground, roads, footpaths, river, houses grown along the real lanes, trees, lamps, wires |
 | `src/monuments.js` | The hand-modelled monuments, each in its surveyed position and orientation |
 | `src/life.js` | Traffic on the street graph, horses, people, vendors, birds, kites, fountains |
-| `src/ui.js` | Explore / walk / ride / tour, labels, minimap, options, sound, main loop |
+| `src/ui.js` | Explore / walk / tour, labels, minimap, options, sound, main loop |
 
 The scripts are plain files sharing one scope so the folder also works when opened straight from disk.
 

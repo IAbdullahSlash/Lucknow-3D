@@ -33,61 +33,61 @@ const HORSE_COLS = [0x5a3a22, 0x3b2a1e, 0xd8d2c8, 0x6e4a2e, 0x2a211c, 0x8a6a48];
 /* ───────────── the vehicle catalogue (forward = +z, metres) ───────────── */
 const car4 = (x, z, r, w) => [[-x, z, r, w, 0], [x, z, r, w, 0], [-x, -z, r, w, 0], [x, -z, r, w, 0]];
 const VDEF = {
-  hatch: { name: 'Car', len: 3.7, v: 8.5, lane: 0, minW: 4.4, shiny: 1, colors: [0xf1f1f1, 0xf1f1f1, 0xbfc3c7, 0x8c1c13, 0x1d3557, 0x2b2b2b, 0xd9d2c5, 0x9aa5ad], ride: [0.35, 1.2, 0.1],
+  hatch: { name: 'Car', len: 3.7, v: 8.5, lane: 0, minW: 4.4, shiny: 1, colors: [0xf1f1f1, 0xf1f1f1, 0xbfc3c7, 0x8c1c13, 0x1d3557, 0x2b2b2b, 0xd9d2c5, 0x9aa5ad],
     make(c, p) { p.box(1.6, 0.6, 3.7, 0, 0.62, 0, c); p.box(1.44, 0.5, 1.95, 0, 1.17, -0.2, GLASS); p.box(1.46, 0.07, 1.75, 0, 1.45, -0.2, c); p.box(1.5, 0.12, 0.8, 0, 0.95, 1.25, c, 0, 0.1); p.box(1.62, 0.18, 0.14, 0, 0.4, 1.86, 0x1e1e1e); p.box(1.62, 0.18, 0.14, 0, 0.4, -1.86, 0x1e1e1e); p.box(0.5, 0.12, 0.04, 0, 0.5, 1.94, 0xf0f0f0); return { wheels: car4(0.76, 1.15, 0.3, 0.2), lights: [1.87, 0.72, 0.55] }; } },
-  sedan: { name: 'Car', len: 4.3, v: 9, lane: 0, minW: 4.4, shiny: 1, colors: [0xf1f1f1, 0xc9ccd0, 0x30343a, 0x6b705c, 0x7b1e1e, 0x23395d], ride: [0.35, 1.2, 0.1],
+  sedan: { name: 'Car', len: 4.3, v: 9, lane: 0, minW: 4.4, shiny: 1, colors: [0xf1f1f1, 0xc9ccd0, 0x30343a, 0x6b705c, 0x7b1e1e, 0x23395d],
     make(c, p) { p.box(1.66, 0.6, 4.3, 0, 0.62, 0, c); p.box(1.46, 0.5, 2.1, 0, 1.17, -0.2, GLASS); p.box(1.48, 0.07, 1.9, 0, 1.45, -0.2, c); p.box(1.56, 0.1, 0.95, 0, 0.95, 1.5, c, 0, 0.08); p.box(1.56, 0.1, 0.8, 0, 0.95, -1.7, c, 0, -0.06); p.box(1.68, 0.18, 0.14, 0, 0.4, 2.16, 0x1e1e1e); p.box(1.68, 0.18, 0.14, 0, 0.4, -2.16, 0x1e1e1e); return { wheels: car4(0.78, 1.38, 0.31, 0.2), lights: [2.17, 0.72, 0.58] }; } },
-  suv: { name: 'SUV', len: 4.5, v: 9, lane: 0, minW: 5, shiny: 1, colors: [0xf4f4f2, 0x1f1f21, 0x4b4f52, 0x6d1f1f, 0xc8ccd0], ride: [0.4, 1.5, 0.2],
+  suv: { name: 'SUV', len: 4.5, v: 9, lane: 0, minW: 5, shiny: 1, colors: [0xf4f4f2, 0x1f1f21, 0x4b4f52, 0x6d1f1f, 0xc8ccd0],
     make(c, p) { p.box(1.82, 0.85, 4.4, 0, 0.92, 0, c); p.box(1.68, 0.6, 2.9, 0, 1.64, -0.35, GLASS); p.box(1.72, 0.08, 3.0, 0, 1.97, -0.35, c); p.box(1.84, 0.25, 0.16, 0, 0.55, 2.22, 0x1c1c1c); p.box(1.84, 0.25, 0.16, 0, 0.55, -2.22, 0x1c1c1c); p.cyl(0.36, 0.36, 0.2, 0, 1.1, -2.32, 0x1a1a1a, 'z', 12); p.box(1.4, 0.05, 2.2, 0, 2.06, -0.4, 0x333333); return { wheels: car4(0.86, 1.4, 0.38, 0.26), lights: [2.23, 0.95, 0.62] }; } },
-  auto: { name: 'Auto-rickshaw', len: 2.8, v: 7, lane: 1, minW: 3, colors: [0x2f7d32, 0x2f7d32, 0x1c1c1c], ride: [0.25, 1.38, -0.7],
+  auto: { name: 'Auto-rickshaw', len: 2.8, v: 7, lane: 1, minW: 3, colors: [0x2f7d32, 0x2f7d32, 0x1c1c1c],
     make(c, p) { const Y = 0xf2c200; p.box(1.3, 0.5, 1.7, 0, 0.62, -0.4, c); p.box(1.3, 0.6, 0.08, 0, 1.15, -1.22, c); p.box(0.9, 0.8, 0.55, 0, 0.78, 0.85, c); p.box(0.5, 0.3, 0.3, 0, 0.55, 1.25, c); p.box(1.0, 0.62, 0.05, 0, 1.42, 0.92, GLASS, 0, -0.15); p.box(1.36, 0.08, 2.3, 0, 1.76, -0.12, Y); p.box(1.36, 0.16, 0.06, 0, 1.66, -1.24, Y);
       for (const s of [-0.66, 0.66]) p.box(0.05, 0.55, 1.5, s, 1.45, -0.45, 0x1b1b1b); p.box(1.1, 0.12, 0.5, 0, 0.95, -0.75, 0x5a3a2a); drv(p, 0, 0.92, 0.3, rpick(SHIRTS)); if (R() < 0.8) pax(p, -0.3, 1.0, -0.75, rpick(BRIGHT)); if (R() < 0.5) pax(p, 0.3, 1.0, -0.75, rpick(SHIRTS));
       return { wheels: [[0, 1.2, 0.22, 0.14, 0], [-0.56, -0.85, 0.22, 0.16, 0], [0.56, -0.85, 0.22, 0.16, 0]], lights: [1.42, 0.78, 0] }; } },
-  tempo: { name: 'Vikram tempo', len: 3.5, v: 6.4, lane: 1, minW: 4, colors: [0x1f5fa8, 0x1f5fa8, 0x2f7d32], ride: [0.3, 1.5, -0.8],
+  tempo: { name: 'Vikram tempo', len: 3.5, v: 6.4, lane: 1, minW: 4, colors: [0x1f5fa8, 0x1f5fa8, 0x2f7d32],
     make(c, p) { p.box(1.5, 0.6, 2.3, 0, 0.72, -0.5, c); p.box(1.3, 0.95, 0.7, 0, 0.9, 1.0, c); p.box(1.2, 0.6, 0.05, 0, 1.6, 1.12, GLASS, 0, -0.12); p.box(1.56, 0.08, 3.0, 0, 1.96, -0.25, 0xf2f2f2); for (const s of [-0.75, 0.75]) for (const z of [0.7, -1.6]) p.box(0.05, 0.95, 0.05, s, 1.48, z, 0x9a9a9a); for (const s of [-0.75, 0.75]) p.box(0.04, 0.3, 2.2, s, 1.15, -0.5, c);
       drv(p, 0, 1.0, 0.35, rpick(SHIRTS)); for (const [x, z] of [[-0.4, -0.2], [0.4, -0.2], [-0.4, -1.1], [0.4, -1.1]]) if (R() < 0.7) pax(p, x, 1.05, z, rpick(R() < 0.5 ? BRIGHT : SHIRTS));
       return { wheels: [[0, 1.35, 0.26, 0.16, 0], [-0.62, -1.0, 0.26, 0.18, 0], [0.62, -1.0, 0.26, 0.18, 0]], lights: [1.36, 0.85, 0] }; } },
-  erick: { name: 'E-rickshaw', len: 2.8, v: 5, lane: 1, minW: 2.6, colors: [0xc62828, 0x1565c0, 0x2e7d32, 0xef6c00, 0xf2f2f2, 0x6a1b9a, 0x00838f], ride: [0.2, 1.42, -0.35],
+  erick: { name: 'E-rickshaw', len: 2.8, v: 5, lane: 1, minW: 2.6, colors: [0xc62828, 0x1565c0, 0x2e7d32, 0xef6c00, 0xf2f2f2, 0x6a1b9a, 0x00838f],
     make(c, p) { const c2 = rpick([0xf2f2f2, 0xe53935, 0x1e88e5, 0xfdd835, 0x43a047]); p.box(0.95, 0.16, 2.5, 0, 0.42, 0, 0x3a3a3a); p.box(0.9, 0.75, 0.07, 0, 0.85, 1.22, c); p.box(0.86, 0.55, 0.04, 0, 1.5, 1.2, GLASS, 0, -0.1); p.box(1.06, 0.07, 2.4, 0, 1.78, -0.05, c2);
       for (const s of [-0.48, 0.48]) for (const z of [1.15, -1.15]) p.box(0.04, 1.3, 0.04, s, 1.12, z, 0x8a8a8a); p.box(0.7, 0.1, 0.38, 0, 0.88, 0.55, 0x222222); drv(p, 0, 0.9, 0.55, rpick(SHIRTS), { legs: 0x2b2b33 });
       p.box(0.9, 0.12, 0.42, 0, 0.82, -0.35, 0xb02a2a); p.box(0.9, 0.5, 0.06, 0, 1.1, -0.58, 0xb02a2a); p.box(0.9, 0.12, 0.4, 0, 0.82, -0.95, 0xb02a2a); for (const s of [-0.5, 0.5]) p.box(0.03, 0.5, 0.9, s, 1.5, -0.55, 0x2f6fc4);
       if (R() < 0.75) pax(p, -0.22, 0.86, -0.3, rpick(BRIGHT)); if (R() < 0.55) pax(p, 0.22, 0.86, -0.3, rpick(SHIRTS)); if (R() < 0.3) pax(p, 0, 0.86, -0.95, 0x1a1a1a, { hair: 0x111111 });
       return { wheels: [[0, 1.12, 0.2, 0.1, 0], [-0.46, -0.95, 0.2, 0.12, 0], [0.46, -0.95, 0.2, 0.12, 0]], lights: [1.26, 0.75, 0] }; } },
-  rick: { name: 'Cycle rickshaw', len: 2.5, v: 2.6, lane: 1, minW: 2.2, spoke: 0x4a4a4a, colors: [0x1565c0, 0xc62828, 0x00695c, 0xf9a825, 0x6a1b9a], ride: [0, 1.5, -0.6],
+  rick: { name: 'Cycle rickshaw', len: 2.5, v: 2.6, lane: 1, minW: 2.2, spoke: 0x4a4a4a, colors: [0x1565c0, 0xc62828, 0x00695c, 0xf9a825, 0x6a1b9a],
     make(c, p) { p.box(0.05, 0.05, 1.9, 0, 0.62, 0.1, 0x333333); p.box(1.0, 0.05, 0.05, 0, 0.36, -0.7, 0x333333); p.box(0.86, 0.14, 0.5, 0, 0.82, -0.7, 0xb02a2a); p.box(0.86, 0.45, 0.06, 0, 1.1, -0.95, c); p.box(0.9, 0.06, 0.62, 0, 1.66, -0.72, c); p.box(0.9, 0.5, 0.05, 0, 1.42, -1.02, c); p.box(0.8, 0.05, 0.4, 0, 0.5, -0.3, 0x555555);
       p.box(0.5, 0.04, 0.04, 0, 1.02, 0.75, 0x999999); p.box(0.2, 0.06, 0.28, 0, 0.98, 0.25, 0x222222); drv(p, 0, 1.0, 0.25, rpick(SHIRTS), { legs: 0x4a4a4a }); pax(p, R() < 0.5 ? -0.2 : 0, 0.9, -0.68, rpick(BRIGHT)); if (R() < 0.4) pax(p, 0.22, 0.9, -0.68, rpick(SHIRTS));
       return { wheels: [[0, 0.95, 0.34, 0.05, 1], [-0.5, -0.7, 0.34, 0.05, 1], [0.5, -0.7, 0.34, 0.05, 1]] }; } },
-  bike: { name: 'Motorbike', len: 2.0, v: 9.5, lane: 0, minW: 1.8, shiny: 1, colors: [0x202020, 0xb71c1c, 0x1a237e, 0x424242, 0x0d47a1], ride: [0, 1.62, -0.25],
+  bike: { name: 'Motorbike', len: 2.0, v: 9.5, lane: 0, minW: 1.8, shiny: 1, colors: [0x202020, 0xb71c1c, 0x1a237e, 0x424242, 0x0d47a1],
     make(c, p) { p.box(0.2, 0.28, 1.15, 0, 0.62, 0, 0x2a2a2a); p.box(0.3, 0.22, 0.5, 0, 0.88, 0.22, c); p.box(0.28, 0.1, 0.72, 0, 0.88, -0.35, 0x161616); p.box(0.32, 0.3, 0.4, 0, 0.45, 0.05, 0x5d6266); p.box(0.6, 0.05, 0.05, 0, 1.08, 0.55, 0x999999); p.sph(0.1, 0, 0.95, 0.72, 0xfff3c4); p.box(0.14, 0.08, 0.04, 0, 0.8, -0.74, 0xb01010); p.cyl(0.05, 0.05, 0.7, 0.2, 0.38, -0.4, 0x888888, 'z', 6);
       rider(p, 0, 0.92, -0.1, rpick(SHIRTS), { helmet: R() < 0.45 ? rpick([0x111111, 0xb71c1c, 0x1565c0]) : 0, legs: rpick([0x1f2a44, 0x2b2b33, 0x5a5346]) }); if (R() < 0.38) rider(p, 0, 0.94, -0.52, rpick(R() < 0.6 ? BRIGHT : SHIRTS), { hair: R() < 0.4 ? 0x111111 : 0x1a1410 });
       return { wheels: [[0, 0.7, 0.31, 0.12, 0], [0, -0.68, 0.31, 0.13, 0]], lights: [0.76, 0.95, 0] }; } },
-  scooter: { name: 'Scooter', len: 1.8, v: 8, lane: 0, minW: 1.8, shiny: 1, colors: [0xf2f2f2, 0x9e9e9e, 0x1b1b1b, 0xb71c1c, 0x1565c0, 0x7b6d5c], ride: [0, 1.58, -0.2],
+  scooter: { name: 'Scooter', len: 1.8, v: 8, lane: 0, minW: 1.8, shiny: 1, colors: [0xf2f2f2, 0x9e9e9e, 0x1b1b1b, 0xb71c1c, 0x1565c0, 0x7b6d5c],
     make(c, p) { p.box(0.42, 0.45, 0.85, 0, 0.62, -0.35, c); p.box(0.4, 0.07, 0.5, 0, 0.36, 0.22, 0x333333); p.box(0.44, 0.7, 0.08, 0, 0.78, 0.52, c); p.box(0.55, 0.05, 0.05, 0, 1.12, 0.5, 0x999999); p.box(0.34, 0.08, 0.7, 0, 0.88, -0.35, 0x1b1b1b); p.sph(0.08, 0, 0.95, 0.58, 0xfff3c4);
       const lady = R() < 0.4; rider(p, 0, 0.9, -0.15, lady ? rpick([0x111111, ...BRIGHT]) : rpick(SHIRTS), { helmet: !lady && R() < 0.4 ? 0x111111 : 0, hair: 0x15100c, legs: lady ? 0x111111 : 0x2b2b33 }); if (R() < 0.3) rider(p, 0, 0.92, -0.5, rpick(BRIGHT));
       return { wheels: [[0, 0.62, 0.21, 0.12, 0], [0, -0.6, 0.21, 0.13, 0]], lights: [0.6, 0.95, 0] }; } },
-  cycle: { name: 'Bicycle', len: 1.7, v: 3.6, lane: 1, minW: 1.5, spoke: 0x3a3a3a, colors: [0x2d5fa8, 0x1b1b1b, 0x8c2f39, 0x2e7d32], ride: [0, 1.6, -0.2],
+  cycle: { name: 'Bicycle', len: 1.7, v: 3.6, lane: 1, minW: 1.5, spoke: 0x3a3a3a, colors: [0x2d5fa8, 0x1b1b1b, 0x8c2f39, 0x2e7d32],
     make(c, p) { p.box(0.04, 0.04, 0.95, 0, 0.72, 0.02, c, 0, 0.35); p.box(0.04, 0.04, 0.75, 0, 0.6, -0.2, c, 0, -0.5); p.box(0.04, 0.55, 0.04, 0, 0.7, 0.42, c, 0, 0.25); p.box(0.45, 0.04, 0.04, 0, 1.02, 0.42, 0x999999); p.box(0.16, 0.05, 0.26, 0, 0.98, -0.28, 0x1b1b1b); p.box(0.3, 0.3, 0.5, 0, 0.78, -0.62, 0x8a5a33);
       rider(p, 0, 0.98, -0.22, rpick(SHIRTS), { legs: 0x3a3a44 }); return { wheels: [[0, 0.55, 0.33, 0.04, 1], [0, -0.52, 0.33, 0.04, 1]] }; } },
-  tonga: { name: 'Tonga', len: 5.2, v: 3.2, lane: 1, minW: 3.2, heritage: 1, spoke: 0xb3261e, colors: [0xb22222, 0x1b5e20, 0x0d47a1, 0x8e24aa], ride: [-0.3, 1.86, -0.32],
+  tonga: { name: 'Tonga', len: 5.2, v: 3.2, lane: 1, minW: 3.2, heritage: 1, spoke: 0xb3261e, colors: [0xb22222, 0x1b5e20, 0x0d47a1, 0x8e24aa],
     make(c, p) { const zc = -1.05, wd = 0x6e4526; p.box(1.3, 0.1, 1.9, 0, 1.02, zc, wd); p.box(1.3, 0.45, 0.1, 0, 1.28, zc, 0x8a5a33); p.box(1.3, 0.35, 0.06, 0, 1.2, zc + 0.95, 0x8a5a33); p.box(1.3, 0.35, 0.06, 0, 1.2, zc - 0.95, 0x8a5a33); p.box(1.46, 0.06, 2.0, 0, 2.38, zc, c); p.box(1.5, 0.14, 2.04, 0, 2.3, zc, GOLDC);
       for (const s of [-0.62, 0.62]) { for (const z of [0.9, -0.9]) p.box(0.05, 1.3, 0.05, s, 1.7, zc + z, 0x5a3a22); p.box(0.05, 0.05, 2.3, s * 0.65, 1.08, 0.75, 0x5a3a22); }
       drv(p, 0.25, 1.1, zc + 0.6, 0xf2f0ea, { legs: 0xf2f0ea, hair: 0xe8e8e8 }); if (R() < 0.8) pax(p, -0.3, 1.1, zc - 0.5, rpick(BRIGHT)); if (R() < 0.6) pax(p, 0.3, 1.1, zc - 0.5, rpick(SHIRTS)); if (R() < 0.4) pax(p, -0.28, 1.1, zc + 0.55, rpick(BRIGHT));
       const hc = rpick(HORSE_COLS); horse(p, 1.75, hc, false); return { wheels: [[-0.8, zc, 0.72, 0.07, 1], [0.8, zc, 0.72, 0.07, 1]], horse: [1.75, hc] }; } },
-  baggi: { name: 'Baggi carriage', len: 5.7, v: 2.8, lane: 1, minW: 3.4, heritage: 1, spoke: 0xd9a63f, colors: [0x4a1212, 0x161616, 0x0d2b45, 0xf4f1e8], ride: [0, 2.12, -1.0],
+  baggi: { name: 'Baggi carriage', len: 5.7, v: 2.8, lane: 1, minW: 3.4, heritage: 1, spoke: 0xd9a63f, colors: [0x4a1212, 0x161616, 0x0d2b45, 0xf4f1e8],
     make(c, p) { const zc = -1.3; p.box(1.3, 0.5, 2.0, 0, 1.0, zc, c); p.box(1.34, 0.05, 2.04, 0, 1.25, zc, GOLDC); p.box(1.34, 0.05, 2.04, 0, 0.78, zc, GOLDC); p.box(1.1, 0.14, 0.45, 0, 1.3, zc - 0.55, 0xa81c1c); p.box(1.1, 0.14, 0.45, 0, 1.3, zc + 0.5, 0xa81c1c); p.box(1.1, 0.45, 0.07, 0, 1.55, zc - 0.8, 0xa81c1c); p.box(1.3, 0.45, 0.35, 0, 1.68, zc - 0.98, 0x151515);
       p.box(0.95, 0.5, 0.5, 0, 1.35, 0, c); drv(p, 0, 1.62, 0, 0xf2f0ea, { helmet: 0xc0392b, legs: 0xf2f0ea }); for (const s of [-0.62, 0.62]) { p.sph(0.09, s, 1.58, -0.32, GOLDC); for (let i = 0; i < 7; i++) p.sph(0.06, s * 1.06, 1.3 - Math.sin(i / 6 * Math.PI) * 0.12, zc - 0.9 + i * 0.3, i % 2 ? 0xf39c12 : 0xfdd835); p.box(0.05, 0.05, 2.4, s * 0.62, 1.1, 1.0, 0x2a1a12); }
       if (R() < 0.8) pax(p, -0.25, 1.36, zc - 0.5, rpick(BRIGHT)); if (R() < 0.7) pax(p, 0.25, 1.36, zc - 0.5, rpick(SHIRTS)); if (R() < 0.35) pax(p, 0, 1.36, zc + 0.45, rpick(BRIGHT));
       const hc = rpick([0xd8d2c8, 0xd8d2c8, 0x5a3a22, 0x2a211c]); horse(p, 1.95, hc, true);
       return { wheels: [[-0.66, -0.15, 0.42, 0.07, 1], [0.66, -0.15, 0.42, 0.07, 1], [-0.72, zc - 0.5, 0.6, 0.07, 1], [0.72, zc - 0.5, 0.6, 0.07, 1]], horse: [1.95, hc] }; } },
-  bus: { name: 'Tourist bus', len: 10.4, v: 6.5, lane: 0, minW: 8, shiny: 1, colors: [0x2e9e4f, 0x1f6fb5, 0xe07a1f, 0xb23a2e], ride: [-0.7, 2.45, 3.6],
+  bus: { name: 'Tourist bus', len: 10.4, v: 6.5, lane: 0, minW: 8, shiny: 1, colors: [0x2e9e4f, 0x1f6fb5, 0xe07a1f, 0xb23a2e],
     make(c, p) { p.box(2.5, 2.35, 10.2, 0, 1.78, 0, 0xf3f3f0); p.box(2.52, 0.5, 10.22, 0, 1.05, 0, c); p.box(2.52, 0.22, 10.22, 0, 1.52, 0, rpick([0x1f6fb5, 0xf2c200, 0x2e9e4f])); p.box(2.54, 0.8, 8.6, 0, 2.4, -0.3, GLASS); p.box(2.3, 1.15, 0.06, 0, 2.2, 5.1, GLASS); p.box(2.1, 0.8, 0.06, 0, 2.4, -5.1, GLASS); p.box(1.6, 0.25, 2.4, 0, 3.08, -1, 0xdcdcdc); p.box(2.52, 0.28, 0.14, 0, 0.72, 5.12, 0x222222);
       return { wheels: car4(1.12, 3.2, 0.5, 0.3), lights: [5.14, 1.0, 0.95] }; } },
-  citybus: { name: 'City bus', len: 10.6, v: 6.5, lane: 0, minW: 8, shiny: 1, colors: [0xc0392b, 0xd35400], ride: [-0.7, 2.3, 3.6],
+  citybus: { name: 'City bus', len: 10.6, v: 6.5, lane: 0, minW: 8, shiny: 1, colors: [0xc0392b, 0xd35400],
     make(c, p) { p.box(2.5, 2.45, 10.5, 0, 1.72, 0, c); p.box(2.52, 0.3, 10.52, 0, 1.25, 0, 0xf2c200); p.box(2.54, 0.9, 9.2, 0, 2.25, -0.2, GLASS); p.box(2.3, 1.3, 0.06, 0, 2.1, 5.26, GLASS); p.box(2.1, 0.9, 0.06, 0, 2.3, -5.26, GLASS); p.box(1.4, 0.2, 0.08, 0, 2.86, 5.27, 0xffb300); p.box(2.52, 0.28, 0.14, 0, 0.65, 5.27, 0x222222);
       return { wheels: car4(1.12, 3.3, 0.5, 0.3), lights: [5.29, 0.95, 0.95] }; } },
-  traveller: { name: 'Tempo traveller', len: 5.7, v: 7.5, lane: 0, minW: 6, shiny: 1, colors: [0xf2f2f2, 0xf2f2f2, 0xe6e6e6], ride: [-0.4, 1.9, 1.6],
+  traveller: { name: 'Tempo traveller', len: 5.7, v: 7.5, lane: 0, minW: 6, shiny: 1, colors: [0xf2f2f2, 0xf2f2f2, 0xe6e6e6],
     make(c, p) { p.box(1.95, 1.9, 5.6, 0, 1.45, 0, c); p.box(1.97, 0.6, 4.4, 0, 1.85, -0.3, GLASS); p.box(1.8, 0.8, 0.06, 0, 1.75, 2.8, GLASS); p.box(1.97, 0.12, 5.62, 0, 1.1, 0, rpick([0xc62828, 0x1565c0, 0xef6c00])); p.box(1.97, 0.22, 0.12, 0, 0.6, 2.82, 0x222222); return { wheels: car4(0.88, 1.75, 0.36, 0.24), lights: [2.84, 0.9, 0.7] }; } },
-  loader: { name: 'Mini truck', len: 3.9, v: 7, lane: 0, minW: 5, colors: [0xf2f2f2, 0xf2f2f2, 0xe9d8a6], ride: [0.3, 1.5, 1.1],
+  loader: { name: 'Mini truck', len: 3.9, v: 7, lane: 0, minW: 5, colors: [0xf2f2f2, 0xf2f2f2, 0xe9d8a6],
     make(c, p) { p.box(1.5, 1.15, 1.25, 0, 1.15, 1.25, c); p.box(1.4, 0.5, 0.06, 0, 1.45, 1.88, GLASS); p.box(1.5, 0.12, 2.4, 0, 0.72, -0.7, 0x7d7d7d); for (const s of [-0.74, 0.74]) p.box(0.05, 0.45, 2.4, s, 1.0, -0.7, c); p.box(1.5, 0.45, 0.05, 0, 1.0, -1.9, c);
       if (R() < 0.5) p.box(1.42, 0.7, 2.3, 0, 1.3, -0.7, 0x2f6fc4); else for (let i = 0; i < 6; i++) p.box(0.6, 0.45, 0.6, -0.36 + (i % 2) * 0.72, 1.02 + ((i / 4) | 0) * 0.45, -0.1 - ((i / 2) | 0) % 2 * 0.9, rpick([0x8a5a33, 0xd9b44a, 0xc0392b, 0x2e7d32]));
       return { wheels: car4(0.68, 1.2, 0.3, 0.2), lights: [1.9, 0.8, 0.55] }; } },
@@ -158,10 +158,9 @@ function quadLegs(i0, px, py, pz, cy, sy, zc, ph, amp, sc = 1) {
   for (let k = 0; k < 4; k++) { const fx = (k & 1 ? 0.2 : -0.2) * sc, fz = zc + (k < 2 ? 0.62 : -0.6) * sc, phase = ph + ((k === 0 || k === 3) ? 0 : Math.PI); setLimb(a, i0 + k, px, py, pz, cy, sy, fx, 1.04 * sc, fz, Math.sin(phase) * amp, 0.13 * sc, 1.04 * sc, 0.15 * sc); }
 }
 function updateTraffic(dt, t) {
-  const V = LIFE.vehicles, P = LIFE.player, nOn = Math.round(V.length * clamp(OPT.traffic, 0, 1.5) / 1.5), ta = TYRE.instanceMatrix.array, sa = SPOKE.instanceMatrix.array, lit = TIME.night > 0.35;
+  const V = LIFE.vehicles, P = LIFE.player, nOn = Math.round(V.length * busyAt('traffic', TIME.hour)), ta = TYRE.instanceMatrix.array, sa = SPOKE.instanceMatrix.array, lit = TIME.night > 0.35;
   for (let i = 0; i < V.length; i++) {
-    const v = V[i], want = i < nOn || (v.def.heritage && OPT.carriages && OPT.traffic > 0.05);
-    const on = want && !(v.def.heritage && !OPT.carriages);
+    const v = V[i], on = i < nOn || (v.def.heritage && v.ph / 6 < Math.min(1, busyAt('crowd', TIME.hour) * 1.4));   // tongas work while visitors are about
     if (on !== v.on) { v.on = on; v.mesh.visible = on; if (v.lm) v.lm.visible = false; if (!on) { const q = v.e.q[v.d > 0 ? 0 : 1], k = q.indexOf(v); if (k >= 0) q.splice(k, 1); v.w0.forEach((w, k2) => hideInst(v.wheels[k2][4] ? sa : ta, w)); if (v.l0 >= 0) for (let k2 = 0; k2 < 4; k2++) hideInst(ALEG.instanceMatrix.array, v.l0 + k2); } else { v.e.q[v.d > 0 ? 0 : 1].push(v); v.snap = true; } }
     if (!on) continue;
     const e = v.e, li = laneOf(e, v), q = e.q[v.d > 0 ? 0 : 1];
@@ -243,7 +242,7 @@ function spawnRiders() {
   if (ALEG.instanceColor) ALEG.instanceColor.needsUpdate = true;
 }
 function updateRiders(dt, t) {
-  for (const r of RIDERS) { r.s = (r.s + r.sp * dt) % r.pl.len; const a = polyAt(r.pl, r.s, _pp); let dy = Math.atan2(a[2], a[3]) - r.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; r.yaw += dy * Math.min(1, dt * 3); const cy = Math.cos(r.yaw), sy = Math.sin(r.yaw), bob = Math.abs(Math.sin(r.s * 2.6 + r.ph)) * 0.04, m = r.mesh.matrix.elements; m[0] = cy; m[2] = -sy; m[8] = sy; m[10] = cy; m[12] = a[0]; m[13] = bob; m[14] = a[1]; r.mesh.matrixWorld.copy(r.mesh.matrix); r.mesh.visible = OPT.carriages; if (OPT.carriages) quadLegs(r.l0, a[0], bob, a[1], cy, sy, 0, r.s * 2.6 + r.ph, 0.45); else for (let k = 0; k < 4; k++) hideInst(ALEG.instanceMatrix.array, r.l0 + k); }
+  for (const r of RIDERS) { r.s = (r.s + r.sp * dt) % r.pl.len; const a = polyAt(r.pl, r.s, _pp); let dy = Math.atan2(a[2], a[3]) - r.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; r.yaw += dy * Math.min(1, dt * 3); const cy = Math.cos(r.yaw), sy = Math.sin(r.yaw), bob = Math.abs(Math.sin(r.s * 2.6 + r.ph)) * 0.04, m = r.mesh.matrix.elements; m[0] = cy; m[2] = -sy; m[8] = sy; m[10] = cy; m[12] = a[0]; m[13] = bob; m[14] = a[1]; r.mesh.matrixWorld.copy(r.mesh.matrix); quadLegs(r.l0, a[0], bob, a[1], cy, sy, 0, r.s * 2.6 + r.ph, 0.45); }
 }
 
 /* ───────────── people ───────────── */
@@ -312,7 +311,7 @@ function spawnPeople() {
 }
 let _pf = 0;
 function updatePeople(dt, t) {
-  const A = LIFE.people, nOn = Math.round(A.length * clamp(OPT.crowd, 0, 1.5) / 1.5), cx = camera.position.x, cz = camera.position.z; _pf++;
+  const A = LIFE.people, nOn = Math.round(A.length * busyAt('crowd', TIME.hour)), cx = camera.position.x, cz = camera.position.z; _pf++;
   for (let i = 0; i < A.length; i++) {
     const p = A[i], on = (i * 7919) % A.length < nOn;
     if (on !== p.on) { p.on = on; if (!on) hidePerson(p); else p.dirty = true; }
@@ -351,9 +350,9 @@ function spawnSky() {
 }
 const _o3 = new THREE.Object3D();
 function updateSky(dt, t) {
-  birdIM.visible = OPT.birds && TIME.night < 0.8;
+  birdIM.visible = TIME.night < 0.8;
   if (birdIM.visible) { BIRDS.forEach((b, i) => { b.a += b.w * dt; const r = b.r * (1 + 0.18 * Math.sin(t * 0.3 + b.ph)); _o3.position.set(b.f[0] + Math.cos(b.a) * r, b.f[1] + b.h + Math.sin(t * 0.7 + b.ph) * 2.5, b.f[2] + Math.sin(b.a) * r); _o3.rotation.set(0, -b.a + (b.w > 0 ? 0 : Math.PI), 0); _o3.scale.set((b.s > 1 ? 1 : 0.35 + 0.65 * Math.abs(Math.sin(t * 9 + b.ph))) * b.s, 1, b.s); _o3.updateMatrix(); birdIM.setMatrixAt(i, _o3.matrix); }); birdIM.instanceMatrix.needsUpdate = true; }
-  const kv = OPT.kites && TIME.night < 0.6 && wx.rain < 0.3; kiteLines.visible = kv; const p = kiteLines.geometry.attributes.position;
+  const kv = TIME.night < 0.6 && wx.rain < 0.3; kiteLines.visible = kv; const p = kiteLines.geometry.attributes.position;
   KITES.forEach((k, i) => { k.m.visible = kv; if (!kv) return; const x = k.a[0] + k.dx + Math.sin(t * k.sp + k.ph) * 7, y = k.a[1] + k.h + Math.sin(t * k.sp * 1.7 + k.ph) * 4, z = k.a[2] + k.dz + Math.cos(t * k.sp * 0.8 + k.ph) * 6; k.m.position.set(x, y, z); k.m.rotation.set(-0.6 + Math.sin(t * 2 + k.ph) * 0.15, t * 0.1 + k.ph, Math.sin(t * 1.3 + k.ph) * 0.35); p.setXYZ(i * 2, k.a[0], k.a[1], k.a[2]); p.setXYZ(i * 2 + 1, x, y, z); });
   if (kv) p.needsUpdate = true;
 }

@@ -1,5 +1,5 @@
 'use strict';
-/* ui.js — explore / walk / ride / tour, labels, minimap, options, sound and the main loop */
+/* ui.js — explore / walk / tour, labels, minimap, options, sound and the main loop */
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.07; controls.maxPolarAngle = Math.PI * 0.492; controls.minDistance = 12; controls.maxDistance = 1150;
@@ -88,42 +88,22 @@ function updateWalk(dt) {
   camera.rotation.set(W.pitch, W.yaw, 0, 'YXZ');
   LIFE.player.x = W.x; LIFE.player.z = W.z;
 }
-function lookBy(mx, my, k = 0.0023) { const s = k * OPT.lookSens; if (UI.mode === 'walk') { WALK.yaw -= mx * s; WALK.pitch = clamp(WALK.pitch - my * s, -1.45, 1.45); } else if (UI.mode === 'ride') { RIDE.yaw -= mx * s; RIDE.pitch = clamp(RIDE.pitch - my * s, -1.2, 1.2); } }
-
-/* ───────────── camera: ride along ───────────── */
-const RIDE = { v: null, yaw: 0, pitch: -0.04, order: ['tonga', 'baggi', 'erick', 'auto', 'rick', 'bike', 'tempo', 'bus', 'hatch'], i: 0 };
-function pickRide(type) {
-  let best = null, bd = 1e9; for (const v of LIFE.vehicles) if (v.on && v.type === type && v.def.ride && v.v > 0.4) { const d = Math.hypot(v.x - controls.target.x, v.z - controls.target.z) + (v.e.main ? 0 : 300); if (d < bd) { bd = d; best = v; } }
-  return best;
-}
-function nextRide(first) {
-  for (let k = 0; k < RIDE.order.length; k++) { const t = RIDE.order[(RIDE.i + (first ? 0 : 1) + k) % RIDE.order.length], v = pickRide(t); if (v) { RIDE.i = RIDE.order.indexOf(t); RIDE.v = v; RIDE.yaw = 0; RIDE.pitch = -0.04; el('rideName').innerHTML = 'Riding a <b>' + v.def.name.toLowerCase() + '</b>'; return true; } }
-  return false;
-}
-function updateRide() {
-  const v = RIDE.v; if (!v || !v.on) { if (!nextRide(true)) { setMode('orbit'); return; } }
-  const q = RIDE.v, s = q.def.ride, cy = Math.cos(q.yaw), sy = Math.sin(q.yaw);
-  camera.position.set(q.x + cy * s[0] + sy * s[2], s[1] + (q.horse ? Math.abs(Math.sin(UI.T * 7.5 + q.ph)) * 0.03 : 0), q.z - sy * s[0] + cy * s[2]);
-  camera.rotation.set(RIDE.pitch, q.yaw + Math.PI + RIDE.yaw, 0, 'YXZ');
-  controls.target.set(q.x, 0, q.z);
-}
+function lookBy(mx, my, k = 0.0023) { if (UI.mode === 'walk') { WALK.yaw -= mx * k; WALK.pitch = clamp(WALK.pitch - my * k, -1.45, 1.45); } }
 
 /* ───────────── mode switching ───────────── */
 function setMode(m, quiet) {
-  if (m === UI.mode && m !== 'ride') return;
-  if (m === 'ride' && !LIFE.vehicles.some(v => v.on)) { toast('Turn traffic up in Options to ride a vehicle.'); return; }
+  if (m === UI.mode) return;
   const from = UI.mode; stopTour(); UI.fly = null;
   if (from === 'walk' && document.pointerLockElement) document.exitPointerLock();
   if (m === 'walk' && !quiet) return enterWalk();
-  if (m === 'ride') { if (!nextRide(true)) { toast('No vehicle to ride just now.'); return; } }
-  UI.mode = m; document.body.classList.toggle('walk', m === 'walk'); document.body.classList.toggle('ride', m === 'ride'); LIFE.player.active = m === 'walk';
+  UI.mode = m; document.body.classList.toggle('walk', m === 'walk'); LIFE.player.active = m === 'walk';
   document.querySelectorAll('#modes [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
   controls.enabled = m === 'orbit';
   if (m === 'orbit') {
-    camera.near = 2; camera.fov = OPT.fov; camera.updateProjectionMatrix();
-    if (from !== 'orbit') { const p = from === 'walk' ? new THREE.Vector3(WALK.x, WALK.y, WALK.z) : new THREE.Vector3(camera.position.x, 0, camera.position.z), d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0; d.normalize(); controls.target.copy(p).setY(p.y + 4); camera.position.copy(p).addScaledVector(d, -46).setY(p.y + 30); camera.rotation.order = 'XYZ'; controls.update(); }
+    camera.near = 2; camera.fov = FOV; camera.updateProjectionMatrix();
+    if (from !== 'orbit') { const p = new THREE.Vector3(WALK.x, WALK.y, WALK.z), d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0; d.normalize(); controls.target.copy(p).setY(p.y + 4); camera.position.copy(p).addScaledVector(d, -46).setY(p.y + 30); camera.rotation.order = 'XYZ'; controls.update(); }
     el('hint').textContent = 'Drag to orbit · right-drag to pan · scroll to zoom · double-click the ground to walk there';
-  } else { camera.near = 0.14; camera.fov = m === 'walk' ? 72 : 66; camera.updateProjectionMatrix(); }
+  } else { camera.near = 0.14; camera.fov = 72; camera.updateProjectionMatrix(); }
   if (m === 'walk') { el('keys').innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> hop<br><kbd>Mouse</kbd> look · <kbd>M</kbd> map · <kbd>Esc</kbd> release, <kbd>Esc</kbd> again to leave'; if (!TOUCH && !quiet) toast('Click the view to look around with the mouse'); }
 }
 
@@ -211,9 +191,9 @@ const SND = {
   bell(n, vol) { for (let k = 0; k < n; k++) for (const [m, a] of [[1, 1], [2, 0.5], [2.76, 0.3], [5.4, 0.16]]) this.tone('sine', 196 * m, 196 * m * 0.995, 3.2, vol * a, k * 1.9); },
   tick(dt) {
     if (!this.ctx || !OPT.sound || this.ctx.state !== 'running') return;
-    const cp = camera.position, near = clamp(1 - cp.y / 260, 0, 1), road = clamp(1 - mainProject(cp.x, cp.z).d / 180, 0, 1), day = 1 - TIME.night, busy = clamp(OPT.traffic, 0, 1.5), t = this.ctx.currentTime;
+    const cp = camera.position, near = clamp(1 - cp.y / 260, 0, 1), road = clamp(1 - mainProject(cp.x, cp.z).d / 180, 0, 1), day = 1 - TIME.night, busy = busyAt('traffic', TIME.hour), t = this.ctx.currentTime;
     this.out.gain.setTargetAtTime(OPT.volume, t, 0.2); this.hum.gain.setTargetAtTime(0.5 * near * (0.35 + 0.65 * road) * (0.3 + 0.7 * busy), t, 0.4);
-    this.crowd.gain.setTargetAtTime(0.045 * near * road * clamp(OPT.crowd, 0, 1.5) * (0.4 + 0.6 * day), t, 0.4); this.rainG.gain.setTargetAtTime(0.11 * wx.rain, t, 0.5);
+    this.crowd.gain.setTargetAtTime(0.045 * near * road * busyAt('crowd', TIME.hour), t, 0.4); this.rainG.gain.setTargetAtTime(0.11 * wx.rain, t, 0.5);
     this.next -= dt;
     if (this.next <= 0) {
       this.next = 0.5 + Math.random() * 2.6; const r = Math.random(), v = near * (0.25 + 0.75 * road);
@@ -243,26 +223,16 @@ function buildOptions() {
   seg('Labels', [['hi', 'हिंदी'], ['ur', 'اردو'], ['en', 'English'], ['off', 'Off']], () => OPT.labels, v => { OPT.labels = v; applyLabelLang(); });
   check('Shop name tags', () => OPT.shopTags, v => { OPT.shopTags = v; });
   check('Minimap', () => OPT.minimap, v => { OPT.minimap = v; el('mapWrap').classList.toggle('show', v); });
-  range('Field of view', 28, 70, 1, () => OPT.fov, v => { OPT.fov = v; if (UI.mode === 'orbit') { camera.fov = v; camera.updateProjectionMatrix(); } });
   btn('Photo mode', 'Hide interface (H)', () => togglePhoto());
-  btn('Screenshot', 'Save PNG (P)', () => screenshot());
 
   h('Sky & weather');
   seg('Weather', Object.entries(WEATHER).map(([k, w]) => [k, w.name]), () => OPT.weather, v => setWeather(v));
-  range('Length of a day cycle', 1, 12, 0.5, () => OPT.cycleMin, v => { OPT.cycleMin = v; });
   check('Festive illumination at night', () => OPT.festive, v => { OPT.festive = v; if (v && TIME.night < 0.3) toast('The lights come on after dark. Try the Night button.'); });
 
-  h('City life');
-  range('Traffic', 0, 1.5, 0.05, () => OPT.traffic, v => { OPT.traffic = v; });
-  range('Crowds', 0, 1.5, 0.05, () => OPT.crowd, v => { OPT.crowd = v; });
-  check('Tongas, baggis & horse rides', () => OPT.carriages, v => { OPT.carriages = v; });
-  check('Paper kites (patang)', () => OPT.kites, v => { OPT.kites = v; });
-  check('Pigeons & birds of prey', () => OPT.birds, v => { OPT.birds = v; });
+  note('Crowds and traffic follow the clock: near-empty before dawn, busiest in the evening.');
 
-  h('Walking & riding');
+  h('Walking');
   seg('Walking pace', [[0.65, 'Stroll'], [1, 'Walk'], [1.6, 'Brisk']], () => OPT.walkSpeed, v => { OPT.walkSpeed = v; });
-  range('Look sensitivity', 0.4, 2.2, 0.1, () => OPT.lookSens, v => { OPT.lookSens = v; });
-  seg('Ride in', [['tonga', 'Tonga'], ['baggi', 'Baggi'], ['erick', 'E-rickshaw'], ['auto', 'Auto'], ['rick', 'Rickshaw'], ['bike', 'Bike'], ['bus', 'Bus']], () => RIDE.order[RIDE.i], v => { RIDE.i = RIDE.order.indexOf(v); setMode('ride'); });
   note('Walk: double-click any spot on the ground, press 2, or use “Walk here” on a place card. Vehicles stop for you.');
 
   h('Sound');
@@ -279,9 +249,8 @@ function screenshot() { renderer.render(scene, camera); renderer.domElement.toBl
 
 /* ───────────── time bar ───────────── */
 function setTime(kind, hour) {
-  if (kind === 'live') { TIME.mode = 'live'; } else if (kind === 'cycle') { TIME.mode = TIME.mode === 'cycle' ? 'fixed' : 'cycle'; } else { TIME.mode = 'fixed'; TIME.hour = hour !== undefined ? hour : presetHour(kind); UI.preset = hour !== undefined ? null : kind; }
-  if (kind === 'live' || kind === 'cycle') UI.preset = null;
-  document.querySelectorAll('#timebar button').forEach(b => b.classList.toggle('on', (TIME.mode === 'live' && b.dataset.t === 'live') || (TIME.mode === 'cycle' && b.dataset.t === 'cycle') || (TIME.mode === 'fixed' && UI.preset === b.dataset.t)));
+  if (kind === 'live') { TIME.mode = 'live'; UI.preset = null; } else { TIME.mode = 'fixed'; TIME.hour = hour !== undefined ? hour : presetHour(kind); UI.preset = hour !== undefined ? null : kind; }
+  document.querySelectorAll('#timebar button').forEach(b => b.classList.toggle('on', (TIME.mode === 'live' && b.dataset.t === 'live') || (TIME.mode === 'fixed' && UI.preset === b.dataset.t)));
 }
 
 /* ───────────── input wiring ───────────── */
@@ -292,9 +261,7 @@ function wire() {
   el('bPlaces').onclick = () => el('placesWrap').classList.toggle('open');
   el('card').querySelector('.x').onclick = () => showCard(null);
   el('cardWalk').onclick = () => { const p = UI.card; if (p && p.walk) enterWalk(p.walk[0], p.walk[1], p.walk[2], p.walk[3]); };
-  el('rideNext').onclick = () => { if (!nextRide(false)) toast('No other vehicle nearby.'); }; el('rideExit').onclick = () => setMode('orbit');
   document.querySelectorAll('#timebar button').forEach(b => { b.onclick = () => setTime(b.dataset.t); });
-  el('slider').oninput = () => setTime('fixed', +el('slider').value);
   el('tExit').onclick = () => setMode('orbit'); el('tRun').onclick = () => { WALK.run = !WALK.run; el('tRun').classList.toggle('on', WALK.run); };
   const cv = renderer.domElement;
   cv.addEventListener('pointerdown', e => { stopTour(); UI.fly = null; if (UI.mode === 'walk' && !TOUCH && !document.pointerLockElement && e.button === 0) lockPointer(); if (UI.mode !== 'orbit') { WALK.drag = [e.clientX, e.clientY, e.pointerId]; } });
@@ -319,11 +286,10 @@ function wire() {
     KEYS[e.code] = true;
     if (UI.mode === 'walk' && /Arrow|Space/.test(e.code)) e.preventDefault();
     if (e.repeat) return;
-    if (e.code === 'Digit1') setMode('orbit'); else if (e.code === 'Digit2') setMode('walk'); else if (e.code === 'Digit3') setMode('ride');
+    if (e.code === 'Digit1') setMode('orbit'); else if (e.code === 'Digit2') setMode('walk');
     else if (e.code === 'KeyO') el('bOptions').click(); else if (e.code === 'KeyH') togglePhoto(); else if (e.code === 'KeyP') screenshot(); else if (e.code === 'KeyT' && UI.mode === 'orbit') el('bTour').click();
     else if (e.code === 'KeyM') { OPT.minimap = !OPT.minimap; el('mapWrap').classList.toggle('show', OPT.minimap); saveOptions(); buildOptions(); }
     else if (e.code === 'KeyL') { const o = ['hi', 'ur', 'en', 'off']; OPT.labels = o[(o.indexOf(OPT.labels) + 1) % 4]; applyLabelLang(); saveOptions(); buildOptions(); }
-    else if (e.code === 'KeyN' && UI.mode === 'ride') nextRide(false);
     else if (e.code === 'Escape') { if (document.body.classList.contains('photo')) togglePhoto(); else if (el('options').classList.contains('show')) el('bOptions').click(); else if (UI.mode !== 'orbit') setMode('orbit'); else showCard(null); }
   });
   addEventListener('keyup', e => { KEYS[e.code] = false; });
@@ -336,7 +302,7 @@ const _clock = new THREE.Clock(), _foc = new THREE.Vector3(); let _shadowHalf = 
 function frame() {
   requestAnimationFrame(frame);
   const raw = _clock.getDelta(), dt = Math.min(raw, 0.05); UI.T += dt; UI.frame++;
-  if (TIME.mode === 'live') TIME.hour = istHour(); else if (TIME.mode === 'cycle') TIME.hour = (TIME.hour + dt * 24 / (OPT.cycleMin * 60)) % 24;
+  if (TIME.mode === 'live') TIME.hour = istHour();
   // camera first, so the sky and shadows follow it without lag
   if (UI.mode === 'orbit') {
     if (UI.fly) { const f = UI.fly; f.t += Math.min(raw, 0.3) / f.dur; const k = ease(Math.min(f.t, 1)); camera.position.lerpVectors(f.c0, f.c1, k); controls.target.lerpVectors(f.t0, f.t1, k); if (f.t >= 1) UI.fly = null; }
@@ -345,7 +311,7 @@ function frame() {
     const dist = camera.position.distanceTo(controls.target); FOG_SCALE = clamp(dist / 330, 1, 4.2); _foc.copy(controls.target).setY(0);
     const half = clamp(dist * 0.72, 110, 430); if (Math.abs(half - _shadowHalf) > _shadowHalf * 0.12) { _shadowHalf = half; const sc = sun.shadow.camera; sc.left = sc.bottom = -half; sc.right = sc.top = half; sc.updateProjectionMatrix(); }
   } else {
-    if (UI.mode === 'walk') updateWalk(dt); else updateRide();
+    updateWalk(dt);
     FOG_SCALE = 1; _foc.set(camera.position.x, 0, camera.position.z); if (_shadowHalf !== 95) { _shadowHalf = 95; const sc = sun.shadow.camera; sc.left = sc.bottom = -95; sc.right = sc.top = 95; sc.updateProjectionMatrix(); }
   }
   applyTime(dt, UI.T);
@@ -354,7 +320,7 @@ function frame() {
   sun.target.position.copy(_foc); sun.position.copy(_foc).addScaledVector(lightDir, 900);
   const hr = -(TIME.hour % 12) / 12 * TAU, mn = -(TIME.hour % 1) * TAU; for (const c of CLOCK_HANDS) { c.h.rotation.z = hr; c.m.rotation.z = mn; }
   const hh = Math.floor(TIME.hour), mm = Math.floor((TIME.hour % 1) * 60), s = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
-  if (s !== _lastClock) { _lastClock = s; el('clock').firstChild.textContent = s; if (document.activeElement !== el('slider')) el('slider').value = TIME.hour; }
+  if (s !== _lastClock) { _lastClock = s; el('clock').firstChild.textContent = s; }
   if (UI.frame % 6 === 0) updateLabels();
   if (OPT.minimap && UI.frame % 4 === 0) drawMinimap();
   SND.tick(dt);
@@ -373,10 +339,10 @@ async function main() {
   el('mapWrap').classList.toggle('show', OPT.minimap);
   setTime('live'); applyTime(0.016, 0);
   if (OPT.sound) { const go = () => { SND.start(); removeEventListener('pointerdown', go); }; addEventListener('pointerdown', go); }
-  camera.fov = OPT.fov; camera.updateProjectionMatrix();
+  camera.fov = FOV; camera.updateProjectionMatrix();
   UI.fly = { t: 0, dur: 5, c0: camera.position.clone(), t0: controls.target.clone(), c1: new THREE.Vector3(-176, 44, 52), t1: new THREE.Vector3(-34, 14, -24) };
   frame();
   const ld = el('load'); ld.style.opacity = 0; setTimeout(() => ld.remove(), 900);
-  window.HUSSAINABAD = { scene, camera, controls, renderer, UI, WALK, RIDE, TIME, OPT, LIFE, setMode, enterWalk, flyTo, setTime, setWeather, floorAt, look: (a, b, c, d, e, f) => { UI.fly = null; camera.position.set(a, b, c); controls.target.set(d, e, f); controls.update(); } };
+  window.HUSSAINABAD = { scene, camera, controls, renderer, UI, WALK, TIME, OPT, LIFE, setMode, enterWalk, flyTo, setTime, setWeather, floorAt, look: (a, b, c, d, e, f) => { UI.fly = null; camera.position.set(a, b, c); controls.target.set(d, e, f); controls.update(); } };
 }
 main();

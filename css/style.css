@@ -57,7 +57,6 @@ button.mini{padding:5px 11px;font-size:11px}
 #clock small{font:600 10px var(--sans);color:var(--mute);letter-spacing:.12em;margin-left:5px}
 #timebar button{background:transparent;backdrop-filter:none;padding:7px 10px}
 #timebar button.on{background:var(--gold)}
-#slider{width:130px;accent-color:var(--gold)}
 
 #mapWrap{position:fixed;right:16px;bottom:96px;padding:5px;display:none;line-height:0}
 #mapWrap.show{display:block}
@@ -65,7 +64,7 @@ button.mini{padding:5px 11px;font-size:11px}
 #compassN{position:absolute;left:50%;top:9px;transform:translateX(-50%);font:700 11px var(--sans);color:#fff;text-shadow:0 1px 3px #000;line-height:1}
 body.card-open #mapWrap{bottom:auto;top:60px}
 
-#walkhud,#ridehud{display:none}
+#walkhud{display:none}
 body.walk #walkhud{display:block}
 #cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(255,255,255,.75);box-shadow:0 0 4px #000;pointer-events:none}
 #where{position:fixed;left:50%;top:14px;transform:translateX(-50%);padding:7px 14px;font-size:12.5px;letter-spacing:.04em;white-space:nowrap}
@@ -76,9 +75,8 @@ body.walk #walkhud{display:block}
 #joy i{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px;border-radius:50%;background:rgba(231,180,90,.85)}
 #touchbtns{position:fixed;right:20px;bottom:120px;display:none;flex-direction:column;gap:8px}
 body.touch.walk #joy{display:block} body.touch.walk #touchbtns{display:flex} body.touch #keys{display:none}
-body.ride #ridehud{display:flex;position:fixed;left:50%;top:14px;transform:translateX(-50%);padding:7px 10px 7px 15px;gap:8px;align-items:center;font-size:12.5px}
-body.walk #title,body.walk #placesWrap,body.walk #hint,body.ride #title,body.ride #placesWrap,body.ride #hint{display:none}
-body.walk #timebar,body.ride #timebar{opacity:.55} body.walk #timebar:hover,body.ride #timebar:hover{opacity:1}
+body.walk #title,body.walk #placesWrap,body.walk #hint{display:none}
+body.walk #timebar{opacity:.55} body.walk #timebar:hover{opacity:1}
 body.photo #ui,body.photo #labels{display:none}
 
 #toast{position:fixed;left:50%;top:64px;transform:translateX(-50%);padding:8px 15px;font-size:12.5px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:calc(100vw - 30px);text-align:center}
@@ -112,7 +110,7 @@ body.nolabels #labels{display:none}
   #modes{top:52px;right:8px;left:86px;gap:4px} #modes button{padding:6px 10px;font-size:11px}
   #placesWrap{top:52px;left:10px;max-height:60vh} #bPlaces{display:block;padding:6px 10px} #places{display:none;max-height:46vh} #placesWrap.open #places{display:flex}
   #hint{display:none} #card{bottom:118px;right:10px;left:10px;width:auto;max-height:42vh;overflow-y:auto} #options{top:92px;right:8px;max-height:calc(100vh - 220px)}
-  #slider{width:96px} #mapWrap{bottom:112px;right:10px} #minimap{width:116px;height:116px} body.card-open #mapWrap{top:92px}
+  #mapWrap{bottom:112px;right:10px} #minimap{width:116px;height:116px} body.card-open #mapWrap{top:92px}
   #timebar{bottom:14px;padding:6px 8px;gap:4px} #timebar button{padding:6px 8px;font-size:11px} #clock{min-width:66px;font-size:15px}
   #timebar [data-t=sunrise],#timebar [data-t=dusk],#timebar [data-t=golden]{display:none}
   #where{top:92px} #keys{display:none} #credit{bottom:1px;right:8px}
