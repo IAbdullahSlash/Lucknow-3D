@@ -138,7 +138,7 @@ function spawnVehicles() {
   const vehE = NET.edges.filter(e => e.veh), wsum = []; let acc = 0;
   for (const e of vehE) { acc += e.len * (e.main ? 9 : edgeMajor(e) ? 3.2 : e.k === 'residential' ? 0.8 : 0.35); wsum.push(acc); }
   const pickEdge = () => { const r = R() * acc; let lo = 0, hi = wsum.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (wsum[m] < r) lo = m + 1; else hi = m; } return vehE[lo]; };
-  const mainE = vehE.filter(e => e.main), N = Math.round(330 * Q.cars);
+  const mainE = vehE.filter(e => e.main), N = Math.round(250 * Q.cars);
   const add = (type, e) => {
     const def = VDEF[type]; if (!e || e.w < def.minW) return null;
     const color = rpick(def.colors), model = vehicleModel(type, color), mesh = new THREE.Mesh(model.geo, def.shiny ? propMatShiny : propMat); mesh.castShadow = true; mesh.matrixAutoUpdate = false; mesh.frustumCulled = false; scene.add(mesh);
@@ -228,7 +228,7 @@ function buildStaticProps() {
   for (const [x, z, yaw, type] of VENDORS) { const p = painter(); CART[type](p); if (p.count) { place(p.done(), x, z, yaw, flat); COLLIDERS.push({ x, z, ax: Math.cos(yaw), az: -Math.sin(yaw), bx: Math.sin(yaw), bz: Math.cos(yaw), hw: 0.9, hd: 0.55, yb: 0, yt: 1.5 }); } }
   // a few cattle and goats, as on any old-city street
   for (let i = 0; i < 9; i++) {
-    const e = rpick(NET.edges.filter(e => e.k === 'residential' || e.k === 'service')), a = polyAt(e.pl, R() * e.len), yaw = R() * TAU, p = painter(), cow = i < 4, s = cow ? 1 : 0.5, c = cow ? rpick([0xe9e4d8, 0x5a3a22, 0x2b2b2b, 0xc9b79c]) : rpick([0x2b2b2b, 0xe9e4d8, 0x8a6a48]);
+    const e = rpick(NET.edges.filter(e => e.ped && (e.k === 'residential' || e.k === 'service'))), a = polyAt(e.pl, R() * e.len), yaw = R() * TAU, p = painter(), cow = i < 4, s = cow ? 1 : 0.5, c = cow ? rpick([0xe9e4d8, 0x5a3a22, 0x2b2b2b, 0xc9b79c]) : rpick([0x2b2b2b, 0xe9e4d8, 0x8a6a48]);
     p.sph(0.48 * s, 0, 1.05 * s, 0, c, 0.85, 0.85, 2.0); p.box(0.3 * s, 0.4 * s, 0.6 * s, 0, 1.2 * s, 1.15 * s, c, 0, 0.3); for (let k = 0; k < 4; k++) p.box(0.14 * s, 0.8 * s, 0.14 * s, (k & 1 ? 0.22 : -0.22) * s, 0.4 * s, (k < 2 ? 0.6 : -0.6) * s, c); if (cow) { p.cone(0.04, 0.2, -0.12, 1.5, 1.2, 0xd8d0c0, 4); p.cone(0.04, 0.2, 0.12, 1.5, 1.2, 0xd8d0c0, 4); }
     place(p.done(), a[0] + a[3] * (e.w / 2 - 0.3), a[1] - a[2] * (e.w / 2 - 0.3), yaw, flat);
   }
@@ -297,11 +297,11 @@ const pedOffset = (e, side, j) => e.main ? side * (mainHalfAt(e) + 1.2 + j * 1.4
 function hasFootpath(e) { if (e.fp === undefined) { const m = mainProject(e.pl.p[0], e.pl.p[1]).s; e.fp = !!e.main && m > S_PARK0 + 2 && !(m > S_DUAL1 - 8 && m < S_RUMI1 + 6); } return e.fp; }
 const mainHalfAt = e => { const m = mainProject(e.pl.p[0], e.pl.p[1]); return mainHalf(m.s); };
 function spawnPeople() {
-  for (const e of NET.edges) if (!e.bridge && e.k !== 'primary' && e.len > 6) footEdges.push(e);
+  for (const e of NET.edges) if (e.ped && !e.bridge && e.k !== 'primary' && e.len > 6) footEdges.push(e);
   const wsum = []; let acc = 0; for (const e of footEdges) { const mp = mainProject(e.pl.p[0], e.pl.p[1]); acc += e.len * (e.main ? 7 : e.prom ? 6 : mp.d < 160 ? 1.6 : mp.d < 420 ? 0.55 : 0.2); wsum.push(acc); }
   const pickEdge = () => { const r = R() * acc; let lo = 0, hi = wsum.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (wsum[m] < r) lo = m + 1; else hi = m; } return footEdges[lo]; };
   const scale = Q.people;
-  for (let i = 0, n = Math.round(430 * scale); i < n; i++) { const p = newPerson(); if (!p) break; p.mode = 1; p.e = pickEdge(); p.d = R() < 0.5 ? 1 : -1; p.s = R() * p.e.len; p.side = R() < 0.5 ? 1 : -1; p.j = R(); p.off = pedOffset(p.e, p.side, p.j); p.moving = true; p.snap = true; }
+  for (let i = 0, n = Math.round(400 * scale); i < n; i++) { const p = newPerson(); if (!p) break; p.mode = 1; p.e = pickEdge(); p.d = R() < 0.5 ? 1 : -1; p.s = R() * p.e.len; p.side = R() < 0.5 ? 1 : -1; p.j = R(); p.off = pedOffset(p.e, p.side, p.j); p.moving = true; p.snap = true; }
   for (const zn of ZONES) for (let i = 0, n = Math.max(1, Math.round(zn.n * scale)); i < n; i++) { const p = newPerson(); if (!p) break; p.mode = 2; p.zone = zn; p.y = zn.y; const w = toWorld(zn.f, lerp(zn.x0, zn.x1, R()), lerp(zn.z0, zn.z1, R())); p.x = w[0]; p.z = w[1]; const tt = toWorld(zn.f, lerp(zn.x0, zn.x1, R()), lerp(zn.z0, zn.z1, R())); p.tx = tt[0]; p.tz = tt[1]; p.wait = R() < 0.45 ? R() * 12 : 0; p.yaw = R() * TAU; }
   for (const st of SEATS) { if (R() > 0.55 + 0.4 * scale) continue; const p = newPerson(R() < 0.3 ? 2 : undefined); if (!p) break; p.mode = 3; p.sit = true; p.x = st[0]; p.y = st[1]; p.z = st[2]; p.yaw = st[3]; }
   for (const [x, z, yaw, type] of VENDORS) {

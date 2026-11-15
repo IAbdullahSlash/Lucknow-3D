@@ -46,7 +46,9 @@ The scripts are plain files sharing one scope so the folder also works when open
 
 - Street layout, river, parks and the positions and orientations of the landmarks come from OpenStreetMap.
 - Monuments were modelled by hand against current satellite and street-level imagery. They are stylised, not surveyed.
+- Only the heritage corridor is built out: from the Husainabad gateways west of the Chota Imambara to the Bara Imambara. Daulatganj and the lanes beyond are left as open ground to keep the scene light.
 - Ordinary houses are generated along the real lanes; individual buildings are not real.
+- About 55 shop and stall names (Tunday Kababi, Irani Dum Tea, Kebabchi, Cafe Dubai, Naval Medical Store and others) come from current map listings and are placed at or near their mapped spots. Other shop boards use generic names.
 - Rumi Darwaza is shown as it is now: closed to vehicles, with traffic looping round its north end.
 - The short history notes in the app are summaries and should be checked before being quoted.
 

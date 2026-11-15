@@ -20,15 +20,56 @@ function wallRun(p, mat, x0, z0, x1, z1, h, t = 0.9, crenel = true) {
   const g = grp(p, (x0 + x1) / 2, (z0 + z1) / 2, Math.atan2(-dz, dx)); B(g, mat, len, h, t, 0, 0, 0);
   if (crenel) merlons(g, mat, -len / 2, len / 2, h, 0, Math.max(2, Math.round(len / 1.7)), 0.85, 0.6, t);
 }
-function signBoard(p, w, x, y, z, cell = ri(0, 63)) {
-  const g = new THREE.PlaneGeometry(w, w / 4), u0 = (cell % 4) / 4, v1 = 1 - ((cell / 4) | 0) / 16, v0 = v1 - 1 / 16, uv = g.attributes.uv;
-  uv.setXY(0, u0, v1); uv.setXY(1, u0 + 0.25, v1); uv.setXY(2, u0, v0); uv.setXY(3, u0 + 0.25, v0);
+function signBoard(p, w, x, y, z, cell = genericCell()) {
+  const g = new THREE.PlaneGeometry(w, w / 4), q = signUV(cell), uv = g.attributes.uv;
+  uv.setXY(0, q[0], q[3]); uv.setXY(1, q[2], q[3]); uv.setXY(2, q[0], q[1]); uv.setXY(3, q[2], q[1]);
   const m = new THREE.Mesh(g, signMats[0]); m.position.set(x, y + w / 8, z + 0.12); p.add(m); return m;
+}
+/** a board with its own lettering (used for the few big named signs) */
+const BOARD_MATS = [];
+function textBoard(p, lines, w, h, x, y, z, bg = '#14553a', fg = '#ffffff') {
+  const tex = canvasTex(512, Math.max(32, Math.round(512 * h / w)), (c, W, H) => {
+    c.fillStyle = bg; c.fillRect(0, 0, W, H); c.strokeStyle = fg; c.lineWidth = 4; c.strokeRect(5, 5, W - 10, H - 10); c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle';
+    lines.forEach((t, i) => { c.font = `bold ${Math.round(H / (lines.length + 0.5) * (i ? 0.66 : 0.82))}px "Segoe UI","Nirmala UI",sans-serif`; c.fillText(t, W / 2, H * (i + 0.5) / lines.length + (i ? -2 : 2), W - 28); });
+  }, 0);
+  const mat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.7 }), m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  m.position.set(x, y + h / 2, z + 0.09); p.add(m); BOARD_MATS.push(mat); return m;
+}
+function kiosk(g, x, z, rot, cell) {
+  const k = grp(g, x, z, rot), c = pick([MAT.teal, MAT.concrete, MAT.pink, MAT.woodL, MAT.cream, MAT.whiteD]);
+  B(k, c, 3.2, 2.5, 2.2, 0, 0, 0); rectDecal(k, MAT.recessLit, 2.5, 1.25, 0, 1.0, 1.1); B(k, MAT.wood, 2.9, 0.08, 0.5, 0, 0.95, 1.32, true);
+  const a = B(k, pick([MAT.cloth, MAT.fabricG, MAT.gold]), 3.4, 0.06, 1.3, 0, 2.3, 1.75, true); a.rotation.x = 0.25;
+  B(k, MAT.black, 3.3, 0.86, 0.08, 0, 2.5, 1.0, true); signBoard(k, 3.2, 0, 2.53, 0.95, cell);
+}
+function signPost(g, x, z, rot, lines, bg = '#5a3418') {
+  const k = grp(g, x, z, rot); for (const sx of [-1.3, 1.3]) C(k, MAT.iron, 0.06, 0.07, 3.3, sx, 0, 0, 6, false, true);
+  textBoard(k, lines, 3.0, 1.1, 0, 2.2, 0, bg, '#fff3d6'); textBoard(grp(k, 0, 0, Math.PI), lines, 3.0, 1.1, 0, 2.2, 0, bg, '#fff3d6');
+}
+/** kiosks for the named stalls, wayfinding boards, and a small label for every named business */
+function buildKiosks() {
+  const g = new THREE.Group();
+  SHOPS.forEach((q, i) => {
+    if (q[4] === 1) {
+      const mp = mainProject(q[2], q[3]), l = toLocal(FRAME.park, q[2], q[3]); let rot;
+      if (l[0] > -160 && l[0] < 100 && l[1] > -110 && l[1] < 86) rot = FRAME.park.rot + (l[0] < -100 || (l[0] > -60 && l[0] < -40) ? Math.PI / 2 : 0);
+      else { const a = polyAt(MAIN, mp.s); rot = Math.atan2(-a[3] * mp.side, a[2] * mp.side); }
+      kiosk(g, q[2], q[3], rot, i); q[5] = [q[2] + Math.sin(rot) * 1.4, q[3] + Math.cos(rot) * 1.4]; VENDORS.push([q[2] + Math.sin(rot), q[3] + Math.cos(rot), rot + Math.PI, 'cook']);
+    }
+    if (q[4] === 3) q[5] = [q[2], q[3]];
+    if (q[5]) LABELS.push({ id: 'poi' + i, poi: true, en: q[0], hi: q[1], ur: q[1], pos: [q[5][0], q[4] === 0 ? 5.3 : 4.5, q[5][1]] });
+  });
+  const along = (s, side, off) => { const a = polyAt(MAIN, s); return [a[0] + a[3] * side * off, a[1] - a[2] * side * off, Math.atan2(a[2], a[3])]; };
+  [[S_PARK0 + 12, 1, ['HUSAINABAD HERITAGE ZONE', 'हुसैनाबाद हेरिटेज ज़ोन']], [mainProject(...toWorld(FRAME.park, 9, 82)).s, 1, ['CLOCK TOWER  ↑', 'घंटाघर · तालाब · पिक्चर गैलरी']], [S_DUAL0 - 14, -1, ['FRAGRANCE PARK', 'फ़्रेगरेंस पार्क']],
+    [S_DUAL1 - 26, 1, ['RUMI DARWAZA', 'No vehicles beyond the bollards']], [S_RUMI1 + 46, -1, ['BARA IMAMBARA', 'बड़ा इमामबाड़ा · भूल-भुलैया']], [S_PARK0 - 26, -1, ['CHOTA IMAMBARA', 'छोटा इमामबाड़ा']]]
+    .forEach(q => { const w = along(q[0], q[1], mainHalf(q[0]) + 2.2); signPost(g, w[0], w[1], w[2], q[2]); });
+  bake(g);
+  NIGHTFX.push(n => { for (const m of BOARD_MATS) m.emissiveIntensity = n * 0.6; });
 }
 function crownFinials(p, Wd, H, mat, z, tip = mat) {
   const { pts, hs } = archHead(Wd, H, 12);
   pts.forEach(q => { if (q[1] < hs + 0.6) return; const ang = Math.atan2(q[0], q[1] - hs * 0.7), m = cone(p, mat, 0.22, 1.35, q[0], q[1] - 0.15, z, 5); m.rotation.z = -ang; S(p, tip, 0.2, q[0] + Math.sin(ang) * 0.75, q[1] + 0.5 + Math.cos(ang) * 0.75, z); });
 }
+const RDm = M(0xd7352c, { roughness: 0.5 }), YLm = M(0xf0b90b, { roughness: 0.5 }), BLm = M(0x2f6fc4, { roughness: 0.5 });
 function bench(g, f, x, z, rot) { const b = grp(g, x, z, rot); B(b, MAT.pink, 2.3, 0.12, 0.62, 0, 0.36, 0, true); B(b, MAT.pinkD, 0.3, 0.36, 0.55, -0.85, 0, 0, true); B(b, MAT.pinkD, 0.3, 0.36, 0.55, 0.85, 0, 0, true); seatAt(f, x + Math.sin(rot) * 0.1, z + Math.cos(rot) * 0.1, 0.48, rot); }
 const tuft = (g, x, y, z, s = 1) => { S(g, MAT.hedge, 0.55 * s, x, y + 0.2, z, 0.8); S(g, MAT.lawn, 0.4 * s, x + 0.5 * s, y + 0.15, z + 0.2, 0.9); };
 const festiveOutline = (f, Wd, H, z, x = 0, y0 = 0) => lights(f, archHead(Wd, H, 14).pts.map(q => [x + q[0], y0 + q[1] + 0.3, z]));
@@ -117,8 +158,8 @@ function buildPark() {
   [[-134, 30], [-134, -40], [-46, 70], [-46, -52], [22, 30], [20, -28]].forEach(q => lampAt(F, q[0], q[1], 2));
   [[-126, 46, 0], [-108, 60, 0], [-88, 62, 0], [-66, 60, 0], [-126, -20, Math.PI / 2], [-126, 10, Math.PI / 2], [-44, 20, -Math.PI / 2], [-44, -20, -Math.PI / 2], [-100, -54, 0], [-76, -54, 0], [12, 16, Math.PI], [-12, 16, Math.PI]].forEach(q => bench(g, F, q[0], q[1], q[2]));
   // kebab canopy by the road, the corner tea stall, play area and bandstand
-  { const k = grp(g, -52, 60); for (const sx of [-1, 1]) for (const sz of [-1, 1]) C(k, MAT.iron, 0.07, 0.07, 3, sx * 3.6, 0, sz * 3.6, 6, false, true); const c = cone(k, MAT.white, 5.6, 2.2, 0, 3, 0, 4); c.rotation.y = Math.PI / 4; B(k, MAT.wood, 5, 0.9, 1.1, 0, 0, 2.6); B(k, MAT.iron, 1.6, 0.5, 0.9, -1.2, 0.9, 2.6, true); signBoard(k, 5.2, 0, 2.2, 3.7); vendor(F, -52, 61.4, 0, 'cook'); }
-  { const k = grp(g, -142, 4, Math.PI / 2); B(k, MAT.teal, 3.6, 2.6, 2.6, 0, 0, 0); B(k, MAT.cloth, 4, 0.08, 1.6, 0, 2.5, 2, true).rotation.x = 0.25; rectDecal(k, MAT.black, 2.6, 1.1, 0, 1.0, 1.3); signBoard(k, 3.6, 0, 2.7, 1.3, 21); vendor(F, -140.5, 4, Math.PI / 2, 'cook'); }
+  { const k = grp(g, -52, 60); for (const sx of [-1, 1]) for (const sz of [-1, 1]) C(k, MAT.iron, 0.07, 0.07, 3, sx * 3.6, 0, sz * 3.6, 6, false, true); const c = cone(k, MAT.white, 5.6, 2.2, 0, 3, 0, 4); c.rotation.y = Math.PI / 4; B(k, MAT.wood, 5, 0.9, 1.1, 0, 0, 2.6); B(k, MAT.iron, 1.6, 0.5, 0.9, -1.2, 0.9, 2.6, true); signBoard(k, 5.2, 0, 2.2, 3.7, shopCell('Tunday Kababi')); signBoard(grp(k, 0, 0, Math.PI), 5.2, 0, 2.2, 3.7, shopCell('Tunday Kababi')); vendor(F, -52, 61.4, 0, 'cook'); }
+  { const k = grp(g, -142, 4, Math.PI / 2); B(k, MAT.teal, 3.6, 2.6, 2.6, 0, 0, 0); B(k, MAT.cloth, 4, 0.08, 1.6, 0, 2.5, 2, true).rotation.x = 0.25; rectDecal(k, MAT.black, 2.6, 1.1, 0, 1.0, 1.3); textBoard(k, ['CHAI MAHAL', 'चाय महल'], 3.6, 0.9, 0, 2.7, 1.3, '#7a1f5c', '#ffe9a8'); vendor(F, -140.5, 4, Math.PI / 2, 'cook'); }
   const toy = c => M(c, { roughness: 0.5 }), RD = toy(0xd7352c), YL = toy(0xf0b90b), BL = toy(0x2f6fc4), GR = toy(0x3d9a4c);
   { const pa = grp(g, 39, -47); B(pa, BL, 2, 0.1, 2, -8, 2.2, 0, true); for (const sx of [-1, 1]) for (const sz of [-1, 1]) C(pa, YL, 0.07, 0.07, 2.2, -8 + sx * 0.9, 0, sz * 0.9, 6, false, true);
     const sl = B(pa, RD, 0.9, 0.08, 4.4, -8, 1.1, 2.9, true); sl.rotation.x = 0.52; cone(pa, GR, 1.6, 1.1, -8, 2.9, 0, 4).rotation.y = Math.PI / 4;
@@ -173,6 +214,7 @@ function buildSatkhanda() {
   // garden to the east, hedge and lamps
   flatRect(g, GM.lawnTop, 34, 40, 34, -6, 0.008); for (const [x, z, w, d] of [[34, -26.2, 34, 0.5], [34, 14.2, 34, 0.5], [16.8, -6, 0.5, 40], [51.2, -6, 0.5, 40]]) B(g, MAT.hedge, w, 0.7, d, x, 0, z, true);
   [[24, -18], [44, -18], [24, 6], [44, 6], [34, -6]].forEach(q => treeAt(F, q[0], q[1], q[0] === 34 ? 2 : 0, 1.1)); [[-14, 12], [14, 14], [0, -17]].forEach(q => lampAt(F, q[0], q[1], 3));
+  { const m = grp(g, -24, 5, Math.PI / 2 - 0.2), gr = M(0x2f7d4f, { roughness: 0.6 }); B(m, MAT.white, 9, 5, 7, 0, 0, 0); arcade(m, 3, -4, 4, 0.2, 3.5, 3.4, { cusps: 3, trim: MAT.trimW, lit: 0.5 }); B(m, M(0x9c3b2e), 9.6, 0.3, 7.6, 0, 5, 0, true); dome(m, gr, 1.9, 0, 5.3, 0); for (const sx of [-4.2, 4.2]) { C(m, MAT.white, 0.3, 0.38, 8.5, sx, 0, 3.3, 8, true, true); dome(m, gr, 0.5, sx, 8.5, 3.3); } const w = toWorld(F, -24, 5); LABELS.push({ id: 'hamza', poi: true, en: 'Masjid Hamza', hi: 'मस्जिद हमज़ा', ur: 'مسجد حمزہ', pos: [w[0], 10, w[1]] }); }
   bake(g);
   zone(F, -15, 11, 15, 22, 10); zone(F, 12, -14, 16, 12, 4);
   for (let r = 0; r < 4; r++) for (let c = 0; c < 9; c++) if (chance(0.8)) PARKED.push([-196 + c * 3.1 - r * 4.6, -44 + r * 6.2 - c * 1.5, 0.46 + (r % 2 ? Math.PI : 0), pick(['hatch', 'sedan', 'suv', 'hatch', 'hatch'])]);
@@ -216,9 +258,10 @@ function buildChota() {
   wallRun(g, MAT.aged, -Wd, 0, -11, 0, 5.6); wallRun(g, MAT.aged, 11, 0, Wd, 0, 5.6);
   wallRun(g, MAT.whiteD, -Wd, 0, -Wd, D, 5); wallRun(g, MAT.whiteD, Wd, 0, Wd, D, 5); wallRun(g, MAT.whiteD, -Wd, D, Wd, D, 5);
   for (const [x, z] of [[-Wd, 0], [Wd, 0], [-Wd, D], [Wd, D]]) { C(g, MAT.aged, 3.4, 3.6, 5.6, x, 0, z, 8, true); C(g, MAT.aged, 3.9, 3.9, 0.4, x, 5.6, z, 8, true, true); chhatri(g, MAT.cream, MAT.cream, 5.2, x, 6, z, 8); }
+  const rowCells = SHOPS.map((q, i) => q[4] === 2 ? i : -1).filter(i => i >= 0);
   for (const s of [-1, 1]) {                    // the row of little shops built against the street wall
     B(g, MAT.whiteD, 50, 3.3, 3.2, s * 37.5, 0, -2.05); const f = grp(g, s * 37.5, -3.65, Math.PI);
-    for (let i = 0; i < 12; i++) { const x = -22.9 + i * 4.16; rectDecal(f, chance(0.4) ? MAT.recessLit : MAT.shutter, 3.3, 2.3, x, 0.05, 0); signBoard(f, 3.7, x, 2.42, 0.02); if (chance(0.5)) { const a = B(f, pick([MAT.cloth, MAT.fabricG, MAT.teal, MAT.gold]), 3.6, 0.06, 1.5, x, 2.3, 0.85, true); a.rotation.x = 0.28; } }
+    for (let i = 0; i < 12; i++) { const x = -22.9 + i * 4.16; const named = s > 0 && i >= 3 && i <= 9; rectDecal(f, named || chance(0.4) ? MAT.recessLit : MAT.shutter, 3.3, 2.3, x, 0.05, 0); signBoard(f, 3.7, x, 2.42, 0.02, named ? rowCells[i - 3] : genericCell()); if (chance(0.5)) { const a = B(f, pick([MAT.cloth, MAT.fabricG, MAT.teal, MAT.gold]), 3.6, 0.06, 1.5, x, 2.3, 0.85, true); a.rotation.x = 0.28; } }
     for (let i = 0; i < 16; i++) C(g, MAT.wood, 0.11, 0.13, 0.75, s * (13 + i * 3.1), 0, -5.4, 6, false, true);          // kerb posts
   }
   // main gateway, white with gilded pinnacles
@@ -268,6 +311,7 @@ function buildChota() {
   LABELS.push({ id: 'chota', en: 'Chota Imambara', hi: 'छोटा इमामबाड़ा', ur: 'چھوٹا امام باڑہ', pos: [hw[0], 40, hw[1]], cam: [-324, 15, -10], tgt: [-380, 9, 72], walk: [...toWorld(F, 0, 14), hw[0], hw[1]], yr: 'Imambara Husainabad Mubarak · 1838',
     text: 'Built by Muhammad Ali Shah, third King of Awadh, as a congregation hall and his own mausoleum. Black calligraphy panels band the white facade under a gilded dome; chandeliers inside earned it the name “Palace of Lights”. Across the water channel two small Taj-inspired tombs face each other, with the Husainabad mosque and the royal hammam by the gate.' });
   LABELS.push({ id: 'chowk', small: true, en: 'Husainabad Chowk', hi: 'हुसैनाबाद चौक', ur: 'حسین آباد چوک', pos: [...toWorld(F, 0, -26).slice(0, 1), 5, toWorld(F, 0, -26)[1]] });
+  rowCells.forEach((c, k) => { if (k % 2 === 0) { const w = toWorld(F, 37.5 + 22.9 - (k + 3) * 4.16, -4.6); LABELS.push({ id: 'poi' + c, poi: true, en: SHOPS[c][0], hi: SHOPS[c][1], ur: SHOPS[c][1], pos: [w[0], 4.4, w[1]] }); } });
   // Naubat Khana across the open ground, facing the gate
   const n = frameGroup({ x: toWorld(F, 0, -66)[0], z: toWorld(F, 0, -66)[1], rot: F.rot });
   B(n, MAT.stone, 31, 0.7, 14); B(n, MAT.whiteW, 28, 5.4, 12, 0, 0.7, 0); arcadeBox(n, 0, 0, 28, 12, 0.9, 4, 5, 2, { cusps: 3, lit: 0.4 }); B(n, MAT.whiteD, 29, 0.45, 13, 0, 6.1, 0, true);
@@ -413,10 +457,6 @@ function mosque(F, o) {
   boxLights(F, 0, 0, o.w + 1.4, o.d + 1.4, y + o.h + 0.8);
 }
 function buildOuterMosques() {
-  mosque(FRAME.jama, { mat: MAT.white, w: 72, h: 13, d: 17, n: 11, plinth: 4.5, court: 30, min: 44 });
-  zone(FRAME.jama, -30, 12, 30, 34, 10, 4.5);
-  LABELS.push({ id: 'jama', en: 'Jama Masjid', hi: 'जामा मस्जिद', ur: 'جامع مسجد', pos: [-700, 46, 121], cam: [-612, 40, 74], tgt: [-700, 16, 121], yr: 'Begun 1839',
-    text: 'Muhammad Ali Shah began this great congregational mosque in 1839, wanting it to outdo the Jama Masjid of Delhi; it was completed after his death by his queen. Three domes and two tall minarets rise over a deep arcaded front, on a plinth reached by a broad stair.' });
   const TF = { x: 640, z: 268, rot: Math.PI / 2 }, mg = new THREE.Group();
   { const md = new THREE.Mesh(new THREE.SphereGeometry(48, 24, 10, 0, TAU, 0, Math.PI / 2), MAT.lawn); md.scale.y = 0.15; md.position.set(640, 0, 268); md.receiveShadow = true; mg.add(md); }
   bake(mg);
@@ -429,21 +469,58 @@ function buildOuterMosques() {
 
 /* ═════════════ Husainabad food court and museum (2025) ═════════════ */
 function buildFoodCourt() {
-  const F = FRAME.food, g = frameGroup(F), cc = MAT.concrete, bk = MAT.brickM;
-  flatRect(g, GM.paver, 64, 86, 2, -8, 0.012);
-  B(g, cc, 36, 6.8, 18, -6, 0, -40); B(g, bk, 20, 3.6, 12, -10, 6.8, -42, true); B(g, MAT.iron, 37, 0.25, 5, -6, 3.5, -28.6, true); for (let i = 0; i < 7; i++) C(g, MAT.iron, 0.09, 0.09, 3.5, -22 + i * 5.4, 0, -26.6, 6, false, true);
-  const ff = grp(g, -6, -31); for (let i = 0; i < 6; i++) { rectDecal(ff, MAT.glass, 4.6, 2.7, -13.5 + i * 5.4, 0.3, 0); signBoard(ff, 4.4, -13.5 + i * 5.4, 3.75, 0.02, [19, 2, 6, 1, 20, 34][i]); }
-  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { const x = -14 + c * 9, z = -18 + r * 8; B(g, MAT.pink, 2.3, 0.6, 2.3, x, 0, z); treeAt(F, x, z, 0, 0.55); bench(g, F, x + 3.2, z, Math.PI / 2); }
-  B(g, bk, 36, 9.5, 14, 4, 0, 12); for (let i = 0; i < 9; i++) B(g, cc, 0.5, 9.5, 1.4, -12 + i * 4, 0, 4.6, true); rectDecal(grp(g, 4, 5), MAT.glass, 9, 4.2, 0, 0.2, 0); B(g, cc, 37, 0.6, 15, 4, 9.5, 12, true); B(g, cc, 10, 0.3, 4, 4, 4.6, 3.6, true);
-  { const s = new THREE.Shape(); [[22, 5], [62, 36], [56, 44], [22, 19]].forEach((q, i) => i ? s.lineTo(q[0], q[1]) : s.moveTo(q[0], q[1])); const geo = new THREE.ExtrudeGeometry(s, { depth: 8, bevelEnabled: false }); geo.rotateX(Math.PI / 2); geo.translate(0, 8, 0); const m = new THREE.Mesh(geo, bk); m.castShadow = m.receiveShadow = true; g.add(m); addCol(g, 40, 24, 21, 6, 0, 8, -0.66); }
-  flatPoly(g, GM.lawnTop, [[-6, 22], [18, 22], [10, 46], [-8, 40]], 0.02); flatPoly(g, GM.lawnTop, [[24, 34], [50, 48], [40, 64], [18, 54]], 0.02);
-  [[-2, 30], [8, 38], [30, 44], [38, 56]].forEach(q => treeAt(F, q[0], q[1], 0, 0.9)); [[-26, -22], [-26, 0], [22, -20]].forEach(q => lampAt(F, q[0], q[1], 2));
+  // local frame: +z runs south along Durgadevi Marg (kerb at x = -40.7), the riverside road is to the east
+  const F = FRAME.food, g = frameGroup(F), cc = MAT.concrete, bk = MAT.brickM, T = MAT.teal;
+  flatPoly(g, GM.paver, [[-40.5, -64], [30, -64], [34, 6], [52, 50], [44, 60], [20, 46], [-40.5, 46]], 0.012);
+  // turquoise boundary wall on the road side, with the entrance arch
+  B(g, T, 0.4, 2.1, 50, -34, 0, -37.4); B(g, T, 0.4, 2.1, 44, -34, 0, 22.4); for (let i = 0; i < 9; i++) rectDecal(grp(g, -34.2, -58 + i * 11.2 + (i > 4 ? 10 : 0), -Math.PI / 2), pick([MAT.cloth, MAT.gold, MAT.fabricG, MAT.surkhiL]), 2.2, 1.3, 0, 0.5, 0);
+  for (const z of [-12.6, -1.4]) { B(g, cc, 1.2, 6.2, 1.2, -34, 0, z); C(g, MAT.gold, 0.3, 0.3, 0.3, -34, 6.2, z, 8, false, true); }
+  B(g, cc, 1.2, 1.5, 12.4, -34, 5.2, -7, true); const eg = grp(g, -34.6, -7, -Math.PI / 2);
+  textBoard(eg, ['HUSAINABAD FOOD COURT', 'हुसैनाबाद फ़ूड कोर्ट'], 10.4, 1.3, 0, 5.3, 0, '#7a1f12', '#ffe9b0'); textBoard(grp(g, -33.4, -7, Math.PI / 2), ['HUSAINABAD FOOD COURT', 'हुसैनाबाद फ़ूड कोर्ट'], 10.4, 1.3, 0, 5.3, 0, '#7a1f12', '#ffe9b0');
+  // main stall range (north) and the side wing (east)
+  const STALLS = [['AWADHI KABAB', 'अवधी कबाब'], ['LUCKNOWI CHAAT', 'लखनवी चाट'], ['DUM BIRYANI', 'दम बिरयानी'], ['KULFI FALOODA', 'कुल्फ़ी फ़ालूदा'], ['NIHARI KULCHA', 'निहारी कुलचा'], ['SHEERMAL & KABAB', 'शीरमाल कबाब'], ['MAKKHAN MALAI', 'मक्खन मलाई'], ['KASHMIRI CHAI', 'कश्मीरी चाय'],
+    ['BANARASI PAAN', 'बनारसी पान'], ['LASSI & THANDAI', 'लस्सी ठंडाई'], ['MOMOS & CHINESE', 'मोमोज़ चाइनीज़'], ['FRESH JUICE', 'ताज़ा जूस'], ['BASKET CHAAT', 'टोकरी चाट']];
+  const SC = [['#b3261e', '#fff7d6'], ['#1d4f91', '#fff'], ['#1c6b3a', '#fff3b0'], ['#f2c200', '#1b1b1b'], ['#7a1f5c', '#ffe9a8'], ['#e8611a', '#fff'], ['#0f6e73', '#fff'], ['#111', '#ffd23f']];
+  const stall = (f, x, k) => { rectDecal(f, MAT.recessLit, 4.1, 2.0, x, 1.05, 0); B(f, MAT.woodL, 4.4, 1.0, 0.6, x, 0, 0.36); B(f, MAT.stone, 4.5, 0.07, 0.72, x, 1.0, 0.36, true); textBoard(f, STALLS[k], 4.4, 0.95, x, 3.25, 0.04, SC[k % 8][0], SC[k % 8][1]); rectDecal(f, MAT.black, 0.9, 1.3, x + 1.75, 1.3, 0.02); for (let j = 0; j < 3; j++) C(f, pick([MAT.gold, MAT.iron, MAT.copper]), 0.16, 0.18, 0.22, x - 1.2 + j * 0.7, 1.07, 0.4, 8, false, true); };
+  B(g, cc, 44, 4.4, 9, -4, 0, -50); B(g, bk, 44.6, 0.5, 9.6, -4, 4.4, -50, true); const nf = grp(g, -4, -45.5);
+  for (let i = 0; i < 8; i++) stall(nf, -17.5 + i * 5, i);
+  { const aw = B(g, MAT.cloth, 43, 0.08, 2.6, -4, 2.95, -44, true); aw.rotation.x = 0.2; for (let i = 0; i < 9; i++) C(g, MAT.iron, 0.05, 0.05, 2.7, -25 + i * 5.25, 0, -42.9, 6, false, true); }
+  B(g, bk, 22, 3.4, 7, -12, 4.9, -50.5, true); arcade(grp(g, -12, -47), 5, -10, 10, 5.1, 0, 2.5, { trim: MAT.trim, lit: 0.6 }); B(g, cc, 22.6, 0.4, 7.6, -12, 8.3, -50.5, true);
+  for (const x of [8, 14]) { C(g, MAT.iron, 0.04, 0.04, 2.3, x, 4.9, -49, 6, false, true); cone(g, pick([MAT.cloth, MAT.gold, MAT.teal]), 1.5, 0.5, x, 7.1, -49, 8); }
+  B(g, cc, 8, 4.2, 34, 24, 0, -21); B(g, bk, 8.6, 0.5, 34.6, 24, 4.2, -21, true); const ef = grp(g, 20, -21, -Math.PI / 2);
+  for (let i = 0; i < 5; i++) stall(ef, -13 + i * 6.5, 8 + i);
+  // courtyard: tables under umbrellas, planters, a small fountain, strings of lamps
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) {
+    const x = -21 + c * 10 + (r % 2 ? 3 : 0), z = -34 + r * 9; C(g, MAT.white, 0.6, 0.6, 0.06, x, 0.72, z, 10, false, true); C(g, MAT.iron, 0.05, 0.2, 0.72, x, 0, z, 6, false, true);
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.6; C(g, pick([RDm, YLm, BLm]), 0.2, 0.2, 0.45, x + Math.cos(a) * 1.05, 0, z + Math.sin(a) * 1.05, 8, false, true); if (chance(0.55)) seatAt(F, x + Math.cos(a) * 1.05, z + Math.sin(a) * 1.05, 0.5, Math.atan2(-Math.cos(a), -Math.sin(a))); }
+    if ((r + c) % 2 === 0) { C(g, MAT.iron, 0.03, 0.03, 2.6, x, 0, z, 5, false, true); cone(g, pick([MAT.cloth, MAT.gold, MAT.teal, MAT.fabricG]), 1.7, 0.55, x, 2.5, z, 8); }
+  }
+  for (const [x, z] of [[-29, -40], [17, -40], [-29, -4], [17, 0], [-6, -4]]) { B(g, MAT.pink, 2.4, 0.6, 2.4, x, 0, z); treeAt(F, x, z, 0, 0.6); }
+  C(g, MAT.stone, 2.2, 2.4, 0.5, -19, 0, -8, 14); jet(F, -19, -8, 0.5, 2.6, 1.2, 22);
+  [[-30, -30], [-30, -16], [-10, -40], [6, -40], [18, -10], [-2, 2], [-22, 2]].forEach(q => lampAt(F, q[0], q[1], 3));
+  // museum: brick and concrete block with fins, glass entrance and banners; long wedge wing toward the river road
+  B(g, bk, 36, 9.5, 14, 8, 0, 15); for (let i = 0; i < 9; i++) B(g, cc, 0.5, 9.5, 1.3, -8 + i * 4, 0, 7.6, true); B(g, cc, 37, 0.6, 15, 8, 9.5, 15, true);
+  const mf = grp(g, 8, 8, Math.PI); rectDecal(mf, MAT.glass, 9, 4.2, 0, 0.5, 0); B(g, cc, 11, 0.3, 3.6, 8, 4.8, 6.4, true); for (const x of [3.2, 12.8]) C(g, cc, 0.25, 0.25, 4.8, x, 0, 5, 8);
+  P(g, MAT.stone, 12, 0.25, 4, 8, 0, 6); P(g, MAT.stone, 14, 0.12, 5.4, 8, 0, 6);
+  textBoard(mf, ['ART & HERITAGE MUSEUM', 'कला एवं विरासत संग्रहालय'], 13, 1.5, 0, 6.3, 0.1, '#20242a', '#f4e3b0');
+  for (const [x, c] of [[-14, MAT.cloth], [-10, MAT.gold], [10, MAT.teal], [14, MAT.cloth]]) rectDecal(mf, c, 1.3, 6, x, 1.6, 0.05);
+  { const s2 = new THREE.Shape(); [[26, 9], [50, 50], [43, 58], [22, 22]].forEach((q, i) => i ? s2.lineTo(q[0], q[1]) : s2.moveTo(q[0], q[1])); const geo = new THREE.ExtrudeGeometry(s2, { depth: 8, bevelEnabled: false }); geo.rotateX(Math.PI / 2); geo.translate(0, 8, 0); const m = new THREE.Mesh(geo, bk); m.castShadow = m.receiveShadow = true; g.add(m); addCol(g, 36, 34, 22, 5.5, 0, 8, -0.56); }
+  { const tk = grp(g, -6, 5, Math.PI); B(tk, cc, 3, 2.8, 2.4, 0, 0, 0); rectDecal(tk, MAT.recessLit, 1.8, 1.0, 0, 1.1, 1.2); signBoard(tk, 2.8, 0, 2.85, 1.1, shopCell('TICKETS')); }
+  // lawns with sculpture, toilets, parking lay-by
+  flatPoly(g, GM.lawnTop, [[-30, 26], [-6, 26], [2, 43], [-30, 43]], 0.02); flatPoly(g, GM.lawnTop, [[8, 28], [18, 28], [34, 54], [22, 44], [12, 44]], 0.02);
+  for (const [x, z, h] of [[-20, 34, 2.4], [-12, 31, 1.6], [16, 36, 2.8]]) { B(g, MAT.stone, 1.2, 0.5, 1.2, x, 0, z); C(g, MAT.copper, 0.12, 0.34, h, x, 0.5, z, 6, true, true); S(g, MAT.copper, 0.4, x, 0.5 + h + 0.3, z); }
+  [[-26, 30], [-8, 40], [14, 32], [26, 46], [-24, 40]].forEach(q => treeAt(F, q[0], q[1], 0, 0.9)); bench(g, F, -14, 27, 0); bench(g, F, -24, 27, 0); bench(g, F, 13, 29.4, 0);
+  { const tb = grp(g, -28.5, 20, Math.PI / 2); B(tb, cc, 9, 3, 5, 0, 0, 0); rectDecal(tb, MAT.door, 1.1, 2.1, -2, 0, 2.5); rectDecal(tb, MAT.door, 1.1, 2.1, 2, 0, 2.5); signBoard(tb, 3.4, 0, 2.05, 2.5, shopCell('PUBLIC TOILET')); }
+  flatPoly(g, GM.paver, [[-40.6, -62], [-34.2, -62], [-34.2, 44], [-40.6, 44]], 0.014);
+  { const ps = grp(g, -35, -60, -Math.PI / 2); C(g, MAT.iron, 0.06, 0.06, 3, -35, 0, -60, 6, false, true); signBoard(ps, 2.4, 0, 2.2, 0.1, shopCell('PARKING')); }
   bake(g);
-  zone(F, -22, -26, 14, 2, 26); zone(F, -14, 20, 14, 30, 6);
-  for (let i = 0; i < 6; i++) parkAt(F, -31, -56 + i * 12.4, 0.02, i % 3 ? 'bus' : 'traveller');
-  [[-24, -8, 'juice'], [-25, 4, 'chaat'], [-24, 14, 'corn']].forEach(q => vendor(F, q[0], q[1], -Math.PI / 2, q[2]));
-  LABELS.push({ id: 'food', en: 'Food Court & Museum', hi: 'फ़ूड कोर्ट व संग्रहालय', ur: 'فوڈ کورٹ و عجائب گھر', pos: [F.x, 20, F.z - 6], cam: [118, 34, 156], tgt: [F.x, 4, F.z], walk: [...toWorld(F, -4, -4), ...toWorld(F, -6, -40)], yr: 'Opened 2025',
-    text: 'The newest piece of the precinct, on the old substation plot between Durgadevi Marg and the riverside road: a brick-and-concrete food court around a planted courtyard, opened to the public in early 2025, with an art and heritage museum alongside. Tourist buses line the kerb outside.' });
+  zone(F, -30, -41, 17, -6, 30); zone(F, -30, -2, 2, 4, 8); zone(F, 0, 2, 16, 5.4, 6); zone(F, -28, 28, 0, 42, 6);
+  for (let i = 0; i < 6; i++) parkAt(F, -37.5, -52 + i * 12, 0, i % 3 ? 'bus' : 'traveller');
+  for (let i = 0; i < 5; i++) parkAt(F, -37.4, 20 + i * 4.6, rr(-0.1, 0.1), pick(['auto', 'erick', 'erick']));
+  [[-30, -22, 'juice'], [-30, -10, 'icecream'], [10, 2, 'balloon'], [-26, 8, 'candy']].forEach(q => vendor(F, q[0], q[1], Math.PI / 2, q[2]));
+  LABELS.push({ id: 'food', en: 'Food Court & Museum', hi: 'फ़ूड कोर्ट व संग्रहालय', ur: 'فوڈ کورٹ و عجائب گھر', pos: [...toWorld(F, -4, -30).slice(0, 1), 16, toWorld(F, -4, -30)[1]], cam: [...toWorld(F, -64, -34).slice(0, 1), 30, toWorld(F, -64, -34)[1]], tgt: [...toWorld(F, 0, -18).slice(0, 1), 3, toWorld(F, 0, -18)[1]], walk: [...toWorld(F, -31, -7), ...toWorld(F, -4, -46)], yr: 'Opened 2025',
+    text: 'The newest piece of the precinct, on the old substation plot between Durgadevi Marg and the riverside road. Behind a turquoise wall and an entrance arch, two ranges of food stalls face a courtyard of umbrella tables; an art and heritage museum in brick and concrete stands on the south side with lawns and sculpture. Tourist buses and e-rickshaws wait in the lay-by outside.' });
+  const mw = toWorld(F, 8, 12); LABELS.push({ id: 'museum', small: true, en: 'Art & Heritage Museum', hi: 'कला एवं विरासत संग्रहालय', ur: 'عجائب گھر', pos: [mw[0], 14, mw[1]] });
 }
 
 /* festive illumination: thousands of small bulbs tracing the monuments */
@@ -455,8 +532,8 @@ function buildFestive() {
   NIGHTFX.push(n => { const on = OPT.festive && n > 0.25; pts.visible = on; if (on) mat.opacity = Math.min(1, (n - 0.25) * 2.2) * tw; });
 }
 function buildMonuments() {
-  buildPark(); buildSatkhanda(); buildHGate(FRAME.gateE, 'gateE'); buildHGate(FRAME.gateW, 'gateW'); buildChota(); buildRumi(); buildBara(); buildOuterMosques(); buildFoodCourt();
-  LABELS.push({ id: 'all', en: 'Whole precinct', hi: 'पूरा इलाक़ा', ur: 'پورا علاقہ', cam: [170, 560, 800], tgt: [20, 0, 170], nolabel: true });
-  [['Husainabad Trust Road', 'हुसैनाबाद ट्रस्ट रोड', 'حسین آباد ٹرسٹ روڈ', 60, 128], ['Gomti', 'गोमती', 'گومتی', 560, 30], ['Gulab Vatika', 'गुलाब वाटिका', 'گلاب واٹیکا', 450, 232], ['Nimbu Park', 'नींबू पार्क', 'نیبو پارک', 330, 440], ['Daulatganj Road', 'दौलतगंज रोड', 'دولت گنج روڈ', -268, -170], ['Kudiya Ghat', 'कुड़िया घाट', 'کڑیا گھاٹ', 300, -40], ['Durgadevi Marg', 'दुर्गादेवी मार्ग', 'درگا دیوی مارگ', 118, -30]].forEach(q => LABELS.push({ id: 'r' + q[3], road: true, en: q[0], hi: q[1], ur: q[2], pos: [q[3], 3, q[4]] }));
+  buildPark(); buildSatkhanda(); buildHGate(FRAME.gateE, 'gateE'); buildHGate(FRAME.gateW, 'gateW'); buildChota(); buildRumi(); buildBara(); buildOuterMosques(); buildFoodCourt(); buildKiosks();
+  LABELS.push({ id: 'all', en: 'Whole precinct', hi: 'पूरा इलाक़ा', ur: 'پورا علاقہ', cam: [150, 430, 640], tgt: [60, 0, 170], nolabel: true });
+  [['Husainabad Trust Road', 'हुसैनाबाद ट्रस्ट रोड', 'حسین آباد ٹرسٹ روڈ', 60, 128], ['Gomti', 'गोमती', 'گومتی', 560, 30], ['Gulab Vatika', 'गुलाब वाटिका', 'گلاب واٹیکا', 450, 232], ['Fragrance Park', 'फ़्रेगरेंस पार्क', 'فریگرینس پارک', 86, 196], ['Nimbu Park', 'नींबू पार्क', 'نیبو پارک', 330, 440], ['Kudiya Ghat', 'कुड़िया घाट', 'کڑیا گھاٹ', 300, -40], ['Durgadevi Marg', 'दुर्गादेवी मार्ग', 'درگا دیوی مارگ', 118, -30]].forEach(q => LABELS.push({ id: 'r' + q[3], road: true, en: q[0], hi: q[1], ur: q[2], pos: [q[3], 3, q[4]] }));
   buildFestive();
 }

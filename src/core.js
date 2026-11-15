@@ -9,7 +9,7 @@ const TAU = Math.PI * 2;
 
 /* ───────────── user options (persisted) ───────────── */
 const OPT = {
-  quality: 'medium', shadows: true, labels: 'hi', minimap: true, weather: 'haze',
+  quality: 'medium', shadows: true, labels: 'hi', shopTags: true, minimap: true, weather: 'haze',
   traffic: 1, crowd: 1, carriages: true, kites: true, birds: true, festive: false,
   sound: false, volume: 0.6, walkSpeed: 1, fov: 42, cycleMin: 3, lookSens: 1,
 };
@@ -65,7 +65,7 @@ const FRAME = {
   rumi: { x: 413.5, z: 307.5, rot: -1.8755 },         // wall along local x, grand arch faces +z (west-north-west)
   asfi: { x: 398.5, z: 497, rot: 1.713 },             // Asfi mosque, front (+z) faces east
   jama: { x: -700, z: 121, rot: Math.PI / 2 },        // Jama Masjid, front faces east
-  food: { x: 190, z: 80, rot: -0.23 },
+  food: { x: 190, z: 80, rot: 0.231 },                 // +z runs along Durgadevi Marg
   gateE: { x: -246, z: -22, rot: 1.134 },             // Husainabad gateways straddle the road
   gateW: { x: -384, z: -88, rot: 1.134 },
 };

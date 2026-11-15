@@ -93,6 +93,8 @@ body.photo #ui,body.photo #labels{display:none}
 .lbl:hover .en{color:var(--gold)}
 .lbl.small .hi{font-size:12.5px} .lbl.small .en{font-size:9px} .lbl.small::after{height:12px}
 .lbl.road{cursor:default;opacity:.85} .lbl.road .hi{font-size:12px;color:#e8dcc4} .lbl.road .en{font-size:9px;color:#d8d0c0} .lbl.road::after{display:none}
+.lbl.poi{cursor:default;background:rgba(20,15,22,.6);border-radius:8px;padding:2px 7px 3px;text-shadow:none}
+.lbl.poi .hi{font-size:10.5px;color:#ffe2a6;line-height:1.25} .lbl.poi .en{font-size:8.5px;letter-spacing:.08em;line-height:1.2} .lbl.poi::after{display:none}
 body.lang-en .lbl .hi{display:none}
 body.nolabels #labels{display:none}
 

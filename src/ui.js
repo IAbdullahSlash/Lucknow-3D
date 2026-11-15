@@ -2,7 +2,7 @@
 /* ui.js — explore / walk / ride / tour, labels, minimap, options, sound and the main loop */
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; controls.dampingFactor = 0.07; controls.maxPolarAngle = Math.PI * 0.492; controls.minDistance = 12; controls.maxDistance = 1600;
+controls.enableDamping = true; controls.dampingFactor = 0.07; controls.maxPolarAngle = Math.PI * 0.492; controls.minDistance = 12; controls.maxDistance = 1150;
 controls.target.set(-20, 20, -10);
 const UI = { mode: 'orbit', fly: null, tour: null, T: 0, frame: 0, card: null };
 const el = id => document.getElementById(id), KEYS = {};
@@ -33,6 +33,10 @@ function floorAt(x, z, feet) {
   let fl = 0; const td = talabDepthAt(x, z); if (td !== null) { if (td === -99) return null; fl = td; }
   for (const p of PLATFORMS) if (inObb(p, x, z)) { if (p.yt <= feet + STEP) { if (p.yt > fl) fl = p.yt; } else if (p.yb < feet + 1.7) return null; }
   return fl - feet > STEP ? null : fl;
+}
+/** true when no wall cell of the walk grid lies between two ground points */
+function lineOfSight(x0, z0, x1, z1) {
+  const n = Math.ceil(Math.hypot(x1 - x0, z1 - z0)); for (let i = 2; i < n - 3; i++) { const t = i / n, gx = Math.floor(x0 + (x1 - x0) * t - NAV.x0), gz = Math.floor(z0 + (z1 - z0) * t - NAV.z0); if (gx >= 0 && gz >= 0 && gx < NAV.W && gz < NAV.H && NAV.grid[gz * NAV.W + gx]) return false; } return true;
 }
 function findFree(x, z) { for (let r = 0; r < 40; r += 0.8) for (let k = 0; k < (r ? 14 : 1); k++) { const a = k * TAU / 14 + r, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r, f = floorAt(px, pz, 200); if (f !== null && f < 9) return [px, pz, f]; } return [x, z, 0]; }
 
@@ -129,8 +133,8 @@ function buildLabels() {
   for (const p of LABELS) {
     if (p.cam && !p.small && !p.road) { const b = document.createElement('button'); b.dataset.id = p.id; b.innerHTML = `${p.en}<small>${p.hi}</small>`; b.onclick = () => { stopTour(); selectPlace(p); el('placesWrap').classList.remove('open'); }; list.append(b); }
     if (p.nolabel) continue;
-    const d = document.createElement('div'); d.className = 'lbl' + (p.small ? ' small' : '') + (p.road ? ' road' : ''); d.innerHTML = `<span class="hi"></span><span class="en">${p.en.toUpperCase()}</span>`;
-    if (!p.road) d.onclick = () => { stopTour(); selectPlace(p); };
+    const d = document.createElement('div'); d.className = 'lbl' + (p.small ? ' small' : '') + (p.road ? ' road' : '') + (p.poi ? ' poi' : ''); d.innerHTML = `<span class="hi"></span><span class="en">${p.en.toUpperCase()}</span>`;
+    if (!p.road && !p.poi) d.onclick = () => { stopTour(); selectPlace(p); };
     p.dom = d; p.obj = new CSS2DObject(d); p.obj.position.set(...p.pos); scene.add(p.obj);
   }
   applyLabelLang();
@@ -143,8 +147,22 @@ function applyLabelLang() {
 }
 function updateLabels() {
   const cp = camera.position, far = UI.mode === 'orbit' ? Math.max(450, cp.distanceTo(controls.target) * 3.2) : 520;
-  for (const p of LABELS) if (p.obj) { const d = Math.hypot(p.pos[0] - cp.x, p.pos[2] - cp.z); p.obj.visible = d < (p.small || p.road ? far * 0.42 : far) && !(UI.mode !== 'orbit' && d < 14); }
-  if (UI.mode === 'walk') { let best = null, bd = 1e9; for (const p of LABELS) if (p.pos && !p.road) { const d = Math.hypot(p.pos[0] - WALK.x, p.pos[2] - WALK.z); if (d < bd) { bd = d; best = p; } } el('where').innerHTML = best && bd < 400 ? `Near <b>${best.en}</b> · ${Math.round(bd)} m` : 'Old city lanes'; }
+  for (const p of LABELS) if (p.obj) { const d = Math.hypot(p.pos[0] - cp.x, p.pos[2] - cp.z); if (p.poi) { p.obj.visible = false; continue; } p.obj.visible = d < (p.small || p.road ? far * 0.42 : far) && !(UI.mode !== 'orbit' && d < 14); }
+  // shop-name tags: nearest first, skip any hidden behind walls or overlapping a tag already shown
+  if (OPT.shopTags && OPT.labels !== 'off') {
+    const lim = UI.mode === 'orbit' ? 150 : 70, cand = [], v = new THREE.Vector3(), boxes = [];
+    if (UI.mode === 'orbit' && cp.y > 110) return;
+    for (const p of LABELS) if (p.poi) { const d = Math.hypot(p.pos[0] - cp.x, p.pos[2] - cp.z); if (d < lim) cand.push([d, p]); }
+    cand.sort((a, b) => a[0] - b[0]);
+    for (const [d, p] of cand) {
+      if (UI.mode !== 'orbit' && !lineOfSight(cp.x, cp.z, p.pos[0], p.pos[2])) continue;
+      v.set(...p.pos).project(camera); if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) continue;
+      const x = (v.x + 1) * innerWidth / 2, y = (1 - v.y) * innerHeight / 2, w = Math.max(70, p.en.length * 6.2) / 2, h = 15;
+      if (boxes.some(b => Math.abs(b[0] - x) < b[2] + w && Math.abs(b[1] - y) < h * 2)) continue;
+      boxes.push([x, y, w]); p.obj.visible = true; if (boxes.length > 14) break;
+    }
+  }
+  if (UI.mode === 'walk') { let best = null, bd = 1e9; for (const p of LABELS) if (p.pos && !p.road && !p.poi) { const d = Math.hypot(p.pos[0] - WALK.x, p.pos[2] - WALK.z); if (d < bd) { bd = d; best = p; } } el('where').innerHTML = best && bd < 400 ? `Near <b>${best.en}</b> · ${Math.round(bd)} m` : 'Old city lanes'; }
 }
 
 /* ───────────── minimap ───────────── */
@@ -223,6 +241,7 @@ function buildOptions() {
 
   h('Labels & view');
   seg('Labels', [['hi', 'हिंदी'], ['ur', 'اردو'], ['en', 'English'], ['off', 'Off']], () => OPT.labels, v => { OPT.labels = v; applyLabelLang(); });
+  check('Shop name tags', () => OPT.shopTags, v => { OPT.shopTags = v; });
   check('Minimap', () => OPT.minimap, v => { OPT.minimap = v; el('mapWrap').classList.toggle('show', v); });
   range('Field of view', 28, 70, 1, () => OPT.fov, v => { OPT.fov = v; if (UI.mode === 'orbit') { camera.fov = v; camera.updateProjectionMatrix(); } });
   btn('Photo mode', 'Hide interface (H)', () => togglePhoto());
@@ -346,9 +365,9 @@ function frame() {
 async function main() {
   const step = async (msg, fn) => { setLoad(msg); await new Promise(r => setTimeout(r, 30)); fn(); };
   await step('Laying out the real street map of Lucknow…', () => { buildGround(); buildRoads(); buildSidewalks(); });
-  await step('Growing the old city along its lanes…', () => { buildHouses(); buildHouseMeshes(); buildMappedBuildings(); });
+  await step('Growing the old city along its lanes…', () => { buildHouses(); nameShops(); buildHouseMeshes(); buildMappedBuildings(); });
   await step('Raising the monuments…', buildMonuments);
-  await step('Planting trees and lighting the lamps…', () => { gFlush(); scatterTrees(); buildTrees(); planStreetFurniture(); buildLamps(); buildWires(); });
+  await step('Planting trees and lighting the lamps…', () => { gFlush(); scatterTrees(); buildTrees(); planStreetFurniture(); buildStreetDetail(); buildLamps(); buildWires(); });
   await step('Calling out the tongas, rickshaws and crowds…', buildLife);
   await step('Opening the gates…', () => { buildNav(); buildMinimap(); buildLabels(); buildOptions(); wire(); });
   el('mapWrap').classList.toggle('show', OPT.minimap);
