@@ -13,19 +13,20 @@ const TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0; if (TOUC
 function toast(msg, ms = 2800) { const t = el('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms); }
 
 /* ───────────── walkable-space map: a 1 m grid of blockers plus stepped platforms ───────────── */
-const NAV = { x0: MAP.bounds[0], z0: MAP.bounds[2], W: Math.ceil(MAP.bounds[1] - MAP.bounds[0]), H: Math.ceil(MAP.bounds[3] - MAP.bounds[2]), grid: null }, STEP = 0.6;
+const NAV = { x0: MAP.bounds[0], z0: MAP.bounds[2], W: Math.ceil(MAP.bounds[1] - MAP.bounds[0]), H: Math.ceil(MAP.bounds[3] - MAP.bounds[2]), grid: null, top: null, thin: new Map() }, STEP = 0.6;
 const inObb = (o, x, z, m = 0) => { const dx = x - o.x, dz = z - o.z; return Math.abs(dx * o.ax + dz * o.az) <= o.hw + m && Math.abs(dx * o.bx + dz * o.bz) <= o.hd + m; };
 function buildNav() {
-  const g = NAV.grid = new Uint8Array(NAV.W * NAV.H), pb = PLATFORMS.map(p => { const r = Math.hypot(p.hw, p.hd); return [p.x - r, p.x + r, p.z - r, p.z + r]; });
+  const g = NAV.grid = new Uint8Array(NAV.W * NAV.H), top = NAV.top = new Uint8Array(NAV.W * NAV.H), pb = PLATFORMS.map(p => { const r = Math.hypot(p.hw, p.hd); return [p.x - r, p.x + r, p.z - r, p.z + r]; });
   for (const c of COLLIDERS) {
-    const m = Math.max(0.4, 0.74 - Math.min(c.hw, c.hd)), r = Math.hypot(c.hw, c.hd) + m + 0.5;
+    const m = Math.max(0.4, 0.74 - Math.min(c.hw, c.hd)), r = Math.hypot(c.hw, c.hd) + m + 0.5, thin = Math.max(c.hw, c.hd) < 0.5, ht = Math.min(255, Math.ceil(c.yt * 8));
     let near = null; for (let i = 0; i < pb.length; i++) { const b = pb[i]; if (c.x + r > b[0] && c.x - r < b[1] && c.z + r > b[2] && c.z - r < b[3]) (near || (near = [])).push(PLATFORMS[i]); }
     if (!near && !(c.yb < 1.9 && c.yt > 0.45)) continue;
+    if (thin) { const k = Math.floor(c.x / 4) + ',' + Math.floor(c.z / 4); NAV.thin.has(k) ? NAV.thin.get(k).push(c) : NAV.thin.set(k, [c]); }
     const x0 = Math.max(0, Math.floor(c.x - r - NAV.x0)), x1 = Math.min(NAV.W - 1, Math.ceil(c.x + r - NAV.x0)), z0 = Math.max(0, Math.floor(c.z - r - NAV.z0)), z1 = Math.min(NAV.H - 1, Math.ceil(c.z + r - NAV.z0));
     for (let gz = z0; gz <= z1; gz++) for (let gx = x0; gx <= x1; gx++) {
       const px = gx + 0.5 + NAV.x0, pz = gz + 0.5 + NAV.z0; if (!inObb(c, px, pz, m)) continue;
       let fl = 0; if (near) for (const p of near) if (p.yt > fl && inObb(p, px, pz)) fl = p.yt;
-      if (c.yb < fl + 1.9 && c.yt > fl + 0.45) g[gz * NAV.W + gx] = 1;
+      if (c.yb < fl + 1.9 && c.yt > fl + 0.45) { const i = gz * NAV.W + gx; if (thin) { if (!g[i]) g[i] = 2; } else { g[i] = 1; if (ht > top[i]) top[i] = ht; } }
     }
   }
 }
@@ -81,10 +82,50 @@ function stopTour() { if (!UI.tour) return; UI.tour = null; controls.autoRotate 
 function tourStep() { const p = LABELS.find(l => l.id === TOUR[UI.tour.i % TOUR.length]); UI.tour.i++; UI.tour.left = 12; selectPlace(p); UI.fly.dur = 3.2; }
 function startTour() { setMode('orbit', true); UI.tour = { i: 0, left: 0 }; controls.autoRotate = true; controls.autoRotateSpeed = 0.7; el('bTour').classList.add('on'); el('bTour').textContent = '■ Stop'; tourStep(); }
 
-/* ───────────── camera: walk (first person) ───────────── */
-const WALK = { x: 0, y: 0, z: 0, vy: 0, floor: 0, yaw: 0, pitch: 0, eye: 1.66, bob: 0, onGround: true, run: false, joy: { x: 0, y: 0 }, locked: false, drag: null, step: 0, fov: 72, go: 0 };
+/* ───────────── walk: a figure you steer, followed over the shoulder (wheel right in = first person) ───────────── */
+const WALK = { x: 0, y: 0, z: 0, vy: 0, floor: 0, yaw: 0, pitch: 0, eye: 1.66, bob: 0, onGround: true, run: false, joy: { x: 0, y: 0 }, locked: false, drag: null, step: 0, go: 0, dist: 4.5, cam: 0, fp: false };
 LIFE.player = { x: 0, z: 0, active: false };
-function teleport(x, z, lookX, lookZ) { const f = findFree(x, z); WALK.x = f[0]; WALK.z = f[1]; WALK.y = WALK.floor = f[2]; WALK.vy = 0; if (lookX !== undefined) { WALK.yaw = Math.atan2(-(lookX - f[0]), -(lookZ - f[1])); WALK.pitch = 0.04; } }
+/** the walker: kurta, Nehru jacket and churidar, built facing +z with the feet at the origin */
+const HERO = (() => {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body); g.visible = false; g.rotation.order = 'YXZ';
+  const part = (geo, color, parent, x, y, z) => { const m = new THREE.Mesh(geo, M(color)); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+  const box = (w, h, d) => new THREE.BoxGeometry(w, h, d), joint = (x, y) => { const p = new THREE.Group(); p.position.set(x, y, 0); body.add(p); return p; };
+  const KURTA = 0xf3efe4, JACKET = 0x2456c8, SKINC = 0xc68642;
+  part(box(0.46, 0.42, 0.27), KURTA, body, 0, 0.8, 0); part(box(0.48, 0.56, 0.29), JACKET, body, 0, 1.15, 0);
+  part(new THREE.CylinderGeometry(0.06, 0.06, 0.1, 8), SKINC, body, 0, 1.47, 0); part(new THREE.SphereGeometry(0.125, 12, 9), SKINC, body, 0, 1.6, 0);
+  part(new THREE.SphereGeometry(0.135, 12, 9), 0x15100c, body, 0, 1.635, -0.03).scale.y = 0.85;
+  const arms = [-1, 1].map(k => { const p = joint(k * 0.3, 1.4); part(box(0.12, 0.56, 0.13), KURTA, p, 0, -0.28, 0); part(new THREE.SphereGeometry(0.06, 8, 6), SKINC, p, 0, -0.6, 0); return p; });
+  const legs = [-1, 1].map(k => { const p = joint(k * 0.11, 0.86); part(box(0.16, 0.8, 0.18), KURTA, p, 0, -0.4, 0); part(box(0.17, 0.09, 0.28), 0x5d4037, p, 0, -0.815, 0.05); return p; });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.44, 0.52, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xe7b45a, transparent: true, opacity: 0.6, depthWrite: false })); g.add(ring);   // marks you out in a crowd
+  scene.add(g);
+  return { g, body, arms, legs, ring, yaw: 0, amp: 0, lean: 0 };
+})();
+function poseHero(dt, moved, run, dx, dz) {
+  const W = WALK, H = HERO, k = Math.min(1, dt * 12);
+  if (moved) { let d = Math.atan2(dx, dz) - H.yaw; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; H.yaw += d * k; }     // turn to face the way you are going
+  H.g.visible = W.cam > 0.7; if (!H.g.visible) return;
+  H.amp += ((moved ? 1 : 0) - H.amp) * k; H.lean += ((moved && run ? 0.16 : 0) - H.lean) * Math.min(1, dt * 8);
+  const sw = Math.sin(W.bob) * H.amp, air = !W.onGround, la = sw * (run ? 0.95 : 0.62), aa = sw * (run ? 0.9 : 0.5);
+  H.legs[0].rotation.x = air ? -0.7 : la; H.legs[1].rotation.x = air ? 0.35 : -la; H.arms[0].rotation.x = air ? -0.9 : -aa; H.arms[1].rotation.x = air ? -0.9 : aa;
+  H.body.position.y = air ? 0 : Math.abs(sw) * 0.035;
+  H.g.position.set(W.x, W.y, W.z); H.g.rotation.set(H.lean, H.yaw, 0); H.ring.position.y = W.floor - W.y + 0.04;
+}
+/** how far back from the walker's head the camera can sit along a ray before a wall gets in the way */
+function camReach(px, py, pz, dx, dy, dz, D) {
+  for (let d = 0.5; d < D + 0.3; d += 0.25) {
+    const gx = Math.floor(px + dx * d - NAV.x0), gz = Math.floor(pz + dz * d - NAV.z0); if (gx < 1 || gz < 1 || gx >= NAV.W - 1 || gz >= NAV.H - 1) return Math.max(0, d - 0.3);
+    const i = gz * NAV.W + gx; if (NAV.grid[i] === 1 && NAV.top[i] / 8 > py + dy * d - 0.15) { D = Math.max(0, d - 0.3); break; }
+  }
+  // poles and tree trunks count only when one really stands between the camera and the walker
+  const hl = Math.hypot(dx, dz); if (hl < 0.05) return D;
+  const ex = px + dx * D, ez = pz + dz * D, bx0 = Math.floor(Math.min(px, ex) / 4 - 0.25), bx1 = Math.floor(Math.max(px, ex) / 4 + 0.25), bz0 = Math.floor(Math.min(pz, ez) / 4 - 0.25), bz1 = Math.floor(Math.max(pz, ez) / 4 + 0.25);
+  for (let bz = bz0; bz <= bz1; bz++) for (let bx = bx0; bx <= bx1; bx++) {
+    const list = NAV.thin.get(bx + ',' + bz); if (!list) continue;
+    for (const c of list) { const rx = c.x - px, rz = c.z - pz, t = (rx * dx + rz * dz) / (hl * hl), rad = Math.max(c.hw, c.hd) + 0.22; if (t < 0.2 || t > D + rad / hl || Math.abs(rx * dz - rz * dx) / hl > rad) continue; const y = py + dy * t; if (c.yt > y - 0.1 && c.yb < y + 0.1) D = Math.min(D, Math.max(0, t - rad / hl - 0.15)); }
+  }
+  return D;
+}
+function teleport(x, z, lookX, lookZ) { const f = findFree(x, z); WALK.x = f[0]; WALK.z = f[1]; WALK.y = WALK.floor = f[2]; WALK.vy = 0; if (lookX !== undefined) { WALK.yaw = Math.atan2(-(lookX - f[0]), -(lookZ - f[1])); WALK.pitch = -0.12; HERO.yaw = WALK.yaw + Math.PI; } }
 function enterWalk(x, z, lookX, lookZ) {
   stopTour(); UI.fly = null;
   if (x === undefined) { x = controls.target.x; z = controls.target.z; lookX = x + (controls.target.x - camera.position.x); lookZ = z + (controls.target.z - camera.position.z); }
@@ -97,21 +138,33 @@ function updateWalk(dt) {
   W.yaw += ((K.ArrowLeft || K.KeyQ ? 1 : 0) - (K.ArrowRight || K.KeyE ? 1 : 0)) * 1.9 * dt;
   let f = (K.KeyW || K.ArrowUp ? 1 : 0) - (K.KeyS || K.ArrowDown ? 1 : 0) - W.joy.y + W.go, r = (K.KeyD ? 1 : 0) - (K.KeyA ? 1 : 0) + W.joy.x;
   const l = Math.hypot(f, r); if (l > 1) { f /= l; r /= l; }
-  const sp = (K.ShiftLeft || K.ShiftRight || W.run ? 5.4 : 1.75) * OPT.walkSpeed, sn = Math.sin(W.yaw), cs = Math.cos(W.yaw), dx = (-sn * f + cs * r) * sp * dt, dz = (-cs * f - sn * r) * sp * dt;
+  const run = !!(K.ShiftLeft || K.ShiftRight || W.run), sp = (run ? 5.4 : 1.75) * OPT.walkSpeed, sn = Math.sin(W.yaw), cs = Math.cos(W.yaw), dx = (-sn * f + cs * r) * sp * dt, dz = (-cs * f - sn * r) * sp * dt;
+  let moved = false;
   if (l > 0.01) {
     let fl = floorAt(W.x + dx, W.z + dz, W.y);
     if (fl !== null) { W.x += dx; W.z += dz; } else if ((fl = floorAt(W.x + dx, W.z, W.y)) !== null) W.x += dx; else if ((fl = floorAt(W.x, W.z + dz, W.y)) !== null) W.z += dz;
-    if (fl !== null) { W.floor = fl; W.bob += Math.hypot(dx, dz) * 3.3; if (W.onGround && Math.floor(W.bob / Math.PI) !== W.step) { W.step = Math.floor(W.bob / Math.PI); SND.step(); } }
+    if (fl !== null) { moved = true; W.floor = fl; W.bob += Math.hypot(dx, dz) * 3.3; if (W.onGround && Math.floor(W.bob / Math.PI) !== W.step) { W.step = Math.floor(W.bob / Math.PI); SND.step(); } }
   }
   if (K.Space && W.onGround) { W.vy = 4.6; W.onGround = false; }
   if (W.y > W.floor + 0.002 || W.vy > 0) { W.vy -= 18 * dt; W.y += W.vy * dt; W.onGround = false; if (W.y <= W.floor) { W.y = W.floor; W.vy = 0; W.onGround = true; } }
   else { W.y = Math.min(W.floor, W.y + 5 * dt); W.onGround = true; }
-  camera.position.set(W.x, W.y + W.eye + (l > 0.01 && W.onGround ? Math.sin(W.bob * 2) * 0.022 : 0), W.z);
-  camera.rotation.set(W.pitch, W.yaw, 0, 'YXZ');
-  if (Math.abs(camera.fov - W.fov) > 0.05) { camera.fov += (W.fov - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); }
+  // camera: looks along (yaw, pitch) from behind the walker's head, pulled in when a wall is in the way
+  const cp = Math.cos(W.pitch), fx = -sn * cp, fy = Math.sin(W.pitch), fz = -cs * cp, hy = W.y + W.eye;
+  const reach = W.dist > 0 ? camReach(W.x, hy, W.z, -fx, -fy, -fz, W.dist) : 0;
+  W.cam = reach < W.cam ? reach : W.cam + (reach - W.cam) * Math.min(1, dt * 4);
+  const D = W.cam, fp = D <= 0.7;
+  let cx = W.x - fx * D, cy = hy - fy * D + (fp ? (moved && W.onGround ? Math.sin(W.bob * 2) * 0.022 : 0) : 0.12), cz = W.z - fz * D;
+  if (!fp) {      // keep it above the ground and out of any plinth it has backed into
+    const td = talabDepthAt(cx, cz); cy = Math.max(cy, (td === null ? Math.min(0, W.y) : td === -99 ? W.y : td) + 0.3);
+    for (const p of PLATFORMS) if (cy > p.yb - 0.2 && cy < p.yt + 0.3 && p.yt < W.y + 4 && inObb(p, cx, cz)) cy = p.yt + 0.3;
+  }
+  camera.position.set(cx, cy, cz); camera.rotation.set(W.pitch, W.yaw, 0, 'YXZ');
+  const fov = fp ? 72 : 62; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix(); }
+  if (fp !== W.fp) { W.fp = fp; document.body.classList.toggle('fp', fp); }
+  poseHero(dt, moved, run, dx, dz);
   LIFE.player.x = W.x; LIFE.player.z = W.z;
 }
-function lookBy(mx, my, k = 0.0023) { if (UI.mode === 'walk') { k *= camera.fov / 72; WALK.yaw -= mx * k; WALK.pitch = clamp(WALK.pitch - my * k, -1.45, 1.45); } }
+function lookBy(mx, my, k = 0.0023) { if (UI.mode === 'walk') { WALK.yaw -= mx * k; WALK.pitch = clamp(WALK.pitch - my * k, -1.45, WALK.fp ? 1.45 : 0.9); } }
 
 /* ───────────── mode switching ───────────── */
 function setMode(m, quiet) {
@@ -123,10 +176,10 @@ function setMode(m, quiet) {
   document.querySelectorAll('#modes [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
   controls.enabled = m === 'orbit';
   if (m === 'orbit') {
-    camera.near = 2; camera.fov = FOV; camera.updateProjectionMatrix();
+    camera.near = 2; camera.fov = FOV; camera.updateProjectionMatrix(); HERO.g.visible = false;
     if (from !== 'orbit') { const p = new THREE.Vector3(WALK.x, WALK.y, WALK.z), d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0; d.normalize(); controls.target.copy(p).setY(p.y + 4); camera.position.copy(p).addScaledVector(d, -46).setY(p.y + 30); camera.rotation.order = 'XYZ'; controls.update(); }
-  } else { camera.near = 0.14; camera.fov = WALK.fov = 72; WALK.go = 0; camera.updateProjectionMatrix(); setHot(null); }
-  if (m === 'walk') { el('keys').innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> hop<br><kbd>Mouse</kbd> look · hold <kbd>Left button</kbd> walk · <kbd>Wheel</kbd> zoom · <kbd>M</kbd> map · <kbd>Esc</kbd> release, <kbd>Esc</kbd> again to leave'; if (!TOUCH && !quiet) toast('Click the view to look around with the mouse'); }
+  } else { camera.near = 0.14; camera.fov = 72; WALK.go = 0; WALK.cam = 0; camera.updateProjectionMatrix(); setHot(null); }      // the camera starts at the walker's eyes and drifts back
+  if (m === 'walk') { el('keys').innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> hop<br><kbd>Mouse</kbd> look · hold <kbd>Left button</kbd> walk · <kbd>Wheel</kbd> camera<br><kbd>M</kbd> map · <kbd>Esc</kbd> release, <kbd>Esc</kbd> again to leave'; if (!TOUCH && !quiet) toast('Click the view to look around with the mouse'); }
 }
 
 /* ───────────── labels and the places list ───────────── */
@@ -190,7 +243,7 @@ function buildMinimap() {
 }
 function drawMinimap() {
   const g = el('minimap').getContext('2d'), S = 200, o = UI.mode === 'orbit';
-  const sx = o ? controls.target.x : camera.position.x, sz = o ? controls.target.z : camera.position.z;
+  const sx = o ? controls.target.x : WALK.x, sz = o ? controls.target.z : WALK.z;
   const mpp = o ? clamp(camera.position.distanceTo(controls.target) / 80, 1.2, 8) : 1.05, half = S / 2 * mpp * MM.s, cx = (sx - MM.B[0]) * MM.s, cz = (sz - MM.B[2]) * MM.s;
   g.fillStyle = '#cdbfa3'; g.fillRect(0, 0, S, S); g.drawImage(MM.base, cx - half, cz - half, half * 2, half * 2, 0, 0, S, S);
   g.font = '600 10px "Segoe UI",sans-serif'; g.textAlign = 'center';
@@ -311,7 +364,7 @@ function wire() {
   const release = () => { WALK.drag = null; WALK.go = 0; document.body.classList.remove('grabbing'); };
   addEventListener('pointerup', release); addEventListener('pointercancel', release);
   // caught on the way down to the canvas, so the wheel is ours alone (OrbitControls still handles pinch and middle-drag zoom)
-  el('stage').addEventListener('wheel', e => { e.preventDefault(); e.stopPropagation(); UI.fly = null; stopTour(); if (UI.mode === 'walk') WALK.fov = clamp(WALK.fov * (e.deltaY > 0 ? 1.15 : 1 / 1.15), 20, 72); else wheelZoom(e); }, { capture: true, passive: false });
+  el('stage').addEventListener('wheel', e => { e.preventDefault(); e.stopPropagation(); UI.fly = null; stopTour(); if (UI.mode === 'walk') { const out = e.deltaY > 0; let d = WALK.dist + (out ? 1 : -1) * Math.max(0.7, WALK.dist * 0.2); if (d < 1.3) d = out ? 1.6 : 0; WALK.dist = Math.min(d, 10); } else wheelZoom(e); }, { capture: true, passive: false });      // walk: wheeling right in looks through the walker's eyes
   cv.addEventListener('dblclick', e => {
     if (UI.mode !== 'orbit' || labelAt(e.clientX, e.clientY)) return;
     const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera);
@@ -391,6 +444,6 @@ async function main() {
   UI.fly = { t: 0, dur: 5, c0: camera.position.clone(), t0: controls.target.clone(), c1: new THREE.Vector3(-176, 44, 52), t1: new THREE.Vector3(-34, 14, -24) };
   frame();
   const ld = el('load'); ld.style.opacity = 0; setTimeout(() => ld.remove(), 900);
-  window.HUSSAINABAD = { scene, camera, controls, renderer, UI, WALK, TIME, OPT, LIFE, setMode, enterWalk, flyTo, zoomBy, panTo, setTime, setWeather, floorAt, look: (a, b, c, d, e, f) => { UI.fly = null; camera.position.set(a, b, c); controls.target.set(d, e, f); controls.update(); } };
+  window.HUSSAINABAD = { scene, camera, controls, renderer, UI, WALK, TIME, OPT, LIFE, HERO, NAV, setMode, enterWalk, flyTo, zoomBy, panTo, setTime, setWeather, floorAt, look: (a, b, c, d, e, f) => { UI.fly = null; camera.position.set(a, b, c); controls.target.set(d, e, f); controls.update(); } };
 }
 main();
