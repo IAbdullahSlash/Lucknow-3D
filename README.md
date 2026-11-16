@@ -18,8 +18,8 @@ then visit `http://localhost:8123`.
 
 | Mode | How |
 | --- | --- |
-| **Explore** | Drag to orbit, right-drag to pan, scroll to zoom. Click a label or a name in the list to fly there. |
-| **Walk** | Press `2`, double-click any spot on the ground, or use *Walk here* on a place card. `W A S D` to move, mouse to look, `Shift` to run, `Space` to hop. Buildings, railings and water block you; steps and plinths can be climbed. On a phone a joystick appears. |
+| **Explore** | Drag to move across the map, right-drag (or `Shift`-drag) to turn and tilt, scroll to zoom in on whatever is under the cursor. The `+` / `−` buttons and keys zoom too, and a click on the minimap slides the view there. Click a label or a name in the list to fly to it. |
+| **Walk** | Press `2`, double-click any spot on the ground, or use *Walk here* on a place card. `W A S D` to move, or hold the left mouse button to walk where you look (right button steps back); mouse to look, wheel to zoom, `Shift` to run, `Space` to hop. Buildings, railings and water block you; steps and plinths can be climbed. On a phone a joystick appears. |
 | **Tour** | A guided fly-through of every landmark. |
 
 **Options** (`O`) cover label language (Hindi, Urdu, English), weather (clear, haze, overcast, winter fog, monsoon rain), festive night illumination, walking pace, graphics quality, shadows and synthesised street sound. The time bar follows live Indian Standard Time with the real sun path for Lucknow, or jumps to sunrise, midday, golden hour, dusk or night. Crowds and traffic follow the hour on their own: near-empty before dawn, a morning rush, and the busiest streets in the evening.

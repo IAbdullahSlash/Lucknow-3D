@@ -3,6 +3,9 @@
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.07; controls.maxPolarAngle = Math.PI * 0.492; controls.minDistance = 12; controls.maxDistance = 1150;
+controls.screenSpacePanning = false; controls.zoomSpeed = 1.4; controls.panSpeed = 1.15; controls.rotateSpeed = 0.7;
+controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };   // Shift or Ctrl + drag also turns
+controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
 controls.target.set(-20, 20, -10);
 const UI = { mode: 'orbit', fly: null, tour: null, T: 0, frame: 0, card: null };
 const el = id => document.getElementById(id), KEYS = {};
@@ -43,6 +46,25 @@ function findFree(x, z) { for (let r = 0; r < 40; r += 0.8) for (let k = 0; k < 
 /* ───────────── camera: explore (orbit) ───────────── */
 const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 function flyTo(p, dur = 2.2) { if (UI.mode !== 'orbit') setMode('orbit', true); UI.fly = { t: 0, dur, c0: camera.position.clone(), t0: controls.target.clone(), c1: new THREE.Vector3(...p.cam), t1: new THREE.Vector3(...p.tgt) }; }
+/** glide the camera without turning it: zoom by a factor about the centre of view, or slide to a ground point */
+function glide(offset, target, dur) { stopTour(); ZOOM.v = 0; UI.fly = { t: 0, dur, c0: camera.position.clone(), t0: controls.target.clone(), c1: target.clone().add(offset), t1: target }; }
+function zoomBy(f) { if (UI.mode !== 'orbit') return; const o = camera.position.clone().sub(controls.target); o.setLength(clamp(o.length() * f, controls.minDistance, controls.maxDistance)); glide(o, controls.target.clone(), 0.35); }
+function panTo(x, z) { if (UI.mode !== 'orbit') return; const o = camera.position.clone().sub(controls.target); glide(o, new THREE.Vector3(x, controls.target.y, z), 0.9); }
+/** wheel zoom: the ground under the cursor stays under the cursor and the view never turns */
+const ZOOM = { v: 0, at: new THREE.Vector3(), ray: new THREE.Raycaster(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) };
+function wheelZoom(e) {
+  const t = controls.target, dist = camera.position.distanceTo(t);
+  ZOOM.ray.setFromCamera(new THREE.Vector2(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera); ZOOM.plane.constant = -t.y;
+  if (!ZOOM.ray.ray.intersectPlane(ZOOM.plane, ZOOM.at) || ZOOM.at.distanceTo(camera.position) > dist * 3) ZOOM.at.copy(t);   // aimed at the sky or the far horizon: zoom on the centre of view
+  ZOOM.v = clamp(ZOOM.v + clamp(e.deltaY * (e.deltaMode ? 33 : 1), -300, 300) * 0.0017, -1.3, 1.3);
+}
+function updateZoom(dt) {
+  if (Math.abs(ZOOM.v) < 0.002) { ZOOM.v = 0; return; }
+  const step = ZOOM.v * Math.min(1, dt * 11); ZOOM.v -= step;
+  const t = controls.target, d = camera.position.distanceTo(t), s = clamp(d * Math.exp(step), controls.minDistance, controls.maxDistance) / d;
+  if (s === 1) { ZOOM.v = 0; return; }
+  camera.position.sub(ZOOM.at).multiplyScalar(s).add(ZOOM.at); t.sub(ZOOM.at).multiplyScalar(s).add(ZOOM.at);
+}
 function selectPlace(p, fly = true) {
   document.querySelectorAll('#places button').forEach(b => b.classList.toggle('on', b.dataset.id === p.id));
   if (UI.mode === 'walk' && p.walk) { teleport(p.walk[0], p.walk[1], p.walk[2], p.walk[3]); showCard(p); return; }
@@ -60,7 +82,7 @@ function tourStep() { const p = LABELS.find(l => l.id === TOUR[UI.tour.i % TOUR.
 function startTour() { setMode('orbit', true); UI.tour = { i: 0, left: 0 }; controls.autoRotate = true; controls.autoRotateSpeed = 0.7; el('bTour').classList.add('on'); el('bTour').textContent = '■ Stop'; tourStep(); }
 
 /* ───────────── camera: walk (first person) ───────────── */
-const WALK = { x: 0, y: 0, z: 0, vy: 0, floor: 0, yaw: 0, pitch: 0, eye: 1.66, bob: 0, onGround: true, run: false, joy: { x: 0, y: 0 }, locked: false, drag: null, step: 0 };
+const WALK = { x: 0, y: 0, z: 0, vy: 0, floor: 0, yaw: 0, pitch: 0, eye: 1.66, bob: 0, onGround: true, run: false, joy: { x: 0, y: 0 }, locked: false, drag: null, step: 0, fov: 72, go: 0 };
 LIFE.player = { x: 0, z: 0, active: false };
 function teleport(x, z, lookX, lookZ) { const f = findFree(x, z); WALK.x = f[0]; WALK.z = f[1]; WALK.y = WALK.floor = f[2]; WALK.vy = 0; if (lookX !== undefined) { WALK.yaw = Math.atan2(-(lookX - f[0]), -(lookZ - f[1])); WALK.pitch = 0.04; } }
 function enterWalk(x, z, lookX, lookZ) {
@@ -73,7 +95,7 @@ function lockPointer() { try { const r = renderer.domElement.requestPointerLock 
 function updateWalk(dt) {
   const W = WALK, K = KEYS;
   W.yaw += ((K.ArrowLeft || K.KeyQ ? 1 : 0) - (K.ArrowRight || K.KeyE ? 1 : 0)) * 1.9 * dt;
-  let f = (K.KeyW || K.ArrowUp ? 1 : 0) - (K.KeyS || K.ArrowDown ? 1 : 0) - W.joy.y, r = (K.KeyD ? 1 : 0) - (K.KeyA ? 1 : 0) + W.joy.x;
+  let f = (K.KeyW || K.ArrowUp ? 1 : 0) - (K.KeyS || K.ArrowDown ? 1 : 0) - W.joy.y + W.go, r = (K.KeyD ? 1 : 0) - (K.KeyA ? 1 : 0) + W.joy.x;
   const l = Math.hypot(f, r); if (l > 1) { f /= l; r /= l; }
   const sp = (K.ShiftLeft || K.ShiftRight || W.run ? 5.4 : 1.75) * OPT.walkSpeed, sn = Math.sin(W.yaw), cs = Math.cos(W.yaw), dx = (-sn * f + cs * r) * sp * dt, dz = (-cs * f - sn * r) * sp * dt;
   if (l > 0.01) {
@@ -86,14 +108,15 @@ function updateWalk(dt) {
   else { W.y = Math.min(W.floor, W.y + 5 * dt); W.onGround = true; }
   camera.position.set(W.x, W.y + W.eye + (l > 0.01 && W.onGround ? Math.sin(W.bob * 2) * 0.022 : 0), W.z);
   camera.rotation.set(W.pitch, W.yaw, 0, 'YXZ');
+  if (Math.abs(camera.fov - W.fov) > 0.05) { camera.fov += (W.fov - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); }
   LIFE.player.x = W.x; LIFE.player.z = W.z;
 }
-function lookBy(mx, my, k = 0.0023) { if (UI.mode === 'walk') { WALK.yaw -= mx * k; WALK.pitch = clamp(WALK.pitch - my * k, -1.45, 1.45); } }
+function lookBy(mx, my, k = 0.0023) { if (UI.mode === 'walk') { k *= camera.fov / 72; WALK.yaw -= mx * k; WALK.pitch = clamp(WALK.pitch - my * k, -1.45, 1.45); } }
 
 /* ───────────── mode switching ───────────── */
 function setMode(m, quiet) {
   if (m === UI.mode) return;
-  const from = UI.mode; stopTour(); UI.fly = null;
+  const from = UI.mode; stopTour(); UI.fly = null; ZOOM.v = 0;
   if (from === 'walk' && document.pointerLockElement) document.exitPointerLock();
   if (m === 'walk' && !quiet) return enterWalk();
   UI.mode = m; document.body.classList.toggle('walk', m === 'walk'); LIFE.player.active = m === 'walk';
@@ -102,9 +125,8 @@ function setMode(m, quiet) {
   if (m === 'orbit') {
     camera.near = 2; camera.fov = FOV; camera.updateProjectionMatrix();
     if (from !== 'orbit') { const p = new THREE.Vector3(WALK.x, WALK.y, WALK.z), d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0; d.normalize(); controls.target.copy(p).setY(p.y + 4); camera.position.copy(p).addScaledVector(d, -46).setY(p.y + 30); camera.rotation.order = 'XYZ'; controls.update(); }
-    el('hint').textContent = 'Drag to orbit · right-drag to pan · scroll to zoom · double-click the ground to walk there';
-  } else { camera.near = 0.14; camera.fov = 72; camera.updateProjectionMatrix(); }
-  if (m === 'walk') { el('keys').innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> hop<br><kbd>Mouse</kbd> look · <kbd>M</kbd> map · <kbd>Esc</kbd> release, <kbd>Esc</kbd> again to leave'; if (!TOUCH && !quiet) toast('Click the view to look around with the mouse'); }
+  } else { camera.near = 0.14; camera.fov = WALK.fov = 72; WALK.go = 0; camera.updateProjectionMatrix(); setHot(null); }
+  if (m === 'walk') { el('keys').innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> hop<br><kbd>Mouse</kbd> look · hold <kbd>Left button</kbd> walk · <kbd>Wheel</kbd> zoom · <kbd>M</kbd> map · <kbd>Esc</kbd> release, <kbd>Esc</kbd> again to leave'; if (!TOUCH && !quiet) toast('Click the view to look around with the mouse'); }
 }
 
 /* ───────────── labels and the places list ───────────── */
@@ -114,11 +136,16 @@ function buildLabels() {
     if (p.cam && !p.small && !p.road) { const b = document.createElement('button'); b.dataset.id = p.id; b.innerHTML = `${p.en}<small>${p.hi}</small>`; b.onclick = () => { stopTour(); selectPlace(p); el('placesWrap').classList.remove('open'); }; list.append(b); }
     if (p.nolabel) continue;
     const d = document.createElement('div'); d.className = 'lbl' + (p.small ? ' small' : '') + (p.road ? ' road' : '') + (p.poi ? ' poi' : ''); d.innerHTML = `<span class="hi"></span><span class="en">${p.en.toUpperCase()}</span>`;
-    if (!p.road && !p.poi) d.onclick = () => { stopTour(); selectPlace(p); };
     p.dom = d; p.obj = new CSS2DObject(d); p.obj.position.set(...p.pos); scene.add(p.obj);
   }
   applyLabelLang();
 }
+function labelAt(x, y) {
+  if (OPT.labels === 'off' || document.body.classList.contains('photo')) return null;
+  for (const p of LABELS) if (p.dom && !p.road && !p.poi && p.obj.visible && p.dom.style.display !== 'none') { const r = p.dom.getBoundingClientRect(); if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return p; }
+  return null;
+}
+function setHot(p) { if (UI.hot === p) return; if (UI.hot) UI.hot.dom.classList.remove('hot'); UI.hot = p; if (p) p.dom.classList.add('hot'); renderer.domElement.style.cursor = p ? 'pointer' : ''; }
 function applyLabelLang() {
   document.body.classList.toggle('nolabels', OPT.labels === 'off'); document.body.classList.toggle('lang-en', OPT.labels === 'en');
   for (const p of LABELS) { if (p.dom) { const s = p.dom.firstChild; s.textContent = OPT.labels === 'ur' ? p.ur : p.hi; s.dir = OPT.labels === 'ur' ? 'rtl' : 'ltr'; } }
@@ -263,18 +290,35 @@ function wire() {
   el('cardWalk').onclick = () => { const p = UI.card; if (p && p.walk) enterWalk(p.walk[0], p.walk[1], p.walk[2], p.walk[3]); };
   document.querySelectorAll('#timebar button').forEach(b => { b.onclick = () => setTime(b.dataset.t); });
   el('tExit').onclick = () => setMode('orbit'); el('tRun').onclick = () => { WALK.run = !WALK.run; el('tRun').classList.toggle('on', WALK.run); };
-  const cv = renderer.domElement;
-  cv.addEventListener('pointerdown', e => { stopTour(); UI.fly = null; if (UI.mode === 'walk' && !TOUCH && !document.pointerLockElement && e.button === 0) lockPointer(); if (UI.mode !== 'orbit') { WALK.drag = [e.clientX, e.clientY, e.pointerId]; } });
+  el('zIn').onclick = () => zoomBy(0.6); el('zOut').onclick = () => zoomBy(1 / 0.6);
+  el('minimap').onclick = e => { if (UI.mode !== 'orbit') return; const r = e.currentTarget.getBoundingClientRect(), mpp = clamp(camera.position.distanceTo(controls.target) / 80, 1.2, 8) * 200 / r.width; panTo(controls.target.x + (e.clientX - r.left - r.width / 2) * mpp, controls.target.z + (e.clientY - r.top - r.height / 2) * mpp); };
+  const cv = renderer.domElement; let press = null, hoverT = 0;
+  cv.addEventListener('pointerdown', e => {
+    stopTour(); UI.fly = null; ZOOM.v = 0; press = [e.clientX, e.clientY, performance.now(), e.button];
+    if (UI.mode === 'orbit') document.body.classList.add('grabbing');
+    else if (document.pointerLockElement === cv) WALK.go = e.button === 2 ? -1 : e.button === 0 ? 1 : WALK.go;      // hold left to walk on, right to step back
+    else if (!TOUCH && e.button === 0) lockPointer();
+    if (UI.mode !== 'orbit') WALK.drag = [e.clientX, e.clientY, e.pointerId];
+  });
+  cv.addEventListener('pointerup', e => {      // a click that did not drag: was it on a place label?
+    if (!press || UI.mode !== 'orbit' || press[3] !== 0 || Math.hypot(e.clientX - press[0], e.clientY - press[1]) > 5 || performance.now() - press[2] > 500) return;
+    const p = labelAt(e.clientX, e.clientY); if (p) selectPlace(p);
+  });
+  cv.addEventListener('pointermove', e => { if (UI.mode !== 'orbit' || e.buttons || e.timeStamp - hoverT < 50) return; hoverT = e.timeStamp; setHot(labelAt(e.clientX, e.clientY)); });
+  cv.addEventListener('pointerleave', () => setHot(null));
+  cv.addEventListener('contextmenu', e => e.preventDefault());
   addEventListener('pointermove', e => { if (document.pointerLockElement === cv) lookBy(e.movementX, e.movementY); else if (WALK.drag && UI.mode !== 'orbit' && e.pointerId === WALK.drag[2]) { lookBy(-(e.clientX - WALK.drag[0]) * 1.6, -(e.clientY - WALK.drag[1]) * 1.6); WALK.drag[0] = e.clientX; WALK.drag[1] = e.clientY; } });
-  addEventListener('pointerup', () => { WALK.drag = null; });
-  cv.addEventListener('wheel', () => { UI.fly = null; stopTour(); }, { passive: true });
+  const release = () => { WALK.drag = null; WALK.go = 0; document.body.classList.remove('grabbing'); };
+  addEventListener('pointerup', release); addEventListener('pointercancel', release);
+  // caught on the way down to the canvas, so the wheel is ours alone (OrbitControls still handles pinch and middle-drag zoom)
+  el('stage').addEventListener('wheel', e => { e.preventDefault(); e.stopPropagation(); UI.fly = null; stopTour(); if (UI.mode === 'walk') WALK.fov = clamp(WALK.fov * (e.deltaY > 0 ? 1.15 : 1 / 1.15), 20, 72); else wheelZoom(e); }, { capture: true, passive: false });
   cv.addEventListener('dblclick', e => {
-    if (UI.mode !== 'orbit') return;
+    if (UI.mode !== 'orbit' || labelAt(e.clientX, e.clientY)) return;
     const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera);
     const hit = new THREE.Vector3(); if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) return;
     const d = new THREE.Vector3(); camera.getWorldDirection(d); enterWalk(hit.x, hit.z, hit.x + d.x, hit.z + d.z);
   });
-  document.addEventListener('pointerlockchange', () => { WALK.locked = document.pointerLockElement === cv; if (!WALK.locked && UI.mode === 'walk') toast('Click the view to look around again · Esc to leave walk mode', 3600); });
+  document.addEventListener('pointerlockchange', () => { WALK.locked = document.pointerLockElement === cv; if (!WALK.locked) WALK.go = 0; if (!WALK.locked && UI.mode === 'walk') toast('Click the view to look around again · Esc to leave walk mode', 3600); });
   // touch joystick
   const joy = el('joy'), knob = joy.firstElementChild; let jid = null;
   const jmove = e => { const r = joy.getBoundingClientRect(), x = clamp((e.clientX - r.left - r.width / 2) / (r.width / 2), -1, 1), y = clamp((e.clientY - r.top - r.height / 2) / (r.height / 2), -1, 1); WALK.joy.x = x; WALK.joy.y = y; knob.style.transform = `translate(${x * 30}px,${y * 30}px)`; };
@@ -287,13 +331,14 @@ function wire() {
     if (UI.mode === 'walk' && /Arrow|Space/.test(e.code)) e.preventDefault();
     if (e.repeat) return;
     if (e.code === 'Digit1') setMode('orbit'); else if (e.code === 'Digit2') setMode('walk');
+    else if (e.code === 'Equal' || e.code === 'NumpadAdd') zoomBy(0.6); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') zoomBy(1 / 0.6);
     else if (e.code === 'KeyO') el('bOptions').click(); else if (e.code === 'KeyH') togglePhoto(); else if (e.code === 'KeyP') screenshot(); else if (e.code === 'KeyT' && UI.mode === 'orbit') el('bTour').click();
     else if (e.code === 'KeyM') { OPT.minimap = !OPT.minimap; el('mapWrap').classList.toggle('show', OPT.minimap); saveOptions(); buildOptions(); }
     else if (e.code === 'KeyL') { const o = ['hi', 'ur', 'en', 'off']; OPT.labels = o[(o.indexOf(OPT.labels) + 1) % 4]; applyLabelLang(); saveOptions(); buildOptions(); }
     else if (e.code === 'Escape') { if (document.body.classList.contains('photo')) togglePhoto(); else if (el('options').classList.contains('show')) el('bOptions').click(); else if (UI.mode !== 'orbit') setMode('orbit'); else showCard(null); }
   });
   addEventListener('keyup', e => { KEYS[e.code] = false; });
-  addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; });
+  addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; release(); });
   addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); labelRenderer.setSize(innerWidth, innerHeight); });
 }
 
@@ -307,7 +352,10 @@ function frame() {
   if (UI.mode === 'orbit') {
     if (UI.fly) { const f = UI.fly; f.t += Math.min(raw, 0.3) / f.dur; const k = ease(Math.min(f.t, 1)); camera.position.lerpVectors(f.c0, f.c1, k); controls.target.lerpVectors(f.t0, f.t1, k); if (f.t >= 1) UI.fly = null; }
     if (UI.tour && !UI.fly) { UI.tour.left -= dt; if (UI.tour.left <= 0) tourStep(); }
-    controls.update(); if (camera.position.y < 2.2) camera.position.y = 2.2;
+    if (!UI.fly) updateZoom(dt);
+    controls.update();
+    { const t = controls.target, B = MAP.bounds, x = clamp(t.x, B[0] + 80, B[1] - 80), z = clamp(t.z, B[2] + 80, B[3] - 80); if (x !== t.x || z !== t.z) { camera.position.x += x - t.x; camera.position.z += z - t.z; t.x = x; t.z = z; } }
+    if (camera.position.y < 2.2) camera.position.y = 2.2;
     const dist = camera.position.distanceTo(controls.target); FOG_SCALE = clamp(dist / 330, 1, 4.2); _foc.copy(controls.target).setY(0);
     const half = clamp(dist * 0.72, 110, 430); if (Math.abs(half - _shadowHalf) > _shadowHalf * 0.12) { _shadowHalf = half; const sc = sun.shadow.camera; sc.left = sc.bottom = -half; sc.right = sc.top = half; sc.updateProjectionMatrix(); }
   } else {
@@ -343,6 +391,6 @@ async function main() {
   UI.fly = { t: 0, dur: 5, c0: camera.position.clone(), t0: controls.target.clone(), c1: new THREE.Vector3(-176, 44, 52), t1: new THREE.Vector3(-34, 14, -24) };
   frame();
   const ld = el('load'); ld.style.opacity = 0; setTimeout(() => ld.remove(), 900);
-  window.HUSSAINABAD = { scene, camera, controls, renderer, UI, WALK, TIME, OPT, LIFE, setMode, enterWalk, flyTo, setTime, setWeather, floorAt, look: (a, b, c, d, e, f) => { UI.fly = null; camera.position.set(a, b, c); controls.target.set(d, e, f); controls.update(); } };
+  window.HUSSAINABAD = { scene, camera, controls, renderer, UI, WALK, TIME, OPT, LIFE, setMode, enterWalk, flyTo, zoomBy, panTo, setTime, setWeather, floorAt, look: (a, b, c, d, e, f) => { UI.fly = null; camera.position.set(a, b, c); controls.target.set(d, e, f); controls.update(); } };
 }
 main();

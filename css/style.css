@@ -6,7 +6,9 @@
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:#141018;color:var(--ink);font-family:var(--sans);-webkit-tap-highlight-color:transparent}
 #stage,#labels{position:fixed;inset:0}
-#stage canvas{display:block;touch-action:none}
+#stage canvas{display:block;touch-action:none;cursor:grab}
+body.grabbing #stage canvas{cursor:grabbing}
+body.walk #stage canvas{cursor:default}
 #labels{pointer-events:none}
 a{color:inherit}
 .panel{background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px}
@@ -81,14 +83,18 @@ body.photo #ui,body.photo #labels{display:none}
 
 #toast{position:fixed;left:50%;top:64px;transform:translateX(-50%);padding:8px 15px;font-size:12.5px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:calc(100vw - 30px);text-align:center}
 #toast.show{opacity:1}
+#zoom{position:fixed;left:16px;bottom:62px;display:flex;gap:6px}
+#zoom button{width:36px;height:36px;padding:0;font:600 19px/1 var(--sans);letter-spacing:0}
+body.walk #zoom{display:none}
+#minimap{cursor:pointer}
 #hint{position:fixed;left:16px;bottom:18px;font-size:11.5px;color:var(--mute);letter-spacing:.03em;text-shadow:0 1px 3px #000;max-width:30vw}
 #credit{position:fixed;right:16px;bottom:4px;font-size:10px;color:rgba(255,255,255,.6);text-shadow:0 1px 2px #000}
 
-.lbl{pointer-events:auto;cursor:pointer;text-align:center;transform:translateY(-50%);white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,.85),0 0 12px rgba(0,0,0,.5);user-select:none}
+.lbl{text-align:center;transform:translateY(-50%);white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,.85),0 0 12px rgba(0,0,0,.5);user-select:none}
 .lbl .hi{display:block;font:600 15px var(--sans);color:#ffe2a6}
 .lbl .en{display:block;font:700 10.5px var(--sans);letter-spacing:.16em;color:#fff}
 .lbl::after{content:"";display:block;width:1px;height:20px;margin:4px auto 0;background:linear-gradient(#fff,transparent)}
-.lbl:hover .en{color:var(--gold)}
+.lbl.hot .en{color:var(--gold)}
 .lbl.small .hi{font-size:12.5px} .lbl.small .en{font-size:9px} .lbl.small::after{height:12px}
 .lbl.road{cursor:default;opacity:.85} .lbl.road .hi{font-size:12px;color:#e8dcc4} .lbl.road .en{font-size:9px;color:#d8d0c0} .lbl.road::after{display:none}
 .lbl.poi{cursor:default;background:rgba(20,15,22,.6);border-radius:8px;padding:2px 7px 3px;text-shadow:none}
@@ -109,7 +115,7 @@ body.nolabels #labels{display:none}
   #title{left:10px;top:8px;padding:8px 13px} #title h1{font-size:18px} #title h1 span{font-size:15px} #title p{display:none}
   #modes{top:52px;right:8px;left:86px;gap:4px} #modes button{padding:6px 10px;font-size:11px}
   #placesWrap{top:52px;left:10px;max-height:60vh} #bPlaces{display:block;padding:6px 10px} #places{display:none;max-height:46vh} #placesWrap.open #places{display:flex}
-  #hint{display:none} #card{bottom:118px;right:10px;left:10px;width:auto;max-height:42vh;overflow-y:auto} #options{top:92px;right:8px;max-height:calc(100vh - 220px)}
+  #hint{display:none} #zoom{left:10px;bottom:112px} #card{bottom:118px;right:10px;left:10px;width:auto;max-height:42vh;overflow-y:auto} #options{top:92px;right:8px;max-height:calc(100vh - 220px)}
   #mapWrap{bottom:112px;right:10px} #minimap{width:116px;height:116px} body.card-open #mapWrap{top:92px}
   #timebar{bottom:14px;padding:6px 8px;gap:4px} #timebar button{padding:6px 8px;font-size:11px} #clock{min-width:66px;font-size:15px}
   #timebar [data-t=sunrise],#timebar [data-t=dusk],#timebar [data-t=golden]{display:none}
