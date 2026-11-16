@@ -155,7 +155,7 @@ function applyTime(dt, T) {
 /** how busy Hussainabad is at an hour, 0 (empty) .. 1 (peak): quiet before dawn, a morning rush, a steady afternoon
     and the evening peak when the food street and the lit monuments draw everyone out */
 const BUSY = {
-  crowd: [[0, 0.1], [3, 0.04], [5, 0.06], [7, 0.28], [10, 0.55], [13, 0.6], [16, 0.75], [18.5, 1], [21, 0.95], [22.5, 0.6], [24, 0.1]],
+  crowd: [[0, 0.1], [3, 0.04], [5, 0.07], [7, 0.34], [10, 0.66], [13, 0.72], [16, 0.86], [18.5, 1], [21, 0.96], [22.5, 0.62], [24, 0.1]],
   traffic: [[0, 0.12], [3, 0.05], [5, 0.1], [7, 0.45], [9.5, 0.95], [12, 0.7], [15, 0.75], [18, 1], [20.5, 0.85], [22.5, 0.45], [24, 0.12]],
 };
 function busyAt(kind, h) { const k = BUSY[kind]; h = ((h % 24) + 24) % 24; for (let i = 1; i < k.length; i++) if (h <= k[i][0]) { const a = k[i - 1], b = k[i], t = (h - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * (t * t * (3 - 2 * t)); } return k[0][1]; }

@@ -1,5 +1,5 @@
 'use strict';
-/* life.js — traffic on the real road graph, horses and carriages, people, street vendors, birds, kites, fountains */
+/* life.js — traffic on the real road graph, horses and carriages, people, stray animals, street vendors, birds, kites, fountains */
 
 const GLASS = 0x263640, GOLDC = 0xd9a63f, SKIN = [0xc68642, 0x8d5524, 0xe0ac69, 0xa9713f, 0xd9a066];
 const R = Math.random, rpick = a => a[(R() * a.length) | 0];
@@ -153,9 +153,9 @@ function spawnVehicles() {
   if (SPOKE.instanceColor) SPOKE.instanceColor.needsUpdate = true; if (ALEG.instanceColor) ALEG.instanceColor.needsUpdate = true;
 }
 const GATES = [FRAME.gateE, FRAME.gateW], _pp = [0, 0, 0, 0];
-function quadLegs(i0, px, py, pz, cy, sy, zc, ph, amp, sc = 1) {
+function quadLegs(i0, px, py, pz, cy, sy, zc, ph, amp, sc = 1, fat = 1) {
   const a = ALEG.instanceMatrix.array;
-  for (let k = 0; k < 4; k++) { const fx = (k & 1 ? 0.2 : -0.2) * sc, fz = zc + (k < 2 ? 0.62 : -0.6) * sc, phase = ph + ((k === 0 || k === 3) ? 0 : Math.PI); setLimb(a, i0 + k, px, py, pz, cy, sy, fx, 1.04 * sc, fz, Math.sin(phase) * amp, 0.13 * sc, 1.04 * sc, 0.15 * sc); }
+  for (let k = 0; k < 4; k++) { const fx = (k & 1 ? 0.2 : -0.2) * sc, fz = zc + (k < 2 ? 0.62 : -0.6) * sc, phase = ph + ((k === 0 || k === 3) ? 0 : Math.PI); setLimb(a, i0 + k, px, py, pz, cy, sy, fx, 1.04 * sc, fz, Math.sin(phase) * amp, 0.13 * sc * fat, 1.04 * sc, 0.15 * sc * fat); }
 }
 function updateTraffic(dt, t) {
   const V = LIFE.vehicles, P = LIFE.player, nOn = Math.round(V.length * busyAt('traffic', TIME.hour)), ta = TYRE.instanceMatrix.array, sa = SPOKE.instanceMatrix.array, lit = TIME.night > 0.35;
@@ -245,12 +245,51 @@ function updateRiders(dt, t) {
   for (const r of RIDERS) { r.s = (r.s + r.sp * dt) % r.pl.len; const a = polyAt(r.pl, r.s, _pp); let dy = Math.atan2(a[2], a[3]) - r.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; r.yaw += dy * Math.min(1, dt * 3); const cy = Math.cos(r.yaw), sy = Math.sin(r.yaw), bob = Math.abs(Math.sin(r.s * 2.6 + r.ph)) * 0.04, m = r.mesh.matrix.elements; m[0] = cy; m[2] = -sy; m[8] = sy; m[10] = cy; m[12] = a[0]; m[13] = bob; m[14] = a[1]; r.mesh.matrixWorld.copy(r.mesh.matrix); quadLegs(r.l0, a[0], bob, a[1], cy, sy, 0, r.s * 2.6 + r.ph, 0.45); }
 }
 
+/* ───────────── strays: cows, dogs and goats ambling along the lanes ─────────────
+   bodies are modelled at horse scale (legs 1.04 tall, 1.2 apart) and shrunk by `sc`, so they share the horses' leg instances */
+const STRAYS = [], STRAY = {
+  cow: { n: 9, sc: 0.74, v: 0.45, rest: [8, 45], lazy: 0.14, fat: 2, swing: 0.28, cols: [0xe8e2d4, 0xd9cdb8, 0x6b4a32, 0x2a2420, 0xb9a78c, 0xe8e2d4],
+    build(p, c) { p.sph(0.6, 0, 1.5, 0, c, 0.95, 0.95, 1.9); p.sph(0.26, 0, 2.06, 0.62, c, 1, 0.8, 1.25); p.sph(0.34, 0, 1.72, 1.12, c, 1, 1.05, 1.35); p.box(0.4, 0.44, 0.7, 0, 1.72, 1.6, c, 0, 0.45); p.box(0.32, 0.26, 0.2, 0, 1.52, 1.93, 0x3a2e28);
+      for (const s of [-1, 1]) { p.cone(0.06, 0.36, s * 0.2, 2.12, 1.4, 0xd8d0c0, 5); p.box(0.26, 0.09, 0.14, s * 0.32, 1.9, 1.38, c); } p.box(0.07, 0.95, 0.07, 0, 1.35, -1.17, c, 0, -0.1); p.box(0.12, 0.2, 0.12, 0, 0.84, -1.22, 0x1c1410); } },
+  dog: { n: 14, sc: 0.36, v: 1.25, rest: [2, 14], lazy: 0.1, fat: 1.6, swing: 0.34, cols: [0xb98a56, 0x8a6a48, 0x2a211c, 0xd8c9a8, 0x6e5a48, 0xb98a56],
+    build(p, c) { p.sph(0.42, 0, 1.15, 0, c, 0.8, 0.85, 1.75); p.sph(0.32, 0, 1.58, 0.95, c, 0.9, 0.95, 1.05); p.box(0.22, 0.2, 0.4, 0, 1.5, 1.34, c); p.box(0.12, 0.1, 0.08, 0, 1.54, 1.55, 0x151210);
+      for (const s of [-1, 1]) p.cone(0.1, 0.26, s * 0.17, 1.94, 0.9, c, 4); p.box(0.1, 0.62, 0.1, 0, 1.56, -0.86, c, 0, -0.6); } },
+  goat: { n: 9, sc: 0.46, v: 0.8, rest: [3, 18], lazy: 0.12, fat: 1.4, swing: 0.32, cols: [0x1c1a18, 0xe8e2d4, 0x7a5a3c, 0x4a3b2e, 0xe8e2d4],
+    build(p, c) { p.sph(0.45, 0, 1.24, 0, c, 0.85, 0.9, 1.65); p.box(0.26, 0.62, 0.32, 0, 1.68, 0.78, c, 0, 0.45); p.box(0.22, 0.26, 0.48, 0, 2.02, 1.1, c, 0, 0.3); p.box(0.06, 0.2, 0.06, 0, 1.8, 1.24, c);
+      for (const s of [-1, 1]) { p.cone(0.04, 0.28, s * 0.08, 2.28, 0.98, 0x3a3028, 4); p.box(0.16, 0.06, 0.1, s * 0.17, 2.08, 0.96, c); } p.box(0.08, 0.2, 0.08, 0, 1.52, -0.78, c); } },
+};
+function spawnStrays() {
+  const lanes = footEdges.filter(e => e.len > 14 && !e.prom && mainProject(e.pl.p[0], e.pl.p[1]).d < 330), close = lanes.filter(e => mainProject(e.pl.p[0], e.pl.p[1]).d < 110); if (!lanes.length) return;
+  for (const def of Object.values(STRAY)) for (let i = 0; i < def.n; i++) {
+    const c = rpick(def.cols), p = painter(); def.build(p, c); const mesh = new THREE.Mesh(p.done(), propMat); mesh.castShadow = true; mesh.matrixAutoUpdate = false; scene.add(mesh);
+    for (let k = 0; k < 4; k++) ALEG.setColorAt(nLeg + k, _c.set(c).multiplyScalar(0.85));
+    const e = rpick(close.length && R() < 0.5 ? close : lanes), side = R() < 0.5 ? 1 : -1;
+    STRAYS.push({ def, mesh, l0: nLeg, e, off: pedOffset(e, side, 0.6 + R() * 0.4), s: R() * e.len, d: R() < 0.5 ? 1 : -1, wait: R() * def.rest[1], ph: R() * 6, yaw: R() * TAU, x: 0, y: 0, z: 0, snap: true }); nLeg += 4;
+  }
+  if (ALEG.instanceColor) ALEG.instanceColor.needsUpdate = true;
+}
+function updateStrays(dt, t) {
+  const P = LIFE.player, pa = !!(P && P.active);
+  for (const q of STRAYS) {
+    const def = q.def, sc = def.sc, walking = q.wait <= 0;
+    if (!walking) q.wait -= dt;
+    else { q.s += def.v * dt; q.ph += def.v * dt * 2.6 / sc; if (q.s >= q.e.len) { q.s = 0; q.d = -q.d; q.off = -q.off; } if (R() < dt * def.lazy) q.wait = lerp(def.rest[0], def.rest[1], R()); }     // turn back at the end of the lane; stop to stand about now and then
+    const a = polyAt(q.e.pl, q.d > 0 ? q.s : q.e.len - q.s, _pp), tx = a[2] * q.d, tz = a[3] * q.d, gx = a[0] + tz * q.off, gz = a[1] - tx * q.off;
+    if (q.snap) { q.x = gx; q.z = gz; q.snap = false; } else if (walking) { const k = Math.min(1, dt * 2); q.x += (gx - q.x) * k; q.z += (gz - q.z) * k; }
+    q.y = Math.abs(q.off) > 7.2 && hasFootpath(q.e) ? 0.16 : 0; const shy = pa && giveWay(q, P, 1.5, dt);
+    if (walking) { let dy = Math.atan2(tx, tz) - q.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; q.yaw += dy * Math.min(1, dt * 2.5); } else if (shy) q.ph += dt * 5;
+    const cy = Math.cos(q.yaw), sy = Math.sin(q.yaw), m = q.mesh.matrix.elements;
+    m[0] = cy * sc; m[2] = -sy * sc; m[5] = sc; m[8] = sy * sc; m[10] = cy * sc; m[12] = q.x; m[13] = q.y; m[14] = q.z; q.mesh.matrixWorld.copy(q.mesh.matrix);
+    quadLegs(q.l0, q.x, q.y, q.z, cy, sy, 0, q.ph, walking || shy ? def.swing : 0, sc, def.fat);
+  }
+}
+
 /* ───────────── people ───────────── */
-const NPMAX = 1150;
+const NPMAX = 2300;
 const PP = {
   torso: instanced(new THREE.BoxGeometry(0.44, 0.58, 0.25), M(0xffffff), NPMAX), robe: instanced(new THREE.CylinderGeometry(0.2, 0.3, 1, 8).translate(0, -0.5, 0), M(0xffffff), NPMAX),
   leg: instanced(new THREE.BoxGeometry(0.16, 0.86, 0.18).translate(0, -0.43, 0), M(0xffffff), NPMAX * 2, false), arm: instanced(new THREE.BoxGeometry(0.11, 0.6, 0.12).translate(0, -0.3, 0), M(0xffffff), NPMAX * 2, false),
-  head: instanced(new THREE.SphereGeometry(0.118, 8, 6), M(0xffffff), NPMAX, false), hair: instanced(new THREE.SphereGeometry(0.13, 8, 6), M(0xffffff, { roughness: 1 }), NPMAX, false), bag: instanced(new THREE.BoxGeometry(0.3, 0.36, 0.15), M(0xffffff), 160, false),
+  head: instanced(new THREE.SphereGeometry(0.118, 7, 4), M(0xffffff), NPMAX, false), hair: instanced(new THREE.SphereGeometry(0.13, 7, 4), M(0xffffff, { roughness: 1 }), NPMAX, false), bag: instanced(new THREE.BoxGeometry(0.3, 0.36, 0.15), M(0xffffff), 300, false),
 };
 const KURTA = [0xf5f2ea, 0xf5f2ea, 0xf5f2ea, 0xece5d2, 0xdfe9ee, 0xe2ecd9, 0xd9d9d9, 0xcfc3a8], PANTS = [0x1f2a44, 0x16161a, 0x4a4a52, 0x7a6f57, 0x34507a, 0x2b2b33], HAIRC = [0x15100c, 0x15100c, 0x2a1d14, 0x3b2a1e, 0x8f8f8f];
 let nBag = 0;
@@ -264,7 +303,7 @@ function newPerson(kind) {
   else if (k === 2) { body = R() < 0.85 ? 0x141416 : rpick([0x2c2c54, 0x3d2c3e, 0x4a3b2a]); legc = body; hair = R() < 0.75 ? body : rpick(BRIGHT); hs = 1.14; }
   else if (k === 3) { body = rpick(BRIGHT); legc = R() < 0.5 ? body : rpick([0xf2efe6, 0x16161a, ...BRIGHT]); hair = R() < 0.5 ? rpick(BRIGHT) : 0x15100c; hs = R() < 0.5 ? 1.12 : 1.04; }
   else if (k === 4) { body = rpick(BRIGHT); legc = body; hair = 0x15100c; hs = 1.06; }
-  else { body = R() < 0.6 ? 0xf5f5f5 : rpick(SHIRTS); legc = rpick([0x1f2a44, 0x4a4a52, 0x5d4037]); hair = 0x15100c; if (nBag < 160 && R() < 0.7) { p.bag = nBag++; PP.bag.setColorAt(p.bag, _c.set(rpick([0xe91e63, 0x1e88e5, 0xfdd835, 0x43a047, 0xd32f2f]))); } }
+  else { body = R() < 0.6 ? 0xf5f5f5 : rpick(SHIRTS); legc = rpick([0x1f2a44, 0x4a4a52, 0x5d4037]); hair = 0x15100c; if (nBag < 300 && R() < 0.7) { p.bag = nBag++; PP.bag.setColorAt(p.bag, _c.set(rpick([0xe91e63, 0x1e88e5, 0xfdd835, 0x43a047, 0xd32f2f]))); } }
   p.hs = hs;
   (p.robe ? PP.robe : PP.torso).setColorAt(i, _c.set(body)); PP.leg.setColorAt(i * 2, _c.set(legc)); PP.leg.setColorAt(i * 2 + 1, _c.set(legc));
   const arm = k === 4 ? skin : body; PP.arm.setColorAt(i * 2, _c.set(arm)); PP.arm.setColorAt(i * 2 + 1, _c.set(arm)); PP.head.setColorAt(i, _c.set(skin)); PP.hair.setColorAt(i, _c.set(hair));
@@ -278,7 +317,7 @@ function posePerson(p, t) {
   else setLimb(PP.torso.instanceMatrix.array, i, p.x, y, p.z, cy, sy, 0, 1.13 * s, 0, 0, s, s, s);
   if (p.legs) { setLimb(PP.leg.instanceMatrix.array, i * 2, p.x, y, p.z, cy, sy, -0.11 * s, 0.86 * s, 0, legA, s, s, s); setLimb(PP.leg.instanceMatrix.array, i * 2 + 1, p.x, y, p.z, cy, sy, 0.11 * s, 0.86 * s, 0, legB, s, s, s); }
   else if (p.sit) { setLimb(PP.leg.instanceMatrix.array, i * 2, p.x, y, p.z, cy, sy, -0.11 * s, 0.86 * s, 0, -1.48, s * 1.3, s * 0.9, s * 1.3); setLimb(PP.leg.instanceMatrix.array, i * 2 + 1, p.x, y, p.z, cy, sy, 0.11 * s, 0.86 * s, 0, -1.48, s * 1.3, s * 0.9, s * 1.3); }
-  setLimb(PP.arm.instanceMatrix.array, i * 2, p.x, y, p.z, cy, sy, -0.28 * s * (p.robe ? p.rw * 0.92 : 1), 1.4 * s, 0, armA, s, s, s); setLimb(PP.arm.instanceMatrix.array, i * 2 + 1, p.x, y, p.z, cy, sy, 0.28 * s * (p.robe ? p.rw * 0.92 : 1), 1.4 * s, 0, p.sit ? armA : -armA, s, s, s);
+  setLimb(PP.arm.instanceMatrix.array, i * 2, p.x, y, p.z, cy, sy, -0.28 * s * (p.robe ? p.rw * 0.92 : 1), 1.4 * s, 0, armA, s, s, s); setLimb(PP.arm.instanceMatrix.array, i * 2 + 1, p.x, y, p.z, cy, sy, 0.28 * s * (p.robe ? p.rw * 0.92 : 1), 1.4 * s, 0, p.wave ? -2.6 + Math.sin(t * 9) * 0.3 : p.sit ? armA : -armA, s, s, s);
   setLimb(PP.head.instanceMatrix.array, i, p.x, y, p.z, cy, sy, 0, 1.58 * s, 0, 0, s, s, s);
   setLimb(PP.hair.instanceMatrix.array, i, p.x, y, p.z, cy, sy, 0, (1.6 + (p.hs > 1.1 ? -0.015 : 0.012)) * s, -0.03 * s * p.hs, 0, s * p.hs, s * (p.hs > 1.1 ? p.hs : 0.86), s * p.hs);
   if (p.bag >= 0) setLimb(PP.bag.instanceMatrix.array, p.bag, p.x, y, p.z, cy, sy, 0, 1.16 * s, -0.2 * s, 0, s, s, s);
@@ -300,18 +339,24 @@ function spawnPeople() {
   const wsum = []; let acc = 0; for (const e of footEdges) { const mp = mainProject(e.pl.p[0], e.pl.p[1]); acc += e.len * (e.main ? 7 : e.prom ? 6 : mp.d < 160 ? 1.6 : mp.d < 420 ? 0.55 : 0.2); wsum.push(acc); }
   const pickEdge = () => { const r = R() * acc; let lo = 0, hi = wsum.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (wsum[m] < r) lo = m + 1; else hi = m; } return footEdges[lo]; };
   const scale = Q.people;
-  for (let i = 0, n = Math.round(400 * scale); i < n; i++) { const p = newPerson(); if (!p) break; p.mode = 1; p.e = pickEdge(); p.d = R() < 0.5 ? 1 : -1; p.s = R() * p.e.len; p.side = R() < 0.5 ? 1 : -1; p.j = R(); p.off = pedOffset(p.e, p.side, p.j); p.moving = true; p.snap = true; }
-  for (const zn of ZONES) for (let i = 0, n = Math.max(1, Math.round(zn.n * scale)); i < n; i++) { const p = newPerson(); if (!p) break; p.mode = 2; p.zone = zn; p.y = zn.y; const w = toWorld(zn.f, lerp(zn.x0, zn.x1, R()), lerp(zn.z0, zn.z1, R())); p.x = w[0]; p.z = w[1]; const tt = toWorld(zn.f, lerp(zn.x0, zn.x1, R()), lerp(zn.z0, zn.z1, R())); p.tx = tt[0]; p.tz = tt[1]; p.wait = R() < 0.45 ? R() * 12 : 0; p.yaw = R() * TAU; }
+  for (let i = 0, n = Math.round(800 * scale); i < n; i++) { const p = newPerson(); if (!p) break; p.mode = 1; p.e = pickEdge(); p.d = R() < 0.5 ? 1 : -1; p.s = R() * p.e.len; p.side = R() < 0.5 ? 1 : -1; p.j = R(); p.off = pedOffset(p.e, p.side, p.j); p.moving = true; p.snap = true; }
+  for (const zn of ZONES) for (let i = 0, n = Math.max(1, Math.round(zn.n * scale * 1.6)); i < n; i++) { const p = newPerson(); if (!p) break; p.mode = 2; p.zone = zn; p.y = zn.y; const w = toWorld(zn.f, lerp(zn.x0, zn.x1, R()), lerp(zn.z0, zn.z1, R())); p.x = w[0]; p.z = w[1]; const tt = toWorld(zn.f, lerp(zn.x0, zn.x1, R()), lerp(zn.z0, zn.z1, R())); p.tx = tt[0]; p.tz = tt[1]; p.wait = R() < 0.45 ? R() * 12 : 0; p.yaw = R() * TAU; }
   for (const st of SEATS) { if (R() > 0.55 + 0.4 * scale) continue; const p = newPerson(R() < 0.3 ? 2 : undefined); if (!p) break; p.mode = 3; p.sit = true; p.x = st[0]; p.y = st[1]; p.z = st[2]; p.yaw = st[3]; }
   for (const [x, z, yaw, type] of VENDORS) {
-    const v = newPerson(R() < 0.75 ? (R() < 0.5 ? 0 : 1) : 3); if (!v) break; v.mode = 3; const back = type === 'candy' || type === 'balloon' ? 0 : -0.95; v.x = x + Math.sin(yaw) * back; v.z = z + Math.cos(yaw) * back; v.yaw = yaw;
+    const v = newPerson(R() < 0.75 ? (R() < 0.5 ? 0 : 1) : 3); if (!v) break; v.mode = 3; const back = type === 'candy' || type === 'balloon' ? 0 : -0.95; v.x = x + Math.sin(yaw) * back; v.z = z + Math.cos(yaw) * back; v.yaw = v.yaw0 = yaw; v.vend = true;
     for (let k = 0, n = R() < 0.35 ? 0 : R() < 0.6 ? 1 : 2; k < n; k++) { const c = newPerson(); if (!c) break; c.mode = 3; const a = yaw + (R() - 0.5) * 1.2, d = 1.3 + R() * 0.7; c.x = x + Math.sin(a) * d; c.z = z + Math.cos(a) * d; c.yaw = a + Math.PI; }
   }
   for (const im of Object.values(PP)) if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  const n = LIFE.people.length; PP.torso.count = PP.robe.count = PP.head.count = PP.hair.count = n; PP.leg.count = PP.arm.count = n * 2; PP.bag.count = Math.max(1, nBag);
+}
+/** shift someone out of the walker's way; true while they are giving way */
+function giveWay(p, P, r, d) {
+  const ax = p.x - P.x, az = p.z - P.z, q = ax * ax + az * az; if (q >= r * r || Math.abs(p.y - P.y) > 1.5) return false;
+  const dd = Math.sqrt(q) || 0.01, k = Math.min(r - dd, 2.4 * d) / dd; p.x += ax * k; p.z += az * k; return true;
 }
 let _pf = 0;
 function updatePeople(dt, t) {
-  const A = LIFE.people, nOn = Math.round(A.length * busyAt('crowd', TIME.hour)), cx = camera.position.x, cz = camera.position.z; _pf++;
+  const A = LIFE.people, nOn = Math.round(A.length * busyAt('crowd', TIME.hour)), cx = camera.position.x, cz = camera.position.z, P = LIFE.player, pa = !!(P && P.active); _pf++;
   for (let i = 0; i < A.length; i++) {
     const p = A[i], on = (i * 7919) % A.length < nOn;
     if (on !== p.on) { p.on = on; if (!on) hidePerson(p); else p.dirty = true; }
@@ -319,16 +364,28 @@ function updatePeople(dt, t) {
     const far = Math.abs(p.x - cx) + Math.abs(p.z - cz) > 420; if (far && (i + _pf) % 4) continue; const d = far ? dt * 4 : dt;
     if (p.mode === 1) {
       p.s += p.sp * d; if (p.s >= p.e.len) pedNext(p);
-      const a = polyAt(p.e.pl, p.d > 0 ? p.s : p.e.len - p.s, _pp), tx = a[2] * p.d, tz = a[3] * p.d, gx = a[0] + tz * p.off, gz = a[1] - tx * p.off;
+      const a = polyAt(p.e.pl, p.d > 0 ? p.s : p.e.len - p.s, _pp), tx = a[2] * p.d, tz = a[3] * p.d; let gx = a[0] + tz * p.off, gz = a[1] - tx * p.off;
+      if (pa) {      // bend the path sideways round the walker, starting a few steps ahead
+        const ax = gx - P.x, az = gz - P.z, along = ax * tx + az * tz, lat = ax * tz - az * tx;
+        if (Math.abs(along) < 2.8 && Math.abs(lat) < 1.35) { const push = (1.35 - Math.abs(lat)) * smooth(1.25 - Math.abs(along) / 2.8 * 1.25) * (lat > 0.03 ? 1 : lat < -0.03 ? -1 : p.i & 1 ? 1 : -1); gx += tz * push; gz -= tx * push; }
+      }
       if (p.snap) { p.x = gx; p.z = gz; p.snap = false; } else { const k = Math.min(1, d * 3); p.x += (gx - p.x) * k; p.z += (gz - p.z) * k; }
       p.yaw = Math.atan2(tx, tz); p.y = Math.abs(p.off) > 7.2 && hasFootpath(p.e) ? 0.16 : 0; p.ph += p.sp * d * 4.6; posePerson(p, t);
     } else if (p.mode === 2) {
-      if (p.wait > 0) { p.wait -= d; if (p.moving || p.dirty) { p.moving = false; p.dirty = false; posePerson(p, t); } continue; }
+      if (p.wait > 0) { p.wait -= d; if (pa && giveWay(p, P, 1.25, d)) { p.ph += d * 6; p.moving = true; posePerson(p, t); } else if (p.moving || p.dirty) { p.moving = false; p.dirty = false; posePerson(p, t); } continue; }
       const dx = p.tx - p.x, dz = p.tz - p.z, dd = Math.hypot(dx, dz);
       if (dd < 0.35) { const zn = p.zone, w = toWorld(zn.f, lerp(zn.x0, zn.x1, R()), lerp(zn.z0, zn.z1, R())); p.tx = w[0]; p.tz = w[1]; if (R() < 0.5) p.wait = 2 + R() * 14; }
       else { p.x += dx / dd * p.sp * 0.85 * d; p.z += dz / dd * p.sp * 0.85 * d; p.yaw = Math.atan2(dx, dz); p.ph += p.sp * d * 4; p.moving = true; }
+      if (pa) giveWay(p, P, 1.25, d);
       posePerson(p, t);
-    } else if (p.dirty !== false) { p.dirty = false; posePerson(p, t); }
+    } else {
+      if (p.vend) {      // a stall-keeper turns to you and beckons for a moment when you come close
+        const ax = P.x - p.x, az = P.z - p.z, near = pa && ax * ax + az * az < 30 && Math.abs(P.y - p.y) < 2; if (near && !p.near) p.wt = t; p.near = near;
+        let dy = (near ? Math.atan2(ax, az) : p.yaw0) - p.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU;
+        const wave = near && t - p.wt < 3.2; if (wave || wave !== p.wave || Math.abs(dy) > 0.02) { p.yaw += dy * Math.min(1, d * 5); p.wave = wave; p.dirty = true; }
+      }
+      if (p.dirty !== false) { p.dirty = false; posePerson(p, t); }
+    }
   }
   for (const im of Object.values(PP)) im.instanceMatrix.needsUpdate = true;
   LIFE.nPeople = nOn;
@@ -373,5 +430,5 @@ function updateFx(dt, t) {
   p.needsUpdate = true;
   const sp = smoke.geometry.attributes.position; SMOKE.forEach((s, i) => { const u = (t * 0.22 + s[2]) % 1; sp.setXYZ(i, s[0] + Math.sin(u * 5 + s[2] * 9) * 0.5 * u + u * 0.8, 1.6 + u * 4.2, s[1] + Math.cos(u * 4 + s[2] * 7) * 0.4 * u); }); sp.needsUpdate = true;
 }
-function buildLife() { buildStaticProps(); spawnVehicles(); spawnRiders(); spawnPeople(); spawnSky(); spawnFx(); }
-function updateLife(dt, t) { updateTraffic(dt, t); updateRiders(dt, t); updatePeople(dt, t); updateSky(dt, t); updateFx(dt, t); }
+function buildLife() { buildStaticProps(); spawnVehicles(); spawnRiders(); spawnPeople(); spawnStrays(); spawnSky(); spawnFx(); }
+function updateLife(dt, t) { updateTraffic(dt, t); updateRiders(dt, t); updateStrays(dt, t); updatePeople(dt, t); updateSky(dt, t); updateFx(dt, t); }

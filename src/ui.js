@@ -84,30 +84,41 @@ function startTour() { setMode('orbit', true); UI.tour = { i: 0, left: 0 }; cont
 
 /* ───────────── walk: a figure you steer, followed over the shoulder (wheel right in = first person) ───────────── */
 const WALK = { x: 0, y: 0, z: 0, vy: 0, floor: 0, yaw: 0, pitch: 0, eye: 1.66, bob: 0, onGround: true, run: false, joy: { x: 0, y: 0 }, locked: false, drag: null, step: 0, go: 0, dist: 4.5, cam: 0, fp: false };
-LIFE.player = { x: 0, z: 0, active: false };
+LIFE.player = { x: 0, y: 0, z: 0, active: false };
 /** the walker: kurta, Nehru jacket and churidar, built facing +z with the feet at the origin */
 const HERO = (() => {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body); g.visible = false; g.rotation.order = 'YXZ';
-  const part = (geo, color, parent, x, y, z) => { const m = new THREE.Mesh(geo, M(color)); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+  const mats = [], part = (geo, color, parent, x, y, z) => { const mt = M(color); mt.emissive.set(color); mt.emissiveIntensity = 0; mats.push(mt); const m = new THREE.Mesh(geo, mt); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
   const box = (w, h, d) => new THREE.BoxGeometry(w, h, d), joint = (x, y) => { const p = new THREE.Group(); p.position.set(x, y, 0); body.add(p); return p; };
   const KURTA = 0xf3efe4, JACKET = 0x2456c8, SKINC = 0xc68642;
   part(box(0.46, 0.42, 0.27), KURTA, body, 0, 0.8, 0); part(box(0.48, 0.56, 0.29), JACKET, body, 0, 1.15, 0);
-  part(new THREE.CylinderGeometry(0.06, 0.06, 0.1, 8), SKINC, body, 0, 1.47, 0); part(new THREE.SphereGeometry(0.125, 12, 9), SKINC, body, 0, 1.6, 0);
-  part(new THREE.SphereGeometry(0.135, 12, 9), 0x15100c, body, 0, 1.635, -0.03).scale.y = 0.85;
+  part(new THREE.CylinderGeometry(0.06, 0.06, 0.1, 8), SKINC, body, 0, 1.47, 0); const head = new THREE.Group(); head.position.set(0, 1.6, 0); body.add(head);
+  part(new THREE.SphereGeometry(0.125, 12, 9), SKINC, head, 0, 0, 0); part(new THREE.SphereGeometry(0.135, 12, 9), 0x15100c, head, 0, 0.035, -0.03).scale.y = 0.85;
   const arms = [-1, 1].map(k => { const p = joint(k * 0.3, 1.4); part(box(0.12, 0.56, 0.13), KURTA, p, 0, -0.28, 0); part(new THREE.SphereGeometry(0.06, 8, 6), SKINC, p, 0, -0.6, 0); return p; });
   const legs = [-1, 1].map(k => { const p = joint(k * 0.11, 0.86); part(box(0.16, 0.8, 0.18), KURTA, p, 0, -0.4, 0); part(box(0.17, 0.09, 0.28), 0x5d4037, p, 0, -0.815, 0.05); return p; });
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.44, 0.52, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xe7b45a, transparent: true, opacity: 0.6, depthWrite: false })); g.add(ring);   // marks you out in a crowd
+  // a hand lantern, carried after dark, and the light it throws on the ground
+  const lamp = new THREE.Group(); lamp.position.set(0, -0.76, 0.03); lamp.visible = false; arms[1].add(lamp);
+  const flame = new THREE.Mesh(box(0.11, 0.15, 0.11), new THREE.MeshStandardMaterial({ color: 0xffd28a, emissive: 0xffb45a, emissiveIntensity: 2.4, roughness: 0.6 })); lamp.add(flame);
+  for (const y of [-0.09, 0.09]) lamp.add(new THREE.Mesh(box(0.14, 0.03, 0.14), M(0x2a2420)).translateY(y)); lamp.add(new THREE.Mesh(box(0.02, 0.1, 0.02), M(0x2a2420)).translateY(0.15));
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffc98a, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending })); halo.scale.setScalar(1.1); lamp.add(halo);
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffb45a, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -40 }));
+  glow.scale.set(13, 1, 13); glow.renderOrder = 2; glow.visible = false; scene.add(glow);
   scene.add(g);
-  return { g, body, arms, legs, ring, yaw: 0, amp: 0, lean: 0 };
+  return { g, body, head, arms, legs, ring, lamp, glow, mats, yaw: 0, amp: 0, lean: 0, idle: 0, night: -1 };
 })();
 function poseHero(dt, moved, run, dx, dz) {
   const W = WALK, H = HERO, k = Math.min(1, dt * 12);
   if (moved) { let d = Math.atan2(dx, dz) - H.yaw; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; H.yaw += d * k; }     // turn to face the way you are going
+  const night = TIME.night, lit = night > 0.3;
+  H.glow.visible = lit; if (lit) { H.glow.position.set(W.x, W.floor + 0.07, W.z); H.glow.material.opacity = night * 0.42; }
   H.g.visible = W.cam > 0.7; if (!H.g.visible) return;
+  if (Math.abs(night - H.night) > 0.02) { H.night = night; H.lamp.visible = lit; for (const m of H.mats) m.emissiveIntensity = night * 0.16; }      // the lantern's glow on its bearer
+  H.idle = moved || !W.onGround ? 0 : H.idle + dt; H.head.rotation.y += ((H.idle > 2.5 ? Math.sin((H.idle - 2.5) * 0.7) * 0.6 : 0) - H.head.rotation.y) * Math.min(1, dt * 4);      // looks about when left standing
   H.amp += ((moved ? 1 : 0) - H.amp) * k; H.lean += ((moved && run ? 0.16 : 0) - H.lean) * Math.min(1, dt * 8);
   const sw = Math.sin(W.bob) * H.amp, air = !W.onGround, la = sw * (run ? 0.95 : 0.62), aa = sw * (run ? 0.9 : 0.5);
-  H.legs[0].rotation.x = air ? -0.7 : la; H.legs[1].rotation.x = air ? 0.35 : -la; H.arms[0].rotation.x = air ? -0.9 : -aa; H.arms[1].rotation.x = air ? -0.9 : aa;
-  H.body.position.y = air ? 0 : Math.abs(sw) * 0.035;
+  H.legs[0].rotation.x = air ? -0.7 : la; H.legs[1].rotation.x = air ? 0.35 : -la; H.arms[0].rotation.x = air ? -0.9 : -aa; H.arms[1].rotation.x = air ? -0.9 : lit ? -0.5 + aa * 0.25 : aa;
+  H.body.position.y = air ? 0 : Math.abs(sw) * 0.035 + Math.sin(UI.T * 1.8) * 0.006 * (1 - H.amp);
   H.g.position.set(W.x, W.y, W.z); H.g.rotation.set(H.lean, H.yaw, 0); H.ring.position.y = W.floor - W.y + 0.04;
 }
 /** how far back from the walker's head the camera can sit along a ray before a wall gets in the way */
@@ -162,7 +173,7 @@ function updateWalk(dt) {
   const fov = fp ? 72 : 62; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix(); }
   if (fp !== W.fp) { W.fp = fp; document.body.classList.toggle('fp', fp); }
   poseHero(dt, moved, run, dx, dz);
-  LIFE.player.x = W.x; LIFE.player.z = W.z;
+  LIFE.player.x = W.x; LIFE.player.y = W.y; LIFE.player.z = W.z;
 }
 function lookBy(mx, my, k = 0.0023) { if (UI.mode === 'walk') { WALK.yaw -= mx * k; WALK.pitch = clamp(WALK.pitch - my * k, -1.45, WALK.fp ? 1.45 : 0.9); } }
 
@@ -176,9 +187,9 @@ function setMode(m, quiet) {
   document.querySelectorAll('#modes [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
   controls.enabled = m === 'orbit';
   if (m === 'orbit') {
-    camera.near = 2; camera.fov = FOV; camera.updateProjectionMatrix(); HERO.g.visible = false;
+    camera.near = 2; camera.fov = FOV; camera.updateProjectionMatrix(); HERO.g.visible = HERO.glow.visible = false; announce(null);
     if (from !== 'orbit') { const p = new THREE.Vector3(WALK.x, WALK.y, WALK.z), d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0; d.normalize(); controls.target.copy(p).setY(p.y + 4); camera.position.copy(p).addScaledVector(d, -46).setY(p.y + 30); camera.rotation.order = 'XYZ'; controls.update(); }
-  } else { camera.near = 0.14; camera.fov = 72; WALK.go = 0; WALK.cam = 0; camera.updateProjectionMatrix(); setHot(null); }      // the camera starts at the walker's eyes and drifts back
+  } else { camera.near = 0.14; camera.fov = 72; WALK.go = 0; WALK.cam = 0; UI.at = UI.card ? UI.card.id : null; camera.updateProjectionMatrix(); setHot(null); }      // the camera starts at the walker's eyes and drifts back
   if (m === 'walk') { el('keys').innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> hop<br><kbd>Mouse</kbd> look · hold <kbd>Left button</kbd> walk · <kbd>Wheel</kbd> camera<br><kbd>M</kbd> map · <kbd>Esc</kbd> release, <kbd>Esc</kbd> again to leave'; if (!TOUCH && !quiet) toast('Click the view to look around with the mouse'); }
 }
 
@@ -205,6 +216,12 @@ function applyLabelLang() {
   document.querySelectorAll('#places button').forEach(b => { const p = LABELS.find(l => l.id === b.dataset.id); b.querySelector('small').textContent = OPT.labels === 'ur' ? p.ur : p.hi; });
   if (UI.card) showCard(UI.card);
 }
+function announce(p) {
+  const b = el('approach'); clearTimeout(announce.t); if (!p) { b.classList.remove('show'); return; }
+  const ur = OPT.labels === 'ur', hi = b.querySelector('.hi'); hi.textContent = OPT.labels === 'en' ? '' : ur ? p.ur : p.hi; hi.dir = ur ? 'rtl' : 'ltr';
+  b.querySelector('b').textContent = p.en; b.querySelector('small').textContent = p.yr || ''; b.querySelector('p').textContent = (p.text.match(/^.+?[a-z0-9)”’]{2}[.!?](?=\s|$)/) || [p.text])[0];
+  b.classList.add('show'); announce.t = setTimeout(() => b.classList.remove('show'), 8000);
+}
 function updateLabels() {
   const cp = camera.position, far = UI.mode === 'orbit' ? Math.max(450, cp.distanceTo(controls.target) * 3.2) : 520;
   for (const p of LABELS) if (p.obj) { const d = Math.hypot(p.pos[0] - cp.x, p.pos[2] - cp.z); if (p.poi) { p.obj.visible = false; continue; } p.obj.visible = d < (p.small || p.road ? far * 0.42 : far) && !(UI.mode !== 'orbit' && d < 14); }
@@ -222,7 +239,11 @@ function updateLabels() {
       boxes.push([x, y, w]); p.obj.visible = true; if (boxes.length > 14) break;
     }
   }
-  if (UI.mode === 'walk') { let best = null, bd = 1e9; for (const p of LABELS) if (p.pos && !p.road && !p.poi) { const d = Math.hypot(p.pos[0] - WALK.x, p.pos[2] - WALK.z); if (d < bd) { bd = d; best = p; } } el('where').innerHTML = best && bd < 400 ? `Near <b>${best.en}</b> · ${Math.round(bd)} m` : 'Old city lanes'; }
+  if (UI.mode === 'walk') { let best = null, bd = 1e9; for (const p of LABELS) if (p.pos && !p.road && !p.poi) { const d = Math.hypot(p.pos[0] - WALK.x, p.pos[2] - WALK.z); if (d < bd) { bd = d; best = p; } } el('where').innerHTML = best && bd < 400 ? `Near <b>${best.en}</b> · ${Math.round(bd)} m` : 'Old city lanes';
+    // within reach of a monument (its centre, or the spot you are meant to see it from) for the first time: say where you are
+    let at = null, ad = 1e9; for (const p of LABELS) if (p.text && p.pos) { const d = Math.min(Math.hypot(p.pos[0] - WALK.x, p.pos[2] - WALK.z) - 35, p.walk ? Math.hypot(p.walk[0] - WALK.x, p.walk[1] - WALK.z) : 1e9); if (d < ad) { ad = d; at = p; } }
+    if (at && ad < 40) { if (UI.at !== at.id) { UI.at = at.id; announce(at); } } else if (ad > 75) UI.at = null;
+  }
 }
 
 /* ───────────── minimap ───────────── */

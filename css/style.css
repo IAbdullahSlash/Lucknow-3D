@@ -72,6 +72,13 @@ body:not(.fp) #cross{display:none}
 #cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(255,255,255,.75);box-shadow:0 0 4px #000;pointer-events:none}
 #where{position:fixed;left:50%;top:14px;transform:translateX(-50%);padding:7px 14px;font-size:12.5px;letter-spacing:.04em;white-space:nowrap}
 #where b{color:var(--gold);font-weight:600}
+#approach{position:fixed;left:50%;top:17%;transform:translate(-50%,8px);width:min(520px,calc(100vw - 40px));text-align:center;pointer-events:none;opacity:0;transition:opacity 1s,transform 1s;text-shadow:0 1px 5px rgba(0,0,0,.9),0 0 18px rgba(0,0,0,.6)}
+#approach.show{opacity:1;transform:translate(-50%,0)}
+#approach .hi{display:block;font:500 22px var(--sans);color:var(--gold)}
+#approach b{display:block;font:600 30px/1.15 var(--serif);letter-spacing:.14em;text-transform:uppercase}
+#approach small{display:block;margin-top:5px;font:600 10.5px var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--mute)}
+#approach p{margin:9px 0 0;font-size:13.5px;line-height:1.5;color:#efe6d3}
+@media (prefers-reduced-motion:reduce){#approach{transition:none}}
 #keys{position:fixed;left:16px;bottom:16px;padding:9px 13px;font-size:11.5px;line-height:1.7;color:#e6dcc8}
 #keys kbd{font:600 10.5px var(--sans);border:1px solid var(--line);border-radius:5px;padding:1px 5px;margin-right:3px;color:var(--gold)}
 #joy{position:fixed;left:26px;bottom:110px;width:112px;height:112px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(0,0,0,.25);display:none;touch-action:none}
@@ -120,5 +127,5 @@ body.nolabels #labels{display:none}
   #mapWrap{bottom:112px;right:10px} #minimap{width:116px;height:116px} body.card-open #mapWrap{top:92px}
   #timebar{bottom:14px;padding:6px 8px;gap:4px} #timebar button{padding:6px 8px;font-size:11px} #clock{min-width:66px;font-size:15px}
   #timebar [data-t=sunrise],#timebar [data-t=dusk],#timebar [data-t=golden]{display:none}
-  #where{top:92px} #keys{display:none} #credit{bottom:1px;right:8px}
+  #where{top:92px} #approach{top:132px} #approach b{font-size:22px} #approach .hi{font-size:17px} #keys{display:none} #credit{bottom:1px;right:8px}
 }
