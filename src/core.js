@@ -12,8 +12,10 @@ const OPT = {
   quality: 'medium', shadows: true, labels: 'hi', shopTags: true, minimap: true, weather: 'haze',
   festive: false, sound: false, volume: 0.6, walkSpeed: 1,
 };
-try { Object.assign(OPT, JSON.parse(localStorage.getItem('hussainabad-options') || '{}')); } catch (e) { /* private mode */ }
+let _saved = {}; try { _saved = JSON.parse(localStorage.getItem('hussainabad-options') || '{}'); } catch (e) { /* private mode */ } Object.assign(OPT, _saved);
 for (const k of ['traffic', 'crowd', 'carriages', 'kites', 'birds', 'fov', 'cycleMin', 'lookSens']) delete OPT[k];   // settings that were retired
+// a phone with little memory or few cores starts light; whatever the user picks afterwards is kept
+if (!_saved.quality && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820 && ((navigator.deviceMemory || 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4)) OPT.quality = 'low';
 const FOV = 42;
 function saveOptions() { try { localStorage.setItem('hussainabad-options', JSON.stringify(OPT)); } catch (e) { /* ignore */ } }
 const QUALITY = {

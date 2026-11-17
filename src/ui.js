@@ -10,6 +10,11 @@ controls.target.set(-20, 20, -10);
 const UI = { mode: 'orbit', fly: null, tour: null, T: 0, frame: 0, card: null };
 const el = id => document.getElementById(id), KEYS = {};
 const TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0; if (TOUCH) document.body.classList.add('touch');
+/** the vertical field of view for the screen's shape: the desktop value on wide screens, opened up on tall phone screens so a street keeps some width */
+const fovFor = (base, lim) => { const a = innerWidth / innerHeight; return a >= 1.3 ? base : Math.min(lim, base * Math.pow(1.3 / a, 0.55)); };
+/** how much farther back a framed view sits on a tall screen, so what fits sideways on a desktop still fits */
+const frameK = () => { const a = innerWidth / innerHeight; return a >= 1.3 ? 1 : Math.min(1.5, Math.pow(1.3 / a, 0.4)); };
+const PHONE = () => innerWidth < 720 || innerHeight < 500;
 function toast(msg, ms = 2800) { const t = el('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms); }
 
 /* ───────────── walkable-space map: a 1 m grid of blockers plus stepped platforms ───────────── */
@@ -46,7 +51,7 @@ function findFree(x, z) { for (let r = 0; r < 40; r += 0.8) for (let k = 0; k < 
 
 /* ───────────── camera: explore (orbit) ───────────── */
 const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
-function flyTo(p, dur = 2.2) { if (UI.mode !== 'orbit') setMode('orbit', true); UI.fly = { t: 0, dur, c0: camera.position.clone(), t0: controls.target.clone(), c1: new THREE.Vector3(...p.cam), t1: new THREE.Vector3(...p.tgt) }; }
+function flyTo(p, dur = 2.2) { if (UI.mode !== 'orbit') setMode('orbit', true); const t1 = new THREE.Vector3(...p.tgt), c1 = t1.clone().lerp(new THREE.Vector3(...p.cam), frameK()); UI.fly = { t: 0, dur, c0: camera.position.clone(), t0: controls.target.clone(), c1, t1 }; }
 /** glide the camera without turning it: zoom by a factor about the centre of view, or slide to a ground point */
 function glide(offset, target, dur) { stopTour(); ZOOM.v = 0; UI.fly = { t: 0, dur, c0: camera.position.clone(), t0: controls.target.clone(), c1: target.clone().add(offset), t1: target }; }
 function zoomBy(f) { if (UI.mode !== 'orbit') return; const o = camera.position.clone().sub(controls.target); o.setLength(clamp(o.length() * f, controls.minDistance, controls.maxDistance)); glide(o, controls.target.clone(), 0.35); }
@@ -75,7 +80,7 @@ function showCard(p) {
   const c = el('card'); UI.card = p && p.text ? p : null;
   if (!UI.card) { c.classList.remove('show'); document.body.classList.remove('card-open'); return; }
   c.querySelector('.hi').textContent = OPT.labels === 'ur' ? p.ur : p.hi; c.querySelector('.hi').dir = OPT.labels === 'ur' ? 'rtl' : 'ltr'; c.querySelector('h2').textContent = p.en; c.querySelector('.yr').textContent = p.yr || ''; c.querySelector('p').textContent = p.text;
-  el('cardWalk').style.display = p.walk ? '' : 'none'; c.classList.add('show'); document.body.classList.add('card-open');
+  el('cardWalk').style.display = p.walk ? '' : 'none'; c.classList.add('show'); document.body.classList.add('card-open'); el('placesWrap').classList.remove('open');
 }
 const TOUR = ['clock', 'talab', 'gallery', 'satkhanda', 'chota', 'rumi', 'bara', 'food', 'all'];
 function stopTour() { if (!UI.tour) return; UI.tour = null; controls.autoRotate = false; el('bTour').classList.remove('on'); el('bTour').textContent = 'Tour'; }
@@ -141,7 +146,7 @@ function enterWalk(x, z, lookX, lookZ) {
   stopTour(); UI.fly = null;
   if (x === undefined) { x = controls.target.x; z = controls.target.z; lookX = x + (controls.target.x - camera.position.x); lookZ = z + (controls.target.z - camera.position.z); }
   teleport(x, z, lookX, lookZ); setMode('walk', true);
-  if (!TOUCH) lockPointer();
+  if (!TOUCH) lockPointer(); else if (!UI.walkHinted) { UI.walkHinted = true; toast('Stick to walk · drag the view to look around · pinch to pull the camera in or out', 5500); }
 }
 function lockPointer() { try { const r = renderer.domElement.requestPointerLock && renderer.domElement.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { /* the browser wants a click first */ } }
 function updateWalk(dt) {
@@ -170,10 +175,17 @@ function updateWalk(dt) {
     for (const p of PLATFORMS) if (cy > p.yb - 0.2 && cy < p.yt + 0.3 && p.yt < W.y + 4 && inObb(p, cx, cz)) cy = p.yt + 0.3;
   }
   camera.position.set(cx, cy, cz); camera.rotation.set(W.pitch, W.yaw, 0, 'YXZ');
-  const fov = fp ? 72 : 62; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix(); }
+  const fov = fovFor(fp ? 72 : 62, fp ? 88 : 80); if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix(); }
   if (fp !== W.fp) { W.fp = fp; document.body.classList.toggle('fp', fp); }
   poseHero(dt, moved, run, dx, dz);
   LIFE.player.x = W.x; LIFE.player.y = W.y; LIFE.player.z = W.z;
+}
+/** start walking at the ground point under a screen position */
+function walkAt(x, y) {
+  if (UI.mode !== 'orbit' || labelAt(x, y)) return;
+  const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1), camera);
+  const hit = new THREE.Vector3(); if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) return;
+  const d = new THREE.Vector3(); camera.getWorldDirection(d); enterWalk(hit.x, hit.z, hit.x + d.x, hit.z + d.z);
 }
 function lookBy(mx, my, k = 0.0023) { if (UI.mode === 'walk') { WALK.yaw -= mx * k; WALK.pitch = clamp(WALK.pitch - my * k, -1.45, WALK.fp ? 1.45 : 0.9); } }
 
@@ -187,10 +199,10 @@ function setMode(m, quiet) {
   document.querySelectorAll('#modes [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
   controls.enabled = m === 'orbit';
   if (m === 'orbit') {
-    camera.near = 2; camera.fov = FOV; camera.updateProjectionMatrix(); HERO.g.visible = HERO.glow.visible = false; announce(null);
+    camera.near = 2; camera.fov = fovFor(FOV, 74); camera.updateProjectionMatrix(); HERO.g.visible = HERO.glow.visible = false; announce(null);
     if (from !== 'orbit') { const p = new THREE.Vector3(WALK.x, WALK.y, WALK.z), d = new THREE.Vector3(); camera.getWorldDirection(d); d.y = 0; d.normalize(); controls.target.copy(p).setY(p.y + 4); camera.position.copy(p).addScaledVector(d, -46).setY(p.y + 30); camera.rotation.order = 'XYZ'; controls.update(); }
-  } else { camera.near = 0.14; camera.fov = 72; WALK.go = 0; WALK.cam = 0; UI.at = UI.card ? UI.card.id : null; camera.updateProjectionMatrix(); setHot(null); }      // the camera starts at the walker's eyes and drifts back
-  if (m === 'walk') { el('keys').innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> hop<br><kbd>Mouse</kbd> look · hold <kbd>Left button</kbd> walk · <kbd>Wheel</kbd> camera<br><kbd>M</kbd> map · <kbd>Esc</kbd> release, <kbd>Esc</kbd> again to leave'; if (!TOUCH && !quiet) toast('Click the view to look around with the mouse'); }
+  } else { camera.near = 0.14; camera.fov = fovFor(72, 88); WALK.go = 0; WALK.cam = 0; UI.at = UI.card ? UI.card.id : null; camera.updateProjectionMatrix(); setHot(null); updateLabels(); }      // the camera starts at the walker's eyes and drifts back
+  if (m === 'walk') { el('keys').innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> hop<br><kbd>Mouse</kbd> look · hold <kbd>Left button</kbd> walk · <kbd>Wheel</kbd> camera<br><kbd>M</kbd> map · <kbd>Esc</kbd> release, <kbd>Esc</kbd> again to leave'; }
 }
 
 /* ───────────── labels and the places list ───────────── */
@@ -200,7 +212,7 @@ function buildLabels() {
     if (p.cam && !p.small && !p.road) { const b = document.createElement('button'); b.dataset.id = p.id; b.innerHTML = `${p.en}<small>${p.hi}</small>`; b.onclick = () => { stopTour(); selectPlace(p); el('placesWrap').classList.remove('open'); }; list.append(b); }
     if (p.nolabel) continue;
     const d = document.createElement('div'); d.className = 'lbl' + (p.small ? ' small' : '') + (p.road ? ' road' : '') + (p.poi ? ' poi' : ''); d.innerHTML = `<span class="hi"></span><span class="en">${p.en.toUpperCase()}</span>`;
-    p.dom = d; p.obj = new CSS2DObject(d); p.obj.position.set(...p.pos); scene.add(p.obj);
+    p.dom = d; p.obj = new CSS2DObject(d); p.obj.visible = false; p.obj.position.set(...p.pos); scene.add(p.obj);
   }
   applyLabelLang();
 }
@@ -223,21 +235,21 @@ function announce(p) {
   b.classList.add('show'); announce.t = setTimeout(() => b.classList.remove('show'), 8000);
 }
 function updateLabels() {
-  const cp = camera.position, far = UI.mode === 'orbit' ? Math.max(450, cp.distanceTo(controls.target) * 3.2) : 520;
-  for (const p of LABELS) if (p.obj) { const d = Math.hypot(p.pos[0] - cp.x, p.pos[2] - cp.z); if (p.poi) { p.obj.visible = false; continue; } p.obj.visible = d < (p.small || p.road ? far * 0.42 : far) && !(UI.mode !== 'orbit' && d < 14); }
-  // shop-name tags: nearest first, skip any hidden behind walls or overlapping a tag already shown
-  if (OPT.shopTags && OPT.labels !== 'off') {
-    const lim = UI.mode === 'orbit' ? 150 : 70, cand = [], v = new THREE.Vector3(), boxes = [];
-    if (UI.mode === 'orbit' && cp.y > 110) return;
+  const cp = camera.position, orbit = UI.mode === 'orbit', far = orbit ? Math.max(450, cp.distanceTo(controls.target) * 3.2) : 520, phone = PHONE(), k = phone ? 0.85 : 1;
+  const v = new THREE.Vector3(), boxes = [], W = innerWidth, Hh = innerHeight;
+  // a name is shown only where it would not land on one already placed (null: off screen)
+  const place = (p, w, h) => { v.set(...p.pos).project(camera); if (v.z > 1 || Math.abs(v.x) > 1.08 || Math.abs(v.y) > 1.08) return null; const x = (v.x + 1) * W / 2, y = (1 - v.y) * Hh / 2; if (boxes.some(b => Math.abs(b[0] - x) < b[2] + w && Math.abs(b[1] - y) < b[3] + h)) return false; boxes.push([x, y, w, h]); return true; };
+  const cand = [], hiLen = p => OPT.labels === 'en' ? 0 : (OPT.labels === 'ur' ? p.ur : p.hi).length;
+  for (const p of LABELS) if (p.obj) { p.obj.visible = false; if (p.poi) continue; const d = Math.hypot(p.pos[0] - cp.x, p.pos[2] - cp.z); if (d < (p.small || p.road ? far * 0.42 : far) && !(!orbit && d < 14)) cand.push([(p.small ? 1 : p.road ? 2 : 0) * 1e5 + d, p]); }
+  cand.sort((a, b) => a[0] - b[0]);      // monuments first, then the lesser names, then roads; nearer before farther
+  let n = 0; const lim = phone ? 9 : 22;
+  for (const [, p] of cand) { if (n >= lim) break; const sm = p.small || p.road, w = Math.max(p.en.length * (sm ? 5.4 : 6.6), hiLen(p) * (sm ? 6.6 : 8.2)) * k / 2 + 4, h = (p.road ? 13 : sm ? 17 : 21) * k; if (place(p, w, h)) { p.obj.visible = true; n++; } }
+  // shop-name tags: nearest first, skip any hidden behind walls or overlapping a name already shown
+  if (OPT.shopTags && OPT.labels !== 'off' && !(orbit && cp.y > 110)) {
+    const lim = orbit ? 150 : 70, cap = phone ? 6 : 14, cand = [];
     for (const p of LABELS) if (p.poi) { const d = Math.hypot(p.pos[0] - cp.x, p.pos[2] - cp.z); if (d < lim) cand.push([d, p]); }
     cand.sort((a, b) => a[0] - b[0]);
-    for (const [d, p] of cand) {
-      if (UI.mode !== 'orbit' && !lineOfSight(cp.x, cp.z, p.pos[0], p.pos[2])) continue;
-      v.set(...p.pos).project(camera); if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) continue;
-      const x = (v.x + 1) * innerWidth / 2, y = (1 - v.y) * innerHeight / 2, w = Math.max(70, p.en.length * 6.2) / 2, h = 15;
-      if (boxes.some(b => Math.abs(b[0] - x) < b[2] + w && Math.abs(b[1] - y) < h * 2)) continue;
-      boxes.push([x, y, w]); p.obj.visible = true; if (boxes.length > 14) break;
-    }
+    let m = 0; for (const [, p] of cand) { if (m >= cap) break; if (!orbit && !lineOfSight(cp.x, cp.z, p.pos[0], p.pos[2])) continue; if (place(p, Math.max(70, p.en.length * 6.2) * k / 2, 15 * k)) { p.obj.visible = true; m++; } }
   }
   if (UI.mode === 'walk') { let best = null, bd = 1e9; for (const p of LABELS) if (p.pos && !p.road && !p.poi) { const d = Math.hypot(p.pos[0] - WALK.x, p.pos[2] - WALK.z); if (d < bd) { bd = d; best = p; } } el('where').innerHTML = best && bd < 400 ? `Near <b>${best.en}</b> · ${Math.round(bd)} m` : 'Old city lanes';
     // within reach of a monument (its centre, or the spot you are meant to see it from) for the first time: say where you are
@@ -312,6 +324,7 @@ const SND = {
 /* ───────────── options panel ───────────── */
 function buildOptions() {
   const box = el('options'); box.innerHTML = '';
+  const hd = document.createElement('div'); hd.className = 'ohead'; hd.innerHTML = '<span>OPTIONS</span><button class="x" aria-label="Close options">✕</button>'; hd.lastChild.onclick = () => el('bOptions').click(); box.append(hd);
   const h = t => { const e = document.createElement('h3'); e.textContent = t; box.append(e); };
   const row = (label, node) => { const r = document.createElement('div'); r.className = 'row'; const s = document.createElement('span'); s.textContent = label; r.append(s, node); box.append(r); return r; };
   const seg = (label, opts, get, set) => { const w = document.createElement('div'); w.className = 'seg'; for (const [v, t] of opts) { const b = document.createElement('button'); b.textContent = t; b.classList.toggle('on', get() === v); b.onclick = () => { set(v); saveOptions(); w.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }; w.append(b); } return row(label, w); };
@@ -325,6 +338,7 @@ function buildOptions() {
   check('Shop name tags', () => OPT.shopTags, v => { OPT.shopTags = v; });
   check('Minimap', () => OPT.minimap, v => { OPT.minimap = v; el('mapWrap').classList.toggle('show', v); });
   btn('Photo mode', 'Hide interface (H)', () => togglePhoto());
+  if (document.fullscreenEnabled) btn('Full screen', 'Toggle (F)', toggleFull);
 
   h('Sky & weather');
   seg('Weather', Object.entries(WEATHER).map(([k, w]) => [k, w.name]), () => OPT.weather, v => setWeather(v));
@@ -345,6 +359,7 @@ function buildOptions() {
   check('Shadows', () => OPT.shadows, v => { OPT.shadows = v; renderer.shadowMap.enabled = v && !!Q.shadow; scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.needsUpdate = true; }); }); });
   note('Streets, river, parks and landmark positions come from OpenStreetMap; houses are generated along the real lanes. Monuments are modelled by hand from current satellite and street-level views.');
 }
+function toggleFull() { if (document.fullscreenElement) document.exitFullscreen(); else { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen({ navigationUI: 'hide' }); if (r && r.catch) r.catch(() => { }); } }
 function togglePhoto() { const on = document.body.classList.toggle('photo'); if (on) toast('Press H to bring the interface back'); }
 function screenshot() { renderer.render(scene, camera); renderer.domElement.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'hussainabad-' + Date.now() + '.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }); }
 
@@ -358,21 +373,23 @@ function setTime(kind, hour) {
 function wire() {
   document.querySelectorAll('#modes [data-mode]').forEach(b => { b.onclick = () => setMode(b.dataset.mode); });
   el('bTour').onclick = () => UI.tour ? stopTour() : startTour();
-  el('bOptions').onclick = () => { const o = el('options').classList.toggle('show'); el('bOptions').classList.toggle('on', o); el('bOptions').setAttribute('aria-expanded', o); };
-  el('bPlaces').onclick = () => el('placesWrap').classList.toggle('open');
+  el('bOptions').onclick = () => { el('placesWrap').classList.remove('open'); const o = el('options').classList.toggle('show'); el('bOptions').classList.toggle('on', o); el('bOptions').setAttribute('aria-expanded', o); };
+  el('bPlaces').onclick = () => { if (el('placesWrap').classList.toggle('open') && el('options').classList.contains('show')) el('bOptions').click(); };
   el('card').querySelector('.x').onclick = () => showCard(null);
   el('cardWalk').onclick = () => { const p = UI.card; if (p && p.walk) enterWalk(p.walk[0], p.walk[1], p.walk[2], p.walk[3]); };
   document.querySelectorAll('#timebar button').forEach(b => { b.onclick = () => setTime(b.dataset.t); });
   el('tExit').onclick = () => setMode('orbit'); el('tRun').onclick = () => { WALK.run = !WALK.run; el('tRun').classList.toggle('on', WALK.run); };
+  el('tView').onclick = () => { WALK.dist = WALK.dist > 0 ? 0 : 4.5; }; el('tHop').onclick = () => { if (WALK.onGround) { WALK.vy = 4.6; WALK.onGround = false; } };
   el('zIn').onclick = () => zoomBy(0.6); el('zOut').onclick = () => zoomBy(1 / 0.6);
   el('minimap').onclick = e => { if (UI.mode !== 'orbit') return; const r = e.currentTarget.getBoundingClientRect(), mpp = clamp(camera.position.distanceTo(controls.target) / 80, 1.2, 8) * 200 / r.width; panTo(controls.target.x + (e.clientX - r.left - r.width / 2) * mpp, controls.target.z + (e.clientY - r.top - r.height / 2) * mpp); };
-  const cv = renderer.domElement; let press = null, hoverT = 0;
+  const cv = renderer.domElement, pts = new Map(); let press = null, hoverT = 0, tap = null, pinch = null;
   cv.addEventListener('pointerdown', e => {
-    stopTour(); UI.fly = null; ZOOM.v = 0; press = [e.clientX, e.clientY, performance.now(), e.button];
+    stopTour(); UI.fly = null; ZOOM.v = 0; press = [e.clientX, e.clientY, performance.now(), e.button]; UI.ptr = e.pointerType;
+    if (e.pointerType === 'touch' && UI.mode === 'orbit') { const now = performance.now(); if (tap && now - tap[2] < 350 && Math.hypot(e.clientX - tap[0], e.clientY - tap[1]) < 28) { tap = null; walkAt(e.clientX, e.clientY); return; } tap = [e.clientX, e.clientY, now]; }
     if (UI.mode === 'orbit') document.body.classList.add('grabbing');
     else if (document.pointerLockElement === cv) WALK.go = e.button === 2 ? -1 : e.button === 0 ? 1 : WALK.go;      // hold left to walk on, right to step back
     else if (!TOUCH && e.button === 0) lockPointer();
-    if (UI.mode !== 'orbit') WALK.drag = [e.clientX, e.clientY, e.pointerId];
+    if (UI.mode !== 'orbit') { WALK.drag = [e.clientX, e.clientY, e.pointerId]; if (e.pointerType === 'touch') { pts.set(e.pointerId, [e.clientX, e.clientY]); if (pts.size === 2) { WALK.drag = null; const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), dist: WALK.dist || 1.1 }; } } }
   });
   cv.addEventListener('pointerup', e => {      // a click that did not drag: was it on a place label?
     if (!press || UI.mode !== 'orbit' || press[3] !== 0 || Math.hypot(e.clientX - press[0], e.clientY - press[1]) > 5 || performance.now() - press[2] > 500) return;
@@ -381,17 +398,15 @@ function wire() {
   cv.addEventListener('pointermove', e => { if (UI.mode !== 'orbit' || e.buttons || e.timeStamp - hoverT < 50) return; hoverT = e.timeStamp; setHot(labelAt(e.clientX, e.clientY)); });
   cv.addEventListener('pointerleave', () => setHot(null));
   cv.addEventListener('contextmenu', e => e.preventDefault());
-  addEventListener('pointermove', e => { if (document.pointerLockElement === cv) lookBy(e.movementX, e.movementY); else if (WALK.drag && UI.mode !== 'orbit' && e.pointerId === WALK.drag[2]) { lookBy(-(e.clientX - WALK.drag[0]) * 1.6, -(e.clientY - WALK.drag[1]) * 1.6); WALK.drag[0] = e.clientX; WALK.drag[1] = e.clientY; } });
-  const release = () => { WALK.drag = null; WALK.go = 0; document.body.classList.remove('grabbing'); };
+  addEventListener('pointermove', e => {
+    if (pts.has(e.pointerId)) { pts.set(e.pointerId, [e.clientX, e.clientY]); if (pinch && pts.size === 2) { const [a, b] = [...pts.values()], d = pinch.dist * pinch.d / Math.max(30, Math.hypot(a[0] - b[0], a[1] - b[1])); WALK.dist = d < 1.1 ? 0 : Math.min(d, 10); return; } }      // fingers apart: closer to the walker, down to first person
+    if (document.pointerLockElement === cv) lookBy(e.movementX, e.movementY); else if (WALK.drag && UI.mode !== 'orbit' && e.pointerId === WALK.drag[2]) { lookBy(-(e.clientX - WALK.drag[0]) * 1.6, -(e.clientY - WALK.drag[1]) * 1.6); WALK.drag[0] = e.clientX; WALK.drag[1] = e.clientY; } });
+  const release = e => { if (e) pts.delete(e.pointerId); else pts.clear(); if (pts.size < 2) pinch = null; if (!e || !WALK.drag || WALK.drag[2] === e.pointerId) WALK.drag = null; WALK.go = 0; document.body.classList.remove('grabbing'); };      // lifting the stick finger must not end a look-drag by the other
   addEventListener('pointerup', release); addEventListener('pointercancel', release);
   // caught on the way down to the canvas, so the wheel is ours alone (OrbitControls still handles pinch and middle-drag zoom)
   el('stage').addEventListener('wheel', e => { e.preventDefault(); e.stopPropagation(); UI.fly = null; stopTour(); if (UI.mode === 'walk') { const out = e.deltaY > 0; let d = WALK.dist + (out ? 1 : -1) * Math.max(0.7, WALK.dist * 0.2); if (d < 1.3) d = out ? 1.6 : 0; WALK.dist = Math.min(d, 10); } else wheelZoom(e); }, { capture: true, passive: false });      // walk: wheeling right in looks through the walker's eyes
-  cv.addEventListener('dblclick', e => {
-    if (UI.mode !== 'orbit' || labelAt(e.clientX, e.clientY)) return;
-    const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera);
-    const hit = new THREE.Vector3(); if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) return;
-    const d = new THREE.Vector3(); camera.getWorldDirection(d); enterWalk(hit.x, hit.z, hit.x + d.x, hit.z + d.z);
-  });
+  cv.addEventListener('dblclick', e => { if (UI.ptr !== 'touch') walkAt(e.clientX, e.clientY); });      // touch has its own double-tap above
+
   document.addEventListener('pointerlockchange', () => { WALK.locked = document.pointerLockElement === cv; if (!WALK.locked) WALK.go = 0; if (!WALK.locked && UI.mode === 'walk') toast('Click the view to look around again · Esc to leave walk mode', 3600); });
   // touch joystick
   const joy = el('joy'), knob = joy.firstElementChild; let jid = null;
@@ -406,14 +421,15 @@ function wire() {
     if (e.repeat) return;
     if (e.code === 'Digit1') setMode('orbit'); else if (e.code === 'Digit2') setMode('walk');
     else if (e.code === 'Equal' || e.code === 'NumpadAdd') zoomBy(0.6); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') zoomBy(1 / 0.6);
-    else if (e.code === 'KeyO') el('bOptions').click(); else if (e.code === 'KeyH') togglePhoto(); else if (e.code === 'KeyP') screenshot(); else if (e.code === 'KeyT' && UI.mode === 'orbit') el('bTour').click();
+    else if (e.code === 'KeyO') el('bOptions').click(); else if (e.code === 'KeyH') togglePhoto(); else if (e.code === 'KeyF') toggleFull(); else if (e.code === 'KeyP') screenshot(); else if (e.code === 'KeyT' && UI.mode === 'orbit') el('bTour').click();
     else if (e.code === 'KeyM') { OPT.minimap = !OPT.minimap; el('mapWrap').classList.toggle('show', OPT.minimap); saveOptions(); buildOptions(); }
     else if (e.code === 'KeyL') { const o = ['hi', 'ur', 'en', 'off']; OPT.labels = o[(o.indexOf(OPT.labels) + 1) % 4]; applyLabelLang(); saveOptions(); buildOptions(); }
     else if (e.code === 'Escape') { if (document.body.classList.contains('photo')) togglePhoto(); else if (el('options').classList.contains('show')) el('bOptions').click(); else if (UI.mode !== 'orbit') setMode('orbit'); else showCard(null); }
   });
   addEventListener('keyup', e => { KEYS[e.code] = false; });
   addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; release(); });
-  addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); labelRenderer.setSize(innerWidth, innerHeight); });
+  const onResize = () => { camera.aspect = innerWidth / innerHeight; if (UI.mode === 'orbit') camera.fov = fovFor(FOV, 74); camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); labelRenderer.setSize(innerWidth, innerHeight); };
+  addEventListener('resize', onResize); addEventListener('orientationchange', () => setTimeout(onResize, 350));      // phones report the new size a moment after turning
 }
 
 /* ───────────── main loop ───────────── */
@@ -461,8 +477,9 @@ async function main() {
   el('mapWrap').classList.toggle('show', OPT.minimap);
   setTime('live'); applyTime(0.016, 0);
   if (OPT.sound) { const go = () => { SND.start(); removeEventListener('pointerdown', go); }; addEventListener('pointerdown', go); }
-  camera.fov = FOV; camera.updateProjectionMatrix();
-  UI.fly = { t: 0, dur: 5, c0: camera.position.clone(), t0: controls.target.clone(), c1: new THREE.Vector3(-176, 44, 52), t1: new THREE.Vector3(-34, 14, -24) };
+  camera.fov = fovFor(FOV, 74); camera.updateProjectionMatrix(); updateLabels();
+  { const t1 = new THREE.Vector3(-34, 14, -24); UI.fly = { t: 0, dur: 5, c0: camera.position.clone(), t0: controls.target.clone(), c1: t1.clone().lerp(new THREE.Vector3(-176, 44, 52), frameK()), t1 }; }
+  if (TOUCH) setTimeout(() => toast('Drag to move · pinch to zoom · two fingers to turn · double-tap the ground to walk there', 7000), 5200);
   frame();
   const ld = el('load'); ld.style.opacity = 0; setTimeout(() => ld.remove(), 900);
   window.HUSSAINABAD = { scene, camera, controls, renderer, UI, WALK, TIME, OPT, LIFE, HERO, NAV, setMode, enterWalk, flyTo, zoomBy, panTo, setTime, setWeather, floorAt, look: (a, b, c, d, e, f) => { UI.fly = null; camera.position.set(a, b, c); controls.target.set(d, e, f); controls.update(); } };
