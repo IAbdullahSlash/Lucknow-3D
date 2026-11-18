@@ -1,7 +1,7 @@
 'use strict';
 /* sky.js — the real sun path for Lucknow, sky dome with drifting clouds, stars, weather, rain and the night pass */
 
-const TIME = { mode: 'live', hour: 12, date: new Date(Date.now() + 5.5 * 3600e3), sunrise: 6, sunset: 18, noon: 12, night: 0, el: 0.8 };
+const TIME = { mode: 'live', hour: 12, date: BENCHMARK ? new Date('2026-11-18T12:00:00Z') : new Date(Date.now() + 5.5 * 3600e3), sunrise: 6, sunset: 18, noon: 12, night: 0, el: 0.8 };
 const WEATHER = {
   clear: { name: 'Clear', cover: 0.12, fog: [650, 2100], haze: 0.08, sun: 1, hemi: 1, wet: 0, rain: 0 },
   haze: { name: 'Dusty haze', cover: 0.24, fog: [380, 1500], haze: 0.4, sun: 0.9, hemi: 1, wet: 0, rain: 0 },
@@ -82,7 +82,7 @@ const ENV = (() => {
 
 /* rain */
 const RAIN_N = 2600, rainGeo = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(RAIN_N * 6), 3));
-const rainSeed = new Float32Array(RAIN_N * 3); for (let i = 0; i < RAIN_N * 3; i++) rainSeed[i] = Math.random();
+const rainSeed = Float32Array.from({ length: RAIN_N * 3 }, tr);
 const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0xc3d2e0, transparent: true, opacity: 0.42, depthWrite: false })); rain.frustumCulled = false; rain.visible = false; scene.add(rain);
 function updateRain(t) {
   const p = rainGeo.attributes.position, cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, R = 34, H = 30;
@@ -159,4 +159,8 @@ const BUSY = {
   traffic: [[0, 0.12], [3, 0.05], [5, 0.1], [7, 0.45], [9.5, 0.95], [12, 0.7], [15, 0.75], [18, 1], [20.5, 0.85], [22.5, 0.45], [24, 0.12]],
 };
 function busyAt(kind, h) { const k = BUSY[kind]; h = ((h % 24) + 24) % 24; for (let i = 1; i < k.length; i++) if (h <= k[i][0]) { const a = k[i - 1], b = k[i], t = (h - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * (t * t * (3 - 2 * t)); } return k[0][1]; }
+// A scene schedule, shared by the food-court customers and their sound.
+function marketActivity(hour) {
+  return smooth((hour - 11) / 3) * (1 - smooth((hour - 21.5) / 1.5));
+}
 function presetHour(name) { return name === 'sunrise' ? TIME.sunrise + 0.25 : name === 'noon' ? TIME.noon : name === 'golden' ? TIME.sunset - 0.7 : name === 'dusk' ? TIME.sunset + 0.25 : 22; }

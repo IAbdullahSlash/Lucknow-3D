@@ -16,8 +16,10 @@ let _saved = {}; try { _saved = JSON.parse(localStorage.getItem('hussainabad-opt
 for (const k of ['traffic', 'crowd', 'carriages', 'kites', 'birds', 'fov', 'cycleMin', 'lookSens']) delete OPT[k];   // settings that were retired
 // a phone with little memory or few cores starts light; whatever the user picks afterwards is kept
 if (!_saved.quality && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820 && ((navigator.deviceMemory || 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4)) OPT.quality = 'low';
+const BENCHMARK = window.LUCKNOW_BENCHMARK;
+if (BENCHMARK) Object.assign(OPT, { quality: BENCHMARK.quality, shadows: true, sound: false, weather: 'clear', festive: false, minimap: true, labels: 'en', shopTags: true, walkSpeed: 1 });
 const FOV = 42;
-function saveOptions() { try { localStorage.setItem('hussainabad-options', JSON.stringify(OPT)); } catch (e) { /* ignore */ } }
+function saveOptions() { if (!BENCHMARK) try { localStorage.setItem('hussainabad-options', JSON.stringify(OPT)); } catch (e) { /* ignore */ } }
 const QUALITY = {
   low: { pr: 1, shadow: 0, people: 0.45, cars: 0.6, houses: 0.7 },
   medium: { pr: 1.25, shadow: 2048, people: 0.8, cars: 0.85, houses: 1 },
@@ -26,7 +28,15 @@ const QUALITY = {
 const Q = QUALITY[OPT.quality] || QUALITY.medium;
 
 /* ───────────── renderer / scene ───────────── */
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+} catch {
+  throw new Error('WebGL is unavailable in this browser. You can still read the itinerary or open the 2D map.');
+}
+renderer.domElement.addEventListener('webglcontextlost', () => {
+  window.dispatchEvent(new CustomEvent('scene-unavailable', { detail: new Error('The browser lost its connection to 3D rendering.') }));
+});
 renderer.setPixelRatio(Math.min(devicePixelRatio, Q.pr));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = !!Q.shadow && OPT.shadows;
@@ -50,8 +60,13 @@ sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.6;
 scene.add(hemi, sun, sun.target);
 
 /* ───────────── random ───────────── */
-let _seed = 1881;
-const rnd = () => { _seed = (_seed * 16807) % 2147483647; return (_seed - 1) / 2147483646; };
+function seededRandom(seed) {
+  return () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+}
+const rnd = seededRandom(1881);
 const rr = (a, b) => a + (b - a) * rnd();
 const ri = (a, b) => Math.floor(rr(a, b + 1));
 const pick = a => a[Math.floor(rnd() * a.length)];
@@ -97,6 +112,13 @@ function pointInPoly(x, z, p) {            // p = flat [x,z,...]
   }
   return inside;
 }
+function featureContains(x, z, feature) {
+  return pointInPoly(x, z, feature.p) && !feature.holes?.some(hole => pointInPoly(x, z, hole));
+}
+function isTalabWater(feature) {
+  const [x, z] = toWorld(FRAME.park, TALAB.cx, TALAB.cz);
+  return feature.k === 'basin' && featureContains(x, z, feature);
+}
 function polyBounds(p) { let a = 1e9, b = -1e9, c = 1e9, d = -1e9; for (let i = 0; i < p.length; i += 2) { a = Math.min(a, p[i]); b = Math.max(b, p[i]); c = Math.min(c, p[i + 1]); d = Math.max(d, p[i + 1]); } return [a, b, c, d]; }
 function polyCentroid(p) { let x = 0, z = 0; for (let i = 0; i < p.length; i += 2) { x += p[i]; z += p[i + 1]; } return [x / (p.length / 2), z / (p.length / 2)]; }
 function segDist(px, pz, ax, az, bx, bz) {
@@ -123,7 +145,7 @@ function canvasTex(w, h, draw, sizeX = 1, sizeY = sizeX) {
   if (sizeX) t.repeat.set(1 / sizeX, 1 / sizeY);
   return t;
 }
-const tr = () => Math.random();           // texture noise does not need to be reproducible
+const tr = BENCHMARK ? seededRandom(903) : Math.random;
 function blotches(x, w, h, n, cols, s0, s1, a) {
   for (let i = 0; i < n; i++) { x.globalAlpha = a * (0.4 + tr() * 0.6); x.fillStyle = cols[(tr() * cols.length) | 0]; const s = s0 + tr() * (s1 - s0); x.beginPath(); x.ellipse(tr() * w, tr() * h, s, s * (0.5 + tr()), tr() * 3, 0, TAU); x.fill(); }
   x.globalAlpha = 1;

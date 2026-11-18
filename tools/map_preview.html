@@ -1,25 +1,34 @@
-<!doctype html><meta charset="utf-8"><title>map preview</title>
-<body style="margin:0;background:#222"><canvas id="c"></canvas>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hussainabad map preview</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#211922;color:#f4ead6;font:15px system-ui,sans-serif}
+  main{padding:clamp(12px,3vw,32px)}
+  h1{margin:0 0 10px;font:600 28px Georgia,serif}
+  #maps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:12px}
+  figure{margin:16px 0 0}
+  figcaption{margin-bottom:5px}
+  canvas{display:block;width:100%;height:auto;border:1px solid #a99474;border-radius:8px}
+  a{color:#f4d2a0}
+  label{display:inline-flex;flex-wrap:wrap;gap:6px}
+</style>
+</head>
+<body>
+<main>
+<h1>Hussainabad map preview</h1>
+<label>Compare a generated map <input id="compare" type="file" accept=".js,.json"></label>
+<p id="status" role="status" hidden></p>
+<div id="maps">
+  <figure><figcaption id="baselineInfo">Checked-in extract</figcaption><canvas id="baseline" width="1600" height="1180" aria-label="Checked-in map of Hussainabad"></canvas></figure>
+  <figure id="candidate" hidden><figcaption id="candidateInfo"></figcaption><canvas id="comparison" width="1600" height="1180" aria-label="Candidate map of Hussainabad"></canvas></figure>
+</div>
+<p>Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a></p>
+</main>
 <script src="../data/map.js"></script>
-<script>
-const q = new URLSearchParams(location.search), S = +(q.get('s') || 1), cx = +(q.get('x') || 0), cz = +(q.get('z') || 160);
-const W = 1600, H = 1180, c = document.getElementById('c'); c.width = W; c.height = H; const g = c.getContext('2d');
-const X = x => (x - cx) * S + W / 2, Z = z => (z - cz) * S + H / 2;
-const path = (p, close) => { g.beginPath(); for (let i = 0; i < p.length; i += 2) i ? g.lineTo(X(p[i]), Z(p[i + 1])) : g.moveTo(X(p[i]), Z(p[i + 1])); if (close) g.closePath(); };
-g.fillStyle = '#d8cfbd'; g.fillRect(0, 0, W, H);
-const M = window.MAPDATA;
-for (const a of M.areas) { path(a.p, 1); g.fillStyle = 'rgba(200,150,90,.25)'; g.fill(); g.strokeStyle = '#a66'; g.lineWidth = 1; g.stroke(); }
-for (const a of M.green) { path(a.p, 1); g.fillStyle = '#a9cf8f'; g.fill(); }
-for (const a of M.water) { path(a.p, 1); g.fillStyle = '#7fb6d9'; g.fill(); }
-const col = { primary: '#e8a04a', primary_link: '#e8a04a', secondary: '#f0d060', secondary_link: '#f0d060', tertiary: '#ffffff', tertiary_link: '#fff', residential: '#f4f4f4', living_street: '#eee', service: '#bbb', footway: '#c66', path: '#c66', steps: '#c00' };
-for (const r of M.roads) { path(r.p); g.strokeStyle = col[r.k] || '#f0f'; g.lineWidth = Math.max(1, r.w * S); g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); }
-for (const b of M.buildings) { path(b.p, 1); g.fillStyle = b.n ? '#b5533c' : '#8d8478'; g.fill(); }
-if (S >= 2) for (const r of M.roads) { g.fillStyle = '#333'; for (let i = 0; i < r.p.length; i += 2) g.fillRect(X(r.p[i]) - 1.5, Z(r.p[i + 1]) - 1.5, 3, 3); g.fillStyle='#07a'; g.font='10px sans-serif'; const i = Math.floor(r.p.length / 4) * 2; g.fillText(r.k[0]+r.w+(r.o?'>':''), X(r.p[i])+3, Z(r.p[i + 1])+10); g.font='12px sans-serif'; }
-for (const b of M.barriers) { path(b.p); g.strokeStyle = '#000'; g.lineWidth = 2; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]); }
-g.font = '12px sans-serif'; g.fillStyle = '#000';
-const seen = {};
-for (const r of M.roads) if (r.n && !seen[r.n] && S >= 0.9) { seen[r.n] = 1; const i = Math.floor(r.p.length / 4) * 2; g.fillStyle = '#00f'; g.fillText(r.n, X(r.p[i]), Z(r.p[i + 1])); }
-for (const b of [...M.buildings, ...M.areas, ...M.green, ...M.water]) if (b.n) { let x = 0, z = 0; for (let i = 0; i < b.p.length; i += 2) { x += b.p[i]; z += b.p[i + 1]; } g.fillStyle = '#600'; g.fillText(b.n, X(x / (b.p.length / 2)), Z(z / (b.p.length / 2))); }
-for (const p of M.pois) { g.fillStyle = '#060'; g.fillRect(X(p.x) - 2, Z(p.z) - 2, 4, 4); if (S > 1.5) g.fillText(p.n, X(p.x) + 4, Z(p.z)); }
-g.strokeStyle = '#000'; g.lineWidth = 1; const GS = S >= 2 ? 25 : 100; for (let m = -900; m <= 900; m += GS) { g.globalAlpha = .15; g.beginPath(); g.moveTo(X(m), 0); g.lineTo(X(m), H); g.moveTo(0, Z(m)); g.lineTo(W, Z(m)); g.stroke(); g.globalAlpha = 1; g.fillStyle = '#444'; g.fillText(m, X(m) + 2, 12); g.fillText(m, 2, Z(m) - 2); }
-</script>
+<script src="map_preview.js"></script>
+</body>
+</html>

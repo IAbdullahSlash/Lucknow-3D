@@ -5,8 +5,8 @@
   way["highway"];
   way["natural"];
   relation["natural"="water"];
-  way["leisure"];
-  way["landuse"];
+  nwr["leisure"];
+  nwr["landuse"];
   way["waterway"];
   nwr["historic"];
   nwr["tourism"];

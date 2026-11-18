@@ -2,7 +2,7 @@
 /* life.js — traffic on the real road graph, horses and carriages, people, stray animals, street vendors, birds, kites, fountains */
 
 const GLASS = 0x263640, GOLDC = 0xd9a63f, SKIN = [0xc68642, 0x8d5524, 0xe0ac69, 0xa9713f, 0xd9a066];
-const R = Math.random, rpick = a => a[(R() * a.length) | 0];
+const R = BENCHMARK ? seededRandom(3821) : Math.random, rpick = a => a[(R() * a.length) | 0];
 const LIFE = { player: null, vehicles: [], people: [], nVeh: 0, nPeople: 0 };
 
 /* ───────────── instanced wheels and animal legs shared by everything that rolls or trots ───────────── */
@@ -197,7 +197,6 @@ function updateTraffic(dt, t) {
     for (let k = 0; k < v.wheels.length; k++) { const w = v.wheels[k]; setLimb(w[4] ? sa : ta, v.w0[k], v.x, 0, v.z, cy, sy, w[0], w[2], w[1], v.roll / w[2], w[3], w[2], w[2]); }
     if (v.l0 >= 0) quadLegs(v.l0, v.x, bob, v.z, cy, sy, v.horse[0], v.roll * 2.6 + v.ph, 0.5 * Math.min(1, v.v / 1.5));
   }
-  TYRE.instanceMatrix.needsUpdate = SPOKE.instanceMatrix.needsUpdate = ALEG.instanceMatrix.needsUpdate = true;
   LIFE.nVeh = nOn;
 }
 
@@ -218,7 +217,11 @@ function buildStaticProps() {
   const flat = [], shiny = [], m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3();
   const place = (geo, x, z, yaw, list) => { const g = geo.clone(); m4.compose(pos.set(x, 0, z), q.setFromAxisAngle(up, yaw), one); g.applyMatrix4(m4); list.push(g); };
   for (const [x, z, yaw, type] of PARKED) {
-    const def = VDEF[type]; if (!def) continue; PARK_MODE = 1; const model = vehicleModel(type, rpick(def.colors)), p = painter(); PARK_MODE = 0;
+    const def = VDEF[type];
+    if (!def) continue;
+    const c = Math.cos(yaw), s = Math.sin(yaw);
+    if (blocksPilotTrail({ x, z, hw: 0.75, hd: def.len / 2, ux: c, uz: -s, vx: s, vz: c })) continue;
+    PARK_MODE = 1; const model = vehicleModel(type, rpick(def.colors)), p = painter(); PARK_MODE = 0;
     for (const w of model.wheels) { if (w[4]) { const g = spokeGeo.clone(); g.scale(w[3], w[2], w[2]); g.translate(w[0], w[2], w[1]); const c = g.attributes.color, cc = _c.set(def.spoke || 0x444444); for (let i = 0; i < c.count; i++) c.setXYZ(i, cc.r, cc.g, cc.b); p.geo(g, def.spoke || 0x444444); } else { const g = tyreGeo.clone(); g.scale(w[3], w[2], w[2]); g.translate(w[0], w[2], w[1]); const keep = g.attributes.color.array.slice(); p.geo(g, 0); g.attributes.color.array.set(keep); } }
     if (model.horse) for (let k = 0; k < 4; k++) p.box(0.13, 1.04, 0.15, k & 1 ? 0.2 : -0.2, 0.52, model.horse[0] + (k < 2 ? 0.62 : -0.6), _c.set(model.horse[1]).multiplyScalar(0.8).getHex());
     if (p.count) place(p.done(), x, z, yaw, flat); place(model.geo, x, z, yaw, def.shiny ? shiny : flat);
@@ -346,6 +349,12 @@ function spawnPeople() {
     const v = newPerson(R() < 0.75 ? (R() < 0.5 ? 0 : 1) : 3); if (!v) break; v.mode = 3; const back = type === 'candy' || type === 'balloon' ? 0 : -0.95; v.x = x + Math.sin(yaw) * back; v.z = z + Math.cos(yaw) * back; v.yaw = v.yaw0 = yaw; v.vend = true;
     for (let k = 0, n = R() < 0.35 ? 0 : R() < 0.6 ? 1 : 2; k < n; k++) { const c = newPerson(); if (!c) break; c.mode = 3; const a = yaw + (R() - 0.5) * 1.2, d = 1.3 + R() * 0.7; c.x = x + Math.sin(a) * d; c.z = z + Math.cos(a) * d; c.yaw = a + Math.PI; }
   }
+  for (const [i, stall] of MARKET_STALLS.entries()) {
+    const person = newPerson();
+    if (!person) break;
+    person.market = { stall, phase: 0.2 + i * 0.47, period: 24 + i * 10, threshold: 0.43 + i * 0.25 };
+    [person.x, person.z] = stall.entry;
+  }
   for (const im of Object.values(PP)) if (im.instanceColor) im.instanceColor.needsUpdate = true;
   const n = LIFE.people.length; PP.torso.count = PP.robe.count = PP.head.count = PP.hair.count = n; PP.leg.count = PP.arm.count = n * 2; PP.bag.count = Math.max(1, nBag);
 }
@@ -354,15 +363,40 @@ function giveWay(p, P, r, d) {
   const ax = p.x - P.x, az = p.z - P.z, q = ax * ax + az * az; if (q >= r * r || Math.abs(p.y - P.y) > 1.5) return false;
   const dd = Math.sqrt(q) || 0.01, k = Math.min(r - dd, 2.4 * d) / dd; p.x += ax * k; p.z += az * k; return true;
 }
+function updateMarketCustomer(person, dt, time) {
+  const { stall, phase, period } = person.market;
+  const t = (time / period + phase) % 1;
+  let from, target, progress;
+  if (t < 0.30) {
+    from = stall.entry; target = stall.counter; progress = t / 0.30;
+  } else if (t < 0.64) {
+    from = target = stall.counter; progress = 0;
+  } else if (t < 0.90) {
+    from = stall.counter; target = stall.exit; progress = (t - 0.64) / 0.26;
+  } else {
+    from = stall.exit; target = stall.entry; progress = (t - 0.90) / 0.10;
+  }
+  person.x = lerp(from[0], target[0], progress);
+  person.z = lerp(from[1], target[1], progress);
+  person.moving = from !== target;
+  if (person.moving) {
+    person.yaw = Math.atan2(target[0] - from[0], target[1] - from[1]);
+    person.ph += dt * 5;
+  }
+  posePerson(person, time);
+}
 let _pf = 0;
 function updatePeople(dt, t) {
   const A = LIFE.people, nOn = Math.round(A.length * busyAt('crowd', TIME.hour)), cx = camera.position.x, cz = camera.position.z, P = LIFE.player, pa = !!(P && P.active); _pf++;
+  const market = marketActivity(TIME.hour);
   for (let i = 0; i < A.length; i++) {
-    const p = A[i], on = (i * 7919) % A.length < nOn;
+    const p = A[i], on = p.market ? market > p.market.threshold : (i * 7919) % A.length < nOn;
     if (on !== p.on) { p.on = on; if (!on) hidePerson(p); else p.dirty = true; }
     if (!on) continue;
     const far = Math.abs(p.x - cx) + Math.abs(p.z - cz) > 420; if (far && (i + _pf) % 4) continue; const d = far ? dt * 4 : dt;
-    if (p.mode === 1) {
+    if (p.market) {
+      updateMarketCustomer(p, d, t);
+    } else if (p.mode === 1) {
       p.s += p.sp * d; if (p.s >= p.e.len) pedNext(p);
       const a = polyAt(p.e.pl, p.d > 0 ? p.s : p.e.len - p.s, _pp), tx = a[2] * p.d, tz = a[3] * p.d; let gx = a[0] + tz * p.off, gz = a[1] - tx * p.off;
       if (pa) {      // bend the path sideways round the walker, starting a few steps ahead
@@ -387,7 +421,6 @@ function updatePeople(dt, t) {
       if (p.dirty !== false) { p.dirty = false; posePerson(p, t); }
     }
   }
-  for (const im of Object.values(PP)) im.instanceMatrix.needsUpdate = true;
   LIFE.nPeople = nOn;
 }
 
@@ -430,5 +463,33 @@ function updateFx(dt, t) {
   p.needsUpdate = true;
   const sp = smoke.geometry.attributes.position; SMOKE.forEach((s, i) => { const u = (t * 0.22 + s[2]) % 1; sp.setXYZ(i, s[0] + Math.sin(u * 5 + s[2] * 9) * 0.5 * u + u * 0.8, 1.6 + u * 4.2, s[1] + Math.cos(u * 4 + s[2] * 7) * 0.4 * u); }); sp.needsUpdate = true;
 }
-function buildLife() { buildStaticProps(); spawnVehicles(); spawnRiders(); spawnPeople(); spawnStrays(); spawnSky(); spawnFx(); }
-function updateLife(dt, t) { updateTraffic(dt, t); updateRiders(dt, t); updateStrays(dt, t); updatePeople(dt, t); updateSky(dt, t); updateFx(dt, t); }
+const animatedInstances = [TYRE, SPOKE, ALEG, ...Object.values(PP)];
+function buildLife() {
+  buildStaticProps();
+  spawnVehicles();
+  spawnRiders();
+  spawnPeople();
+  spawnStrays();
+  spawnSky();
+  spawnFx();
+
+  // Wheel and leg indices stay stable as traffic switches on and off by hour.
+  TYRE.count = nTyre;
+  SPOKE.count = nSpoke;
+  ALEG.count = nLeg;
+}
+function updateLife(dt, t) {
+  updateTraffic(dt, t);
+  updateRiders(dt, t);
+  updateStrays(dt, t);
+  updatePeople(dt, t);
+  updateSky(dt, t);
+  updateFx(dt, t);
+  for (const mesh of animatedInstances) {
+    if (!mesh.count) continue;
+    // Send the assigned matrix slots and skip the unused tail of each buffer.
+    mesh.instanceMatrix.clearUpdateRanges();
+    mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+}

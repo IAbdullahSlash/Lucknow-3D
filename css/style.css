@@ -5,6 +5,7 @@
   --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px); --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:#141018;color:var(--ink);font-family:var(--sans);-webkit-tap-highlight-color:transparent}
 #stage,#labels{position:fixed;inset:0}
 #stage canvas{display:block;touch-action:none;cursor:grab}
@@ -16,6 +17,7 @@ a{color:inherit}
 button{font:600 12px var(--sans);letter-spacing:.06em;color:var(--ink);background:var(--panel);border:1px solid var(--line);
   border-radius:999px;padding:8px 14px;cursor:pointer;backdrop-filter:blur(10px);transition:border-color .15s}
 button:hover{border-color:var(--gold)}
+button:disabled{opacity:.45;cursor:default}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 button.on{background:var(--gold);color:#241a0c;border-color:var(--gold)}
 button.mini{padding:5px 11px;font-size:11px}
@@ -36,13 +38,31 @@ body.touch button{padding:10px 15px} body.touch button.mini{padding:7px 13px} bo
 #places button small{font:500 12px var(--sans);color:var(--gold);margin-left:8px;letter-spacing:0}
 #places button.on small{color:#5a3d0c}
 
-#card{position:fixed;right:16px;bottom:96px;width:min(340px,calc(100vw - 32px));padding:15px 17px;display:none}
+#card{position:fixed;right:16px;bottom:96px;width:min(340px,calc(100vw - 32px));max-height:60vh;overflow:auto;padding:15px 17px;display:none}
 #card.show{display:block}
-#card .hi{color:var(--gold);font-size:19px}
-#card h2{margin:2px 0;font:600 20px var(--serif);letter-spacing:.04em}
+#card h2{margin:2px 24px 2px 0;font:600 20px var(--serif)}
 #card .yr{font-size:11px;letter-spacing:.14em;color:var(--mute);text-transform:uppercase}
 #card p{margin:9px 0 10px;font-size:13px;line-height:1.55;color:#e6dcc8}
 #card .x{position:absolute;right:8px;top:8px;border:0;background:transparent;font-size:15px;padding:4px 9px;color:var(--mute)}
+.actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+#cardViews:not(:empty){margin-bottom:8px}
+#cardSource{font-size:11px;color:var(--gold)}
+#tourPanel{position:fixed;z-index:2;bottom:76px;left:50%;width:max-content;max-width:calc(100vw - 24px);transform:translateX(-50%);padding:9px 12px}
+#tourStatus{margin:0 0 6px;font-size:13px;color:var(--gold);font-weight:600}
+#tourStatus bdi{margin-inline-start:6px}
+#restoreView{position:fixed;z-index:6;top:calc(10px + var(--sat));right:calc(10px + var(--sar));opacity:.8}
+#restoreView:is(:focus,:hover){opacity:1}
+.readingPanel{color:var(--ink);background:#211922;padding:clamp(16px,4vw,30px);border:1px solid var(--line);border-radius:16px;width:min(620px,calc(100% - 28px));line-height:1.55;overscroll-behavior:contain}
+.readingPanel h1,.readingPanel h2{font-family:var(--serif);line-height:1.2;margin:0 0 .65em}
+.readingPanel h3{font:600 1.05rem var(--sans);margin:0;color:var(--gold)}
+.readingPanel ol{padding-inline-start:1.4em}
+.readingPanel li{padding-inline-start:.3em;margin:0 0 14px}
+.readingPanel li p{margin:3px 0}
+#fallback{max-height:calc(100dvh - 28px);margin:14px auto;overflow:auto}
+body.scene-failed :is(#stage,#labels,#ui,#restoreView){display:none}
+#fallbackLanguage{font:inherit}
+#itinerary{max-height:calc(100dvh - 28px)}
+#itinerary::backdrop{background:rgba(9,6,10,.68)}
 
 #options{position:fixed;right:16px;top:60px;width:min(330px,calc(100vw - 32px));max-height:calc(100vh - 170px);max-height:calc(100dvh - 170px);overflow-y:auto;overscroll-behavior:contain;padding:0 16px 14px;display:none;z-index:5;scrollbar-width:thin}
 #options.show{display:block}
@@ -69,6 +89,7 @@ body.touch button{padding:10px 15px} body.touch button.mini{padding:7px 13px} bo
 #mapWrap.show{display:block}
 #minimap{width:176px;height:176px;border-radius:10px;display:block}
 #compassN{position:absolute;left:50%;top:9px;transform:translateX(-50%);font:700 11px var(--sans);color:#fff;text-shadow:0 1px 3px #000;line-height:1}
+.mapKey{display:block;margin:5px 0 1px;text-align:center;font-size:9px;line-height:1.2;color:var(--mute);max-width:176px}
 body.card-open #mapWrap{bottom:auto;top:60px}
 
 #walkhud{display:none}
@@ -124,7 +145,7 @@ body.nolabels #labels{display:none}
 #load small{display:block;margin-top:16px;font:500 12.5px var(--sans);letter-spacing:.05em;color:var(--mute);min-height:1.4em}
 #load i{display:block;width:180px;height:2px;margin:14px auto 0;background:linear-gradient(90deg,transparent,var(--gold),transparent);animation:slide 1.4s linear infinite}
 @keyframes slide{from{transform:translateX(-40px)}to{transform:translateX(40px)}}
-@media (prefers-reduced-motion:reduce){#load i{animation:none}}
+@media (prefers-reduced-motion:reduce){#load i{animation:none} #load,#toast{transition:none}}
 
 /* a narrower desktop window: the key guide and the hint stay clear of the time bar */
 @media (max-width:1180px){ #timebar [data-t=golden]{display:none} #hint{max-width:22vw} #keys{bottom:72px} }
@@ -138,6 +159,12 @@ body.touch #hint{display:none}
   #places::-webkit-scrollbar{display:none} #placesWrap.open #places{display:flex} #places button{flex:none;scroll-snap-align:start}
   #hint{display:none} #zoom{left:10px;bottom:calc(66px + var(--sab))} #zoom button{width:40px;height:40px}
   #card{left:10px;right:10px;bottom:calc(66px + var(--sab));width:auto;max-height:44vh;overflow-y:auto;overscroll-behavior:contain}
+  #tourPanel{top:calc(94px + var(--sat));bottom:auto;width:max-content}
+  body.touring:not(.walk) #card{max-height:32vh}
+  body.touring:not(.walk) #mapWrap{top:calc(190px + var(--sat));bottom:auto}
+  #placesWrap.open{z-index:4}
+  body.touring.walk #tourPanel{top:calc(84px + var(--sat));bottom:auto}
+  body.touring.walk #card,body.touring.touch.walk #mapWrap{top:calc(183px + var(--sat))}
   #options{left:0;right:0;top:auto;bottom:0;width:auto;max-height:min(78vh,640px);border-radius:16px 16px 0 0;padding:0 16px calc(14px + var(--sab))}
   #options .ohead{position:sticky;top:0;z-index:1;padding:12px 0 6px;background:rgba(20,15,22,.92)}
   #options input[type=range]{width:120px}
@@ -163,6 +190,11 @@ body.touch #hint{display:none}
   #timebar{left:auto;right:calc(10px + var(--sar));bottom:8px;transform:none;padding:4px 6px} #timebar button{padding:7px 9px} #clock{font-size:13px}
   #mapWrap{right:calc(10px + var(--sar));bottom:54px} #minimap{width:92px;height:92px} body.card-open #mapWrap{display:none}
   #card{left:auto;right:calc(10px + var(--sar));bottom:54px;width:min(340px,48vw);max-height:calc(100vh - 100px)}
+  #tourPanel{left:calc(10px + var(--sal));top:auto;bottom:52px;width:min(360px,48vw);transform:none}
+  body.touring:not(.walk) #card{width:min(320px,39vw);max-height:52vh}
+  body.touring:not(.walk) #mapWrap{top:auto;bottom:54px}
+  body.touring.walk #tourPanel{top:46px;bottom:auto}
+  body.touring.walk #card,body.touring.touch.walk #mapWrap{top:46px}
   #options{left:auto;right:calc(10px + var(--sar));top:46px;bottom:8px;width:min(340px,58vw);max-height:none;border-radius:14px;padding:0 14px 12px}
   #zoom{left:calc(10px + var(--sal));bottom:8px} #credit{left:50%;right:auto;transform:translateX(-50%);bottom:2px}
   #toast{top:46px}

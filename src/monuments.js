@@ -1,7 +1,7 @@
 'use strict';
 /* monuments.js — the heritage buildings, each in its surveyed position and orientation (see FRAME in core.js) */
 
-const FOUNTAINS = [], VENDORS = [], PARKED = [], SEATS = [], ZONES = [], CLOCK_HANDS = [], FESTIVE = [], RIDE_LOOPS = [];
+const FOUNTAINS = [], VENDORS = [], PARKED = [], SEATS = [], ZONES = [], CLOCK_HANDS = [], FESTIVE = [], RIDE_LOOPS = [], MARKET_STALLS = [];
 const WORLD = { x: 0, z: 0, rot: 0 };
 const zone = (f, x0, z0, x1, z1, n, y = 0) => ZONES.push({ f, x0, z0, x1, z1, n, y });
 const seatAt = (f, lx, lz, y, yaw) => { const w = toWorld(f, lx, lz); SEATS.push([w[0], y, w[1], yaw + f.rot]); };
@@ -56,7 +56,7 @@ function buildKiosks() {
       kiosk(g, q[2], q[3], rot, i); q[5] = [q[2] + Math.sin(rot) * 1.4, q[3] + Math.cos(rot) * 1.4]; VENDORS.push([q[2] + Math.sin(rot), q[3] + Math.cos(rot), rot + Math.PI, 'cook']);
     }
     if (q[4] === 3) q[5] = [q[2], q[3]];
-    if (q[5]) LABELS.push({ id: 'poi' + i, poi: true, en: q[0], hi: q[1], ur: q[1], pos: [q[5][0], q[4] === 0 ? 5.3 : 4.5, q[5][1]] });
+    if (q[5]) LABELS.push({ id: 'poi' + i, poi: true, en: q[0], hi: q[1], pos: [q[5][0], q[4] === 0 ? 5.3 : 4.5, q[5][1]] });
   });
   const along = (s, side, off) => { const a = polyAt(MAIN, s); return [a[0] + a[3] * side * off, a[1] - a[2] * side * off, Math.atan2(a[2], a[3])]; };
   [[S_PARK0 + 12, 1, ['HUSAINABAD HERITAGE ZONE', 'हुसैनाबाद हेरिटेज ज़ोन']], [mainProject(...toWorld(FRAME.park, 9, 82)).s, 1, ['CLOCK TOWER  ↑', 'घंटाघर · तालाब · पिक्चर गैलरी']], [S_DUAL0 - 14, -1, ['FRAGRANCE PARK', 'फ़्रेगरेंस पार्क']],
@@ -93,7 +93,15 @@ function clockTower(g) {
   for (let k = 0; k < 4; k++) rectDecal(grp(g, 0, 0, k * Math.PI / 2), MAT.diaper, 5.0, 2.5, 0, y + 0.75, 3.0);
   B(g, MAT.stone, 6.6, 0.4, 6.6, 0, y + 3.65, 0, true);
   y = 48.45; B(g, MAT.brick, 6.6, 7.4, 6.6, 0, y, 0, true);
-  for (let k = 0; k < 4; k++) { const d = new THREE.Mesh(new THREE.PlaneGeometry(5.7, 5.7), MAT.dial); d.position.set(0, y + 3.7, 3.37); grp(g, 0, 0, k * Math.PI / 2).add(d); }
+  for (let k = 0; k < 4; k++) {
+    const face = grp(g, 0, 0, k * Math.PI / 2);
+    const dial = new THREE.Mesh(new THREE.PlaneGeometry(5.7, 5.7), MAT.dial);
+    dial.position.set(0, y + 3.7, 3.37);
+    face.add(dial);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(2.08, 0.04, 6, 48), MAT.copper);
+    rim.position.set(0, y + 3.7, 3.405);
+    face.add(rim);
+  }
   B(g, MAT.stone, 7.5, 0.5, 7.5, 0, y + 7.4, 0, true);
   y = 56.35;
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) { C(g, MAT.brickD, 0.5, 0.62, 2.4, sx * 3.2, y, sz * 3.2, 8, true, true); dome(g, MAT.copper, 0.75, sx * 3.2, y + 2.4, sz * 3.2); }
@@ -138,6 +146,8 @@ function buildPark() {
     const m = new THREE.Mesh(new THREE.ShapeGeometry(s), GM.herring); m.rotation.x = -Math.PI / 2; m.position.y = 0.012; m.receiveShadow = true; g.add(m);
   }
   flatRect(g, GM.herring, 46, 46, 0, 0, 0.012); flatRect(g, GM.herring, 10, 60, 0, 52, 0.012); flatRect(g, GM.herring, 14, 9, -29, 0, 0.012);
+  // Stone apron at the south opening, aligned with the walk down the ghats.
+  flatRect(g, GM.pathTop, 8, 5.5, cx, cz + T.b + 3.3, 0.018);
   // the stepped tank: ghats descend on all eight sides to the water
   for (let i = 0; i <= T.n; i++) g.add(ringPoly(i % 4 === 0 ? MAT.pinkD : MAT.pink, off(talabOct(i === 0 ? -0.7 : (i - 1) * T.tread)), off(talabOct(i * T.tread)), i === 0 ? 0.03 : -i * T.rise, i === T.n ? 2.4 : T.rise + 0.06));
   const yW = -(T.n * T.rise) - 0.25;
@@ -186,11 +196,6 @@ function buildPark() {
   RIDE_LOOPS.push([[30, 12], [72, 22], [86, 58], [44, 74], [18, 50]].flatMap(q => toWorld(F, q[0], q[1])));
   [[20, 74, 'baggi'], [29, 74, 'tonga'], [38, 74, 'baggi'], [-18, 74, 'erick'], [-24, 74, 'erick'], [-30, 74, 'auto'], [24, 36, 'horse'], [27.5, 38, 'horse']].forEach(q => parkAt(F, q[0], q[1], q[2] === 'horse' ? 0.6 : Math.PI / 2, q[2]));
   for (let i = 0; i < 9; i++) parkAt(F, -150, -44 + i * 6.2, 0, pick(['hatch', 'sedan', 'suv', 'hatch']));
-  LABELS.push({ id: 'clock', en: 'Clock Tower', hi: 'घंटाघर', ur: 'گھنٹہ گھر', pos: [0, 73, 0], cam: [-95, 34, 62], tgt: [-5, 30, -5], walk: [-34, 62, 0, 0], yr: 'Husainabad Ghanta Ghar · 1881–87',
-    text: 'At 67 m (221 ft) this is widely described as the tallest clock tower in India. The Husainabad Trust raised it to welcome Sir George Couper, first Lieutenant-Governor of the United Provinces; Richard Roskell Bayne designed it in red brick. Each dial is shaped like a twelve-petalled flower. The hands here show the time in the bar below.' });
-  const tw = toWorld(F, cx, cz);
-  LABELS.push({ id: 'talab', en: 'Husainabad Talab', hi: 'हुसैनाबाद तालाब', ur: 'حسین آباد تالاب', pos: [tw[0], 7, tw[1]], cam: [-62, 30, 38], tgt: [tw[0], -3, tw[1]], walk: [-90, 28, tw[0], tw[1]], yr: 'Stepped tank · 1837–42',
-    text: 'A deep stepped tank laid out under Muhammad Ali Shah. Ghats run down all eight sides to the water, behind red-sandstone jaali railings; a fountain deck sits in the middle. Families fill the steps every evening while chaat, kulfi and bhutta carts work the square above.' });
   const gw = toWorld(F, -90, -80);
   LABELS.push({ id: 'gallery', en: 'Picture Gallery', hi: 'पिक्चर गैलरी', ur: 'تصویر گیلری', pos: [gw[0], 22, gw[1]], cam: [-54, 16, -49], tgt: [gw[0], 6, gw[1]], walk: [...toWorld(F, -90, -50), gw[0], gw[1]], yr: 'Baradari · c. 1838',
     text: 'A deep-red baradari built by Muhammad Ali Shah as a summer house on the north bank of the tank. It now holds life-size portraits of the Nawabs of Awadh.' });
@@ -311,7 +316,7 @@ function buildChota() {
   LABELS.push({ id: 'chota', en: 'Chota Imambara', hi: 'छोटा इमामबाड़ा', ur: 'چھوٹا امام باڑہ', pos: [hw[0], 40, hw[1]], cam: [-324, 15, -10], tgt: [-380, 9, 72], walk: [...toWorld(F, 0, 14), hw[0], hw[1]], yr: 'Imambara Husainabad Mubarak · 1838',
     text: 'Built by Muhammad Ali Shah, third King of Awadh, as a congregation hall and his own mausoleum. Black calligraphy panels band the white facade under a gilded dome; chandeliers inside earned it the name “Palace of Lights”. Across the water channel two small Taj-inspired tombs face each other, with the Husainabad mosque and the royal hammam by the gate.' });
   LABELS.push({ id: 'chowk', small: true, en: 'Husainabad Chowk', hi: 'हुसैनाबाद चौक', ur: 'حسین آباد چوک', pos: [...toWorld(F, 0, -26).slice(0, 1), 5, toWorld(F, 0, -26)[1]] });
-  rowCells.forEach((c, k) => { if (k % 2 === 0) { const w = toWorld(F, 37.5 + 22.9 - (k + 3) * 4.16, -4.6); LABELS.push({ id: 'poi' + c, poi: true, en: SHOPS[c][0], hi: SHOPS[c][1], ur: SHOPS[c][1], pos: [w[0], 4.4, w[1]] }); } });
+  rowCells.forEach((c, k) => { if (k % 2 === 0) { const w = toWorld(F, 37.5 + 22.9 - (k + 3) * 4.16, -4.6); LABELS.push({ id: 'poi' + c, poi: true, en: SHOPS[c][0], hi: SHOPS[c][1], pos: [w[0], 4.4, w[1]] }); } });
   // Naubat Khana across the open ground, facing the gate
   const n = frameGroup({ x: toWorld(F, 0, -66)[0], z: toWorld(F, 0, -66)[1], rot: F.rot });
   B(n, MAT.stone, 31, 0.7, 14); B(n, MAT.whiteW, 28, 5.4, 12, 0, 0.7, 0); arcadeBox(n, 0, 0, 28, 12, 0.9, 4, 5, 2, { cusps: 3, lit: 0.4 }); B(n, MAT.whiteD, 29, 0.45, 13, 0, 6.1, 0, true);
@@ -333,6 +338,9 @@ function buildRumi() {
   // west half: the great arch with its half-dome and radiating leaves
   gateSlab(g, m, 21, 20.5, 2.2, [{ x: 0, w: 14.4, h: 16.2, cusps: 6 }], { outline: true, z: 3.9 });
   gateSlab(g, L, 16.6, 17.6, 0.5, [{ x: 0, w: 12.6, h: 15, cusps: 6 }], { outline: true, z: 2.6, free: true });
+  // A shallow rim catches light at walking distance. The opening stays the
+  // same size and the original masonry collider still governs the passage.
+  gateSlab(g, L, 15.1, 16.4, 0.11, [{ x: 0, w: 14.4, h: 16.2, cusps: 6 }], { outline: true, z: 5.03, free: true });
   for (const s of [-1, 1]) B(g, m, 1.3, 13, 2.9, s * 9.85, 0, 1.4);
   { const sh = new THREE.Mesh(new THREE.SphereGeometry(7.3, 20, 10, Math.PI, Math.PI, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xead2b2, map: TEX.plaster, roughness: 0.95, side: THREE.DoubleSide, emissive: 0xffb774, emissiveMap: TEX.plaster })); sh.scale.set(1, 1, 0.4); sh.position.set(0, 9.3, 2.85); sh.receiveShadow = true; g.add(sh); FLOOD.push(sh.material); }
   arcade(g, 7, -6.6, 6.6, 9.2, 0, 2.5, { trim: L, lit: 0.5 });
@@ -360,8 +368,6 @@ function buildRumi() {
   zone(F, -30, 8, 30, 30, 26); zone(F, -30, -28, 30, -7, 22); zone(F, -2.2, -4, 2.2, 4, 4);
   [[-14, 12, 'candy'], [12, 14, 'balloon'], [-22, 22, 'chaat'], [20, 24, 'corn'], [-16, -12, 'fruit'], [8, -12, 'icecream'], [26, -12, 'tea'], [0, 26, 'toys']].forEach(q => vendor(F, q[0], q[1], rr(0, TAU), q[2]));
   [[-36, 14], [36, 16], [-38, -12], [38, -12], [-26, 44], [0, 50], [26, 46]].forEach(q => treeAt(F, q[0], q[1], 2, 1.05));
-  LABELS.push({ id: 'rumi', en: 'Rumi Darwaza', hi: 'रूमी दरवाज़ा', ur: 'رومی دروازہ', pos: [F.x, 31, F.z], cam: [354, 13, 289], tgt: [F.x, 11, F.z], walk: [...toWorld(F, 9, 42), F.x, F.z], yr: 'The Turkish Gate · 1784',
-    text: 'Raised by Nawab Asaf-ud-Daula in the same famine-relief works as the Bara Imambara. The west face is one great cusped arch with a half-dome, fringed by radiating stucco leaves and crowned by an octagonal chhatri; the east face is a three-storey front of small arches. Traffic was taken off the gate in late 2022, conservation in lime-and-surkhi mortar finished in 2024, and vehicles now loop around its north end.' });
 }
 
 /* ═════════════ Bara Imambara and the Asfi Mosque ═════════════ */
@@ -484,6 +490,13 @@ function buildFoodCourt() {
   const stall = (f, x, k) => { rectDecal(f, MAT.recessLit, 4.1, 2.0, x, 1.05, 0); B(f, MAT.woodL, 4.4, 1.0, 0.6, x, 0, 0.36); B(f, MAT.stone, 4.5, 0.07, 0.72, x, 1.0, 0.36, true); textBoard(f, STALLS[k], 4.4, 0.95, x, 3.25, 0.04, SC[k % 8][0], SC[k % 8][1]); rectDecal(f, MAT.black, 0.9, 1.3, x + 1.75, 1.3, 0.02); for (let j = 0; j < 3; j++) C(f, pick([MAT.gold, MAT.iron, MAT.copper]), 0.16, 0.18, 0.22, x - 1.2 + j * 0.7, 1.07, 0.4, 8, false, true); };
   B(g, cc, 44, 4.4, 9, -4, 0, -50); B(g, bk, 44.6, 0.5, 9.6, -4, 4.4, -50, true); const nf = grp(g, -4, -45.5);
   for (let i = 0; i < 8; i++) stall(nf, -17.5 + i * 5, i);
+  for (const x of [-21.5, -6.5]) {
+    MARKET_STALLS.push({
+      counter: toWorld(F, x, -43.9),
+      entry: toWorld(F, x + 1.5, -38.8),
+      exit: toWorld(F, x - 1.65, -39.2),
+    });
+  }
   { const aw = B(g, MAT.cloth, 43, 0.08, 2.6, -4, 2.95, -44, true); aw.rotation.x = 0.2; for (let i = 0; i < 9; i++) C(g, MAT.iron, 0.05, 0.05, 2.7, -25 + i * 5.25, 0, -42.9, 6, false, true); }
   B(g, bk, 22, 3.4, 7, -12, 4.9, -50.5, true); arcade(grp(g, -12, -47), 5, -10, 10, 5.1, 0, 2.5, { trim: MAT.trim, lit: 0.6 }); B(g, cc, 22.6, 0.4, 7.6, -12, 8.3, -50.5, true);
   for (const x of [8, 14]) { C(g, MAT.iron, 0.04, 0.04, 2.3, x, 4.9, -49, 6, false, true); cone(g, pick([MAT.cloth, MAT.gold, MAT.teal]), 1.5, 0.5, x, 7.1, -49, 8); }
@@ -533,6 +546,20 @@ function buildFestive() {
 }
 function buildMonuments() {
   buildPark(); buildSatkhanda(); buildHGate(FRAME.gateE, 'gateE'); buildHGate(FRAME.gateW, 'gateW'); buildChota(); buildRumi(); buildBara(); buildOuterMosques(); buildFoodCourt(); buildKiosks();
+  for (const [id, place] of Object.entries(PLACE_CATALOG)) {
+    const frame = FRAME[place.frame];
+    const world = ([x, y, z]) => {
+      const [wx, wz] = toWorld(frame, x, z);
+      return [wx, y, wz];
+    };
+    const views = place.views?.map(view => ({ name: view.name, cam: world(view.cam), tgt: world(view.tgt) }));
+    const walk = place.walk;
+    LABELS.push({
+      id, ...place.name, record: place, pos: world(place.position), views,
+      cam: views?.[0].cam, tgt: views?.[0].tgt, text: place.description.en, nolabel: place.mapOnly,
+      walk: walk && [...toWorld(frame, walk[0], walk[1]), ...toWorld(frame, walk[2], walk[3]), walk[4]],
+    });
+  }
   LABELS.push({ id: 'all', en: 'Whole precinct', hi: 'पूरा इलाक़ा', ur: 'پورا علاقہ', cam: [150, 430, 640], tgt: [60, 0, 170], nolabel: true });
   [['Husainabad Trust Road', 'हुसैनाबाद ट्रस्ट रोड', 'حسین آباد ٹرسٹ روڈ', 60, 128], ['Gomti', 'गोमती', 'گومتی', 560, 30], ['Gulab Vatika', 'गुलाब वाटिका', 'گلاب واٹیکا', 450, 232], ['Fragrance Park', 'फ़्रेगरेंस पार्क', 'فریگرینس پارک', 86, 196], ['Nimbu Park', 'नींबू पार्क', 'نیبو پارک', 330, 440], ['Kudiya Ghat', 'कुड़िया घाट', 'کڑیا گھاٹ', 300, -40], ['Durgadevi Marg', 'दुर्गादेवी मार्ग', 'درگا دیوی مارگ', 118, -30]].forEach(q => LABELS.push({ id: 'r' + q[3], road: true, en: q[0], hi: q[1], ur: q[2], pos: [q[3], 3, q[4]] }));
   buildFestive();

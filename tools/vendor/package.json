@@ -1,0 +1,14 @@
+{
+  "name": "lucknow-3d-vendor",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild entry.mjs --bundle --format=iife --target=es2020 --minify --legal-comments=none --banner:js='/*! Three.js r160, MIT. See vendor/THREE-LICENSE.txt. */' --outfile=../../vendor/three-r160.js && cp node_modules/three/LICENSE ../../vendor/THREE-LICENSE.txt"
+  },
+  "dependencies": {
+    "three": "0.160.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

@@ -1,0 +1,2 @@
+# Preserve whitespace in the generated upstream shader strings.
+vendor/three-r160.js -whitespace linguist-generated=true

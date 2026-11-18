@@ -17,6 +17,39 @@ const mainHalf = s => 7 + 4.5 * smooth((s - S_DUAL0) / 25) * (1 - smooth((s - S_
 /* only the heritage corridor is built out in full; Daulatganj and everything west of the Chota Imambara are left as open ground */
 const focusLimit = mp => mp.s < 2 ? 115 : mp.s > MAIN.len - 2 ? 210 : (mp.s < S_PARK0 && mp.side > 0) ? 125 : mp.s > S_DUAL1 ? 380 : 245;
 function inFocus(x, z, pad = 0) { const mp = mainProject(x, z); return mp.d < focusLimit(mp) + pad; }
+// Approximate extent of the built-out scenery, drawn as a dashed line on the minimap.
+const DETAILED_CORRIDOR = [-516, -155, -375, -222, -198, -192, -20, -207, 216, -108, 450, 5, 690, 128, 810, 334, 715, 652, 446, 712, 212, 509, -84, 310, -368, 168];
+const pilotArrivals = PILOT_STOPS.map(id => {
+  const place = PLACE_CATALOG[id];
+  return toWorld(FRAME[place.frame], place.walk[0], place.walk[1]);
+});
+const pilotTrails = PILOT_WAYPOINTS.map((points, i) => [...pilotArrivals[i], ...points, ...pilotArrivals[i + 1]]);
+const pilotClearance = pilotTrails.flatMap(trail => {
+  const strips = [];
+  for (let i = 0; i + 3 < trail.length; i += 2) {
+    const [ax, az, bx, bz] = trail.slice(i, i + 4);
+    const len = Math.hypot(bx - ax, bz - az);
+    const ux = (bx - ax) / len, uz = (bz - az) / len;
+    strips.push({ x: (ax + bx) / 2, z: (az + bz) / 2, ux, uz, vx: -uz, vz: ux, hw: len / 2 + 1.5, hd: 1.5 });
+  }
+  return strips;
+});
+
+function nearPilotTrail(x, z, clearance) {
+  for (const trail of pilotTrails) {
+    for (let i = 0; i + 3 < trail.length; i += 2) {
+      const ax = trail[i], az = trail[i + 1], bx = trail[i + 2], bz = trail[i + 3];
+      if (x < Math.min(ax, bx) - clearance || x > Math.max(ax, bx) + clearance
+          || z < Math.min(az, bz) - clearance || z > Math.max(az, bz) + clearance) continue;
+      if (segDist(x, z, ax, az, bx, bz) < clearance) return true;
+    }
+  }
+  return false;
+}
+function blocksPilotTrail(box) {
+  const { x, z, hw, hd } = box;
+  return nearPilotTrail(x, z, Math.hypot(hw, hd) + 2.2) && pilotClearance.some(strip => obbHit(box, strip));
+}
 
 /* real businesses and stalls of the precinct, as they appear on current maps. kind 0 = shopfront (snapped to the nearest house),
    1 = free-standing kiosk, 2 = lean-to shops on the Chota Imambara wall, 3 = name only, 4 = public signboards */
@@ -71,7 +104,7 @@ function gTri(b, ax, az, bx, bz, cx, cz, y) {
 function gPoly(name, flat, holes) {
   const b = gBucket(name), y = GY[name], pts = [], all = [];
   for (let i = 0; i < flat.length; i += 2) pts.push(new THREE.Vector2(flat[i], flat[i + 1]));
-  const hs = (holes || []).map(h => { const a = []; for (let i = 0; i < h.length; i += 2) a.push(new THREE.Vector2(h[i], h[i + 1])); return a; });
+  const hs = (holes || []).map(ringVectors);
   all.push(...pts); hs.forEach(h => all.push(...h));
   for (const t of THREE.ShapeUtils.triangulateShape(pts, hs)) gTri(b, all[t[0]].x, all[t[0]].y, all[t[1]].x, all[t[1]].y, all[t[2]].x, all[t[2]].y, y);
 }
@@ -110,18 +143,24 @@ const waterMat = new THREE.MeshStandardMaterial({ color: 0x2d6068, roughness: 0.
 const talabWater = waterMat.clone(); talabWater.color.set(0x3d6a4a); talabWater.metalness = 0.22; talabWater.roughness = 0.24; talabWater.normalMap = waterNormal;
 ENVMATS.push(waterMat, talabWater);
 UPDATERS.push((dt, t) => { waterNormal.offset.set(t * 0.012, t * 0.007); });
-function waterPoly(flat, y, mat = waterMat) {
-  const pts = []; for (let i = 0; i < flat.length; i += 2) pts.push(new THREE.Vector2(flat[i], flat[i + 1]));
+function ringVectors(ring) {
+  const points = [];
+  for (let i = 0; i < ring.length; i += 2) points.push(new THREE.Vector2(ring[i], ring[i + 1]));
+  return points;
+}
+function waterPoly(feature, y) {
+  const ring = ringVectors(feature.p), holes = (feature.holes || []).map(ringVectors);
+  const pts = ring.concat(...holes);
   const pos = [], uv = [], nor = [];
-  for (const t of THREE.ShapeUtils.triangulateShape(pts, [])) { let a = pts[t[0]], b = pts[t[1]], c = pts[t[2]]; if ((b.y - a.y) * (c.x - a.x) - (b.x - a.x) * (c.y - a.y) < 0) { const q = b; b = c; c = q; } for (const q of [a, b, c]) { pos.push(q.x, y, q.y); uv.push(q.x, q.y); nor.push(0, 1, 0); } }
+  for (const t of THREE.ShapeUtils.triangulateShape(ring, holes)) { let a = pts[t[0]], b = pts[t[1]], c = pts[t[2]]; if ((b.y - a.y) * (c.x - a.x) - (b.x - a.x) * (c.y - a.y) < 0) { const q = b; b = c; c = q; } for (const q of [a, b, c]) { pos.push(q.x, y, q.y); uv.push(q.x, q.y); nor.push(0, 1, 0); } }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-  const m = new THREE.Mesh(g, mat); m.receiveShadow = true; scene.add(m); return m;
+  const m = new THREE.Mesh(g, waterMat); m.receiveShadow = true; scene.add(m);
 }
 
 /* ───────────── places where no ordinary house may stand ───────────── */
 const OPEN = [];
-function addOpen(flat, name, soft = false) { OPEN.push({ p: flat, bb: polyBounds(flat), name, soft }); }
-function inOpen(x, z, soft = false) { for (const o of OPEN) { if (soft && o.soft) continue; const b = o.bb; if (x < b[0] || x > b[1] || z < b[2] || z > b[3]) continue; if (pointInPoly(x, z, o.p)) return true; } return false; }
+function addOpen(flat, name, soft = false, holes) { OPEN.push({ p: flat, bb: polyBounds(flat), name, soft, holes }); }
+function inOpen(x, z, soft = false) { for (const o of OPEN) { if (soft && o.soft) continue; const b = o.bb; if (x < b[0] || x > b[1] || z < b[2] || z > b[3]) continue; if (featureContains(x, z, o)) return true; } return false; }
 function inflate(p, m) { const c = polyCentroid(p), o = []; for (let i = 0; i < p.length; i += 2) { const dx = p[i] - c[0], dz = p[i + 1] - c[1], l = Math.hypot(dx, dz) || 1; o.push(p[i] + dx / l * m, p[i + 1] + dz / l * m); } return o; }
 const rectWorld = (f, x0, z0, x1, z1) => [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].flatMap(q => toWorld(f, q[0], q[1]));
 const circlePoly = (x, z, r, n = 12) => { const o = []; for (let i = 0; i < n; i++) o.push(x + Math.cos(i * TAU / n) * r, z + Math.sin(i * TAU / n) * r); return o; };
@@ -129,8 +168,8 @@ const CHOWK = [-229, -56, -368, -124, -398, -74, -256, -4];                     
 const SATK_BLOCK = [-224, -24, -216, -46, -224, -66, -241, -88, -252, -106, -205, -110, -188, -118, -150, -140, -138, -100, -158, -62, -177, -37, -196, -12];
 {
   const OPENK = /college|education|hospital|Mosque|worship|monument|museum|grass|meadow|farmland|fountain|toilets|water_tower/i, SOFT = /college|education|hospital/i;
-  MAP.green.forEach(g => addOpen(g.p, g.n)); MAP.water.forEach(w => addOpen(w.p, w.n));
-  MAP.areas.forEach(a => { if (OPENK.test(a.k)) addOpen(a.p, a.n, SOFT.test(a.k)); });
+  MAP.green.forEach(g => addOpen(g.p, g.n, false, g.holes)); MAP.water.forEach(w => addOpen(w.p, w.n, false, w.holes));
+  MAP.areas.forEach(a => { if (OPENK.test(a.k)) addOpen(a.p, a.n, SOFT.test(a.k), a.holes); });
   MAP.buildings.forEach(b => addOpen(inflate(b.p, 3), b.n));
   addOpen(CHOWK, 'chowk'); addOpen(SATK_BLOCK, 'satkhanda');
   addOpen([330, 262, 372, 252, 414, 252, 440, 258, 462, 276, 478, 300, 494, 326, 470, 330, 430, 326, 404, 350, 376, 356, 342, 334, 328, 290], 'rumi');
@@ -162,7 +201,7 @@ function buildRoads() {
     r._veh = !foot && r.k !== 'service' && !nearGate && !prom;     // Rumi Darwaza has been closed to traffic since its restoration
     r._prom = prom;
     if (prom) { r._mat = 'herring'; r._w = 9; }
-    r._in = false; for (let i = 0; i < r.p.length; i += 2) if (inFocus(r.p[i], r.p[i + 1], 70)) { r._in = true; break; }
+    r._in = !!r.b; for (let i = 0; i < r.p.length; i += 2) if (inFocus(r.p[i], r.p[i + 1], 70)) { r._in = true; break; }
     if (!r._in) { r._veh = false; continue; }
     gRibbon(r._mat, r.p, r._w / 2);
     for (let i = 0; i < r.p.length - 2; i += 2) {
@@ -229,9 +268,13 @@ function buildSidewalks() {
 function buildGround() {
   const hole = []; talabOct(0).forEach(q => { const w = toWorld(FRAME.park, q[0] + TALAB.cx, q[1] + TALAB.cz); hole.push(w[0], w[1]); });
   gPoly('dirt', [-5200, -5200, 5200, -5200, 5200, 5200, -5200, 5200], [hole]);
-  for (const g of MAP.green) gPoly(g.k === 'pitch' ? 'sand' : 'lawn', g.p, pointInPoly(hole[0], hole[1], g.p) ? [hole] : null);
-  for (const a of MAP.areas) if (/grass|meadow|farmland/.test(a.k)) gPoly('lawn', a.p);
-  for (const w of MAP.water) if (w.k !== 'basin') waterPoly(w.p, 0.006);
+  for (const g of MAP.green) {
+    const holes = [...(g.holes || [])];
+    if (featureContains(hole[0], hole[1], g) && hole.every((x, i) => i % 2 || featureContains(x, hole[i + 1], g))) holes.push(hole);
+    gPoly(g.k === 'pitch' ? 'sand' : 'lawn', g.p, holes);
+  }
+  for (const a of MAP.areas) if (/grass|meadow|farmland/.test(a.k)) gPoly('lawn', a.p, a.holes);
+  for (const w of MAP.water) if (!isTalabWater(w)) waterPoly(w, 0.006);
 }
 
 /* ───────────── the old city: houses grown along the real lanes ───────────── */
@@ -248,6 +291,7 @@ function obbHit(a, b) {
 function tryHouse(x, z, w, d, rot, cfg) {
   if (!inFocus(x, z)) return null;
   const c = Math.cos(rot), s = Math.sin(rot), h = { x, z, hw: w / 2, hd: d / 2, ux: c, uz: -s, vx: s, vz: c, rot };
+  if (blocksPilotTrail(h)) return null;
   const Bd = MAP.bounds;
   for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
     const px = x + h.ux * h.hw * i + h.vx * h.hd * j, pz = z + h.uz * h.hw * i + h.vz * h.hd * j;
@@ -309,7 +353,7 @@ function buildHouses() {
 const SHUT_COLS = ['#8d9499', '#6f7f8f', '#7a4a3c', '#3f6a8a', '#8a8f6a', '#9c3b34', '#4f7a5c', '#a3a7a9'];
 const LEAF_COLS = ['#2f6a55', '#3b6f9a', '#7a4a2a', '#1f5a7a', '#5a3a26', '#3f7a4a', '#8a6a3a'];
 function makeFacade(style, floors, shop) {
-  const W = 256, FH = 72, PH = 22, H = floors * FH + PH, items = [], R = Math.random, pk = a => a[(R() * a.length) | 0];
+  const W = 256, FH = 72, PH = 22, H = floors * FH + PH, items = [], R = tr, pk = a => a[(R() * a.length) | 0];
   const cols = style === 2 ? 3 : 3 + ((R() * 2) | 0), cw = (W - 28) / cols;
   for (let f = 0; f < floors; f++) {
     const y0 = PH + f * FH, ground = f === floors - 1;
@@ -425,21 +469,45 @@ function buildHouseMeshes() {
 }
 
 /* mapped institutional buildings (colleges, hospital blocks) as simple extrusions */
+// Site boundaries for hand-built complexes and the map-only Jama Masjid.
+// These remain tied to the model when an upstream display name changes.
+const RESERVED_BUILDING_SITES = {
+  clock: circlePoly(FRAME.park.x, FRAME.park.z, 10),
+  chota: [-337.6, 123.2, -279, -2.7, -273.4, -0.2, -268.8, -10.2, -386.1, -64, -449.4, 71.9],
+  eastGateway: circlePoly(FRAME.gateE.x, FRAME.gateE.z, 40),
+  rumi: rectWorld(FRAME.rumi, -40, -8, 40, 8),
+  bara: [367.9, 626.2, 394.9, 550.1, 378.8, 353.2, 426.5, 319.6, 724.6, 423.5, 696.2, 515.5, 584.2, 582.7, 507.5, 669.7],
+  baraEntrance: [520, 300, 668, 348, 660, 376, 512, 330],
+  food: rectWorld(FRAME.food, -40, -65, 56, 60),
+  jama: [-726, 66, -640, 66, -640, 176, -726, 176],
+};
+const MAPPED_SOLIDS = [];
 function buildMappedBuildings() {
-  const SKIP = /Rumi Gate|Asfi Mosque|Bara Imambara|Jama Masjid|Clock Tower|Substation/;
+  const reserved = Object.values(RESERVED_BUILDING_SITES);
   const wall = M(0xe6dcc4, { map: canvasTex(128, 128, (x, w, h) => { x.fillStyle = '#efe9db'; x.fillRect(0, 0, w, h); x.fillStyle = '#4a5560'; x.fillRect(22, 30, 36, 52); x.fillRect(74, 30, 36, 52); x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(0, 0, w, 5); x.fillStyle = 'rgba(255,255,255,.4)'; x.fillRect(39, 30, 2, 52); x.fillRect(91, 30, 2, 52); }, 6.4, 3.3) });
   const roofFlat = M(0xb9b1a3);
+  const distantWall = M(0xc2b8a3);
   const cg = new THREE.Group();
   for (const h of HOUSES) if (h.inst) { _box(cg, wall, h.hw * 2, h.h, h.hd * 2, h.x, 0, h.z).rotation.y = h.rot; _box(cg, roofFlat, h.hw * 2 + 0.6, 0.45, h.hd * 2 + 0.6, h.x, h.h, h.z).rotation.y = h.rot; }
   bake(cg);
   for (const b of MAP.buildings) {
-    if (SKIP.test(b.n || '')) continue;
-    const bb = polyBounds(b.p); if (Math.max(bb[1] - bb[0], bb[3] - bb[2]) < 9 || !inFocus((bb[0] + bb[1]) / 2, (bb[2] + bb[3]) / 2, 30)) continue;
-    if (Math.hypot((bb[0] + bb[1]) / 2 - FRAME.gateE.x, (bb[2] + bb[3]) / 2 - FRAME.gateE.z) < 40 || pointInPoly((bb[0] + bb[1]) / 2, (bb[2] + bb[3]) / 2, [520, 300, 668, 348, 660, 376, 512, 330]) || pointInPoly((bb[0] + bb[1]) / 2, (bb[2] + bb[3]) / 2, MAP.areas.find(a => a.n === 'Chhota Imambara').p) || pointInPoly((bb[0] + bb[1]) / 2, (bb[2] + bb[3]) / 2, MAP.areas.find(a => /Naubatkhana/.test(a.n || '')).p)) continue;
-    const s = new THREE.Shape(); for (let i = 0; i < b.p.length; i += 2) i ? s.lineTo(b.p[i], b.p[i + 1]) : s.moveTo(b.p[i], b.p[i + 1]);
-    const lv = +(b.l || ri(2, 4)), h = lv * 3.3 + 1, geo = new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false }); geo.rotateX(Math.PI / 2); geo.translate(0, h, 0);
-    const m = new THREE.Mesh(geo, [roofFlat, wall]); m.castShadow = m.receiveShadow = true; m.matrixAutoUpdate = false; scene.add(m);
-    const c = polyCentroid(b.p); COLLIDERS.push({ x: c[0], z: c[1], ax: 1, az: 0, bx: 0, bz: 1, hw: (bb[1] - bb[0]) * 0.42, hd: (bb[3] - bb[2]) * 0.42, yb: 0, yt: h });
+    const [x0, x1, z0, z1] = polyBounds(b.p);
+    const x = (x0 + x1) / 2, z = (z0 + z1) / 2;
+    if (Math.max(x1 - x0, z1 - z0) < 9 || reserved.some(p => pointInPoly(x, z, p))) continue;
+    const detailed = inFocus(x, z, 30);
+    const shape = new THREE.Shape(ringVectors(b.p));
+    shape.holes = (b.holes || []).map(hole => new THREE.Path(ringVectors(hole)));
+    const mappedHeight = /^\d+(\.\d+)?\s*m?$/.test(b.h || '') ? parseFloat(b.h) : 0;
+    const levels = Number(b.l) || (detailed ? ri(2, 4) : 2);
+    const height = clamp(mappedHeight || levels * 3.3 + 1, 2.5, 60);
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+    geo.rotateX(Math.PI / 2); geo.translate(0, height, 0);
+    const mesh = new THREE.Mesh(geo, detailed ? [roofFlat, wall] : distantWall);
+    mesh.castShadow = detailed;
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    scene.add(mesh);
+    MAPPED_SOLIDS.push({ feature: b, height });
   }
 }
 
@@ -450,18 +518,18 @@ function scatterTrees() {
     const l = toLocal(FRAME.park, x, z);
     if (l[0] > -140 && l[0] < -28 && l[1] > -112 && l[1] < 86) return true;                // tank, gallery terrace and the plaza in front
     if (Math.hypot(l[0], l[1]) < 25 || (Math.abs(l[0]) < 8 && l[1] > 18 && l[1] < 86) || (l[0] > -42 && l[0] < -20 && Math.abs(l[1]) < 8)) return true;   // tower court and its paved approaches
-    if (l[0] > 12 && l[0] < 92 && l[1] > 4 && l[1] < 80 && Math.random() < 0.55) return true;        // keep the riding ground fairly open
+    if (l[0] > 12 && l[0] < 92 && l[1] > 4 && l[1] < 80 && chance(0.55)) return true;        // keep the riding ground fairly open
     if (l[0] > 22 && l[0] < 62 && l[1] > -62 && l[1] < -10) return true;                   // play area
     return false;
   };
   for (const g of MAP.green) {
     if (g.k === 'pitch') continue;
     const bb = polyBounds(g.p), n = Math.round((bb[1] - bb[0]) * (bb[3] - bb[2]) / (g.n === 'Gulab Vatika' ? 420 : 300));
-    for (let i = 0; i < n; i++) { const x = rr(bb[0], bb[1]), z = rr(bb[2], bb[3]); if (pointInPoly(x, z, g.p) && inFocus(x, z, 90) && !noTree(x, z)) treeSpots.push([x, z, chance(g.n ? 0.2 : 0.1) ? 2 : chance(0.3) ? 1 : 0, rr(0.85, 1.45)]); }
+    for (let i = 0; i < n; i++) { const x = rr(bb[0], bb[1]), z = rr(bb[2], bb[3]); if (featureContains(x, z, g) && inFocus(x, z, 90) && !noTree(x, z)) treeSpots.push([x, z, chance(g.n ? 0.2 : 0.1) ? 2 : chance(0.3) ? 1 : 0, rr(0.85, 1.45)]); }
   }
   for (const a of MAP.areas) if (/college|education|hospital|Mosque|worship/.test(a.k)) {
     const bb = polyBounds(a.p), n = Math.round((bb[1] - bb[0]) * (bb[3] - bb[2]) / 900);
-    for (let i = 0; i < n; i++) { const x = rr(bb[0], bb[1]), z = rr(bb[2], bb[3]); if (pointInPoly(x, z, a.p) && inFocus(x, z, 40) && roadGap(x, z) > 2 && !MAP.buildings.some(b => pointInPoly(x, z, b.p))) treeSpots.push([x, z, chance(0.3) ? 1 : 0, rr(0.9, 1.5)]); }
+    for (let i = 0; i < n; i++) { const x = rr(bb[0], bb[1]), z = rr(bb[2], bb[3]); if (featureContains(x, z, a) && inFocus(x, z, 40) && roadGap(x, z) > 2 && !MAP.buildings.some(b => featureContains(x, z, b))) treeSpots.push([x, z, chance(0.3) ? 1 : 0, rr(0.9, 1.5)]); }
   }
   // street trees and palms along the heritage road
   const a = [0, 0, 0, 0];
@@ -475,7 +543,9 @@ function scatterTrees() {
 }
 function buildTrees() {
   const o = new THREE.Object3D(), col = new THREE.Color();
-  const broad = treeSpots.filter(t => t[2] < 2), palms = treeSpots.filter(t => t[2] === 2), small = treeSpots.filter(t => t[2] === 3);
+  // Leave room for the trunk, the walker's clearance and the 1 m collision cells.
+  const trees = treeSpots.filter(t => !nearPilotTrail(t[0], t[1], 1.9));
+  const broad = trees.filter(t => t[2] < 2), palms = trees.filter(t => t[2] === 2), small = trees.filter(t => t[2] === 3);
   const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.2, 0.4, 3.8, 6).translate(0, 1.9, 0), M(0x5a4636), broad.length);
   const ico = (r, x, y, z) => new THREE.IcosahedronGeometry(r, 1).translate(x, y, z);
   const ico0 = (r, x, y, z) => new THREE.IcosahedronGeometry(r, 0).translate(x, y, z);
