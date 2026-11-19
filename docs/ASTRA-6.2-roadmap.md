@@ -1,5 +1,7 @@
 # Lucknow-3D enhancement plan · ASTRA 6.2
 
+The follow-up plan covers Globe Cafe 24x7, Irani Chai, Tunday Kababi, their surrounding streets and lighting through the day. [Shops and lighting roadmap](astra-6.2/shops-and-lighting-roadmap.md)
+
 The **first release** should make the walk from the Clock Tower and Talab to Rumi Darwaza the best-documented, easiest-to-use part of the precinct. A visitor should be able to recognize a landmark from its approach, read why it matters, walk to a second stop, and return to the overview on a phone. This route exercises the project's strongest features together and gives the team a small enough area to check against references and real devices.
 
 ## What the current model shows
