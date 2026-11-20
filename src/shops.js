@@ -45,7 +45,8 @@ ENVMATS.push(SHOP_MAT.steel);
 function shopSign(shop, parent, width, y, z) {
   const cell = SHOPS.length + SHOP_IDS.indexOf(shop.id);
   const board = signBoard(parent, width, 0, y, z, cell, shop.board);
-  return board.position;
+  // signBoard centres a width × width/4 board; `top` lets the label clear it.
+  return Object.assign(board.position.clone(), { top: board.position.y + width / 8 });
 }
 
 function shopAwning(parent, width, depth, y, z, material, striped = false) {
@@ -299,7 +300,8 @@ function buildShopFronts() {
     const [tx, ty, tz] = tgt;
     LABELS.push({
       id, ...record.name, record, poi: true, shop, views, cam: views[0].cam, tgt,
-      pos: world(0, board.y + (record.kind === 'stall' ? 0.9 : 0.67), board.z + 0.3),
+      // Anchored by its bottom edge (see ui.js), so the tag sits above the board at any distance.
+      pos: world(0, board.top + 0.25, board.z + 0.3), above: true,
       text: record.description.en, walk: [...toWorld(frame, ...record.arrival), tx, tz, ty],
     });
   }

@@ -74,6 +74,13 @@ const starMat = new THREE.PointsMaterial({ color: 0xf1f3ff, size: 1.35, sizeAtte
   st.frustumCulled = false;
   skyMesh.add(st);
 }
+// A decorative moon placed across the sky from the sun. It is not an ephemeris
+// and casts no light; night lighting comes from the ambient term below.
+const moonSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialTex('rgba(244,246,255,1)', 'rgba(190,205,255,.22)'), fog: false, depthWrite: false, transparent: true, opacity: 0 }));
+moonSprite.scale.setScalar(380);
+moonSprite.renderOrder = -9;
+scene.add(moonSprite);
+const moonVec = new THREE.Vector3();
 
 /* Diffuse sky probe with no baked sun. The directional light supplies the
    moving specular highlight, and the scene controls ambient reflection strength. */
@@ -160,6 +167,10 @@ function applyTime(dt, T) {
   skyU.disk.value = smooth((deg + 2) / 1.15);
   skyU.cloudCol.value.copy(cloudTint).lerp(sun.color, 0.21 * (1 - wx.cover)).multiplyScalar(lum * (1 - wx.cover * .28));
   starMat.opacity = (1 - smooth((deg + 15) / 8)) * 0.74 * (1 - wx.cover) ** 2;
+  moonVec.set(-sunVec.x * 0.6 + 0.2, 0.72, -sunVec.z * 0.6 + 0.3).normalize();
+  moonSprite.position.copy(camera.position).addScaledVector(moonVec, 5200);
+  moonSprite.material.opacity = (1 - smooth((deg + 8) / 8)) * (1 - wx.cover * 0.8);
+  moonSprite.visible = moonSprite.material.opacity > 0.01;
   skyMesh.position.copy(camera.position);
   renderer.toneMappingExposure = 1.0 + night * 0.17;
 

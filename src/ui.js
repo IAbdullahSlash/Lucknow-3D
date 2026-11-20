@@ -408,6 +408,7 @@ function buildLabels() {
     p.obj = new CSS2DObject(label);
     p.obj.visible = false;
     p.obj.position.set(...p.pos);
+    if (p.above) p.obj.center.set(0.5, 1);      // hang the tag above its point, not across it
     scene.add(p.obj);
   }
   applyLabelLang();
@@ -832,6 +833,25 @@ function wire() {
   addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; release(); });
   const onResize = () => { if (UI.anchor && UI.mode === 'orbit') flyTo(UI.anchor, 0); camera.aspect = innerWidth / innerHeight; if (UI.mode === 'orbit') camera.fov = fovFor(FOV, 74); camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); labelRenderer.setSize(innerWidth, innerHeight); };
   addEventListener('resize', onResize); addEventListener('orientationchange', () => setTimeout(onResize, 350));      // phones report the new size a moment after turning
+  // The hint shares the bottom edge with the time bar, whose width changes with
+  // language and screen size. Keep it beside the bar when it fits;
+  // otherwise lift it above the zoom buttons, and hide it if even that collides.
+  const hint = el('hint'), timebar = el('timebar');
+  const fitHint = () => {
+    hint.style.bottom = hint.style.visibility = '';
+    if (!hint.offsetWidth) return;            // hidden in Walk and on touch screens
+    const box = () => hint.getBoundingClientRect();
+    const zoom = el('zoom').getBoundingClientRect(), bar = timebar.getBoundingClientRect();
+    if (box().right + 14 <= bar.left && (!zoom.height || box().top >= zoom.bottom + 4)) return;
+    if (zoom.height) hint.style.bottom = (innerHeight - zoom.top + 8) + 'px';
+    const places = el('placesWrap').getBoundingClientRect();
+    const blocked = !zoom.height || (places.height && box().top < places.bottom + 8);
+    if (blocked || box().right + 14 > bar.left && box().bottom > bar.top) hint.style.visibility = 'hidden';
+  };
+  new ResizeObserver(fitHint).observe(timebar);
+  addEventListener('resize', fitHint);
+  // Re-fit when Walk or a card toggles the hint's display.
+  new MutationObserver(fitHint).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 }
 
 /* ───────────── main loop ───────────── */
