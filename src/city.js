@@ -51,11 +51,11 @@ function blocksPilotTrail(box) {
   return nearPilotTrail(x, z, Math.hypot(hw, hd) + 2.2) && pilotClearance.some(strip => obbHit(box, strip));
 }
 
-/* real businesses and stalls of the precinct, as they appear on current maps. kind 0 = shopfront (snapped to the nearest house),
-   1 = free-standing kiosk, 2 = lean-to shops on the Chota Imambara wall, 3 = name only, 4 = public signboards */
+/* Existing precinct boards. Kind 0 = nearby shopfront, 1 = kiosk,
+   2 = Chota Imambara wall bay, 4 = public signboard. Featured fronts use SHOP_CATALOG. */
 const _pk = (u, v) => toWorld(FRAME.park, u, v);
 const SHOPS = [
-  ['Naval Medical Store', 'नवल मेडिकल स्टोर', -214, 6, 0], ['Pizza Cave', 'पिज़्ज़ा केव', -131, 40, 0], ['Globe Cafe 24x7', 'ग्लोब कैफ़े 24x7', -96, 58, 0],
+  ['Naval Medical Store', 'नवल मेडिकल स्टोर', -214, 6, 0], ['Pizza Cave', 'पिज़्ज़ा केव', -131, 40, 0],
   ['Azhar Muradabadi Chicken Biryani', 'अज़हर मुरादाबादी चिकन बिरयानी', -82, 66, 0], ['Mehfil Cool Corner', 'महफ़िल कूल कॉर्नर', -68, 72, 0], ['Huzoor', 'हुज़ूर', -58, 78, 0],
   ['Rajwadi Chai', 'रजवाड़ी चाय', -46, 84, 0], ['SK Wrap Lucknow', 'एसके रैप लखनऊ', -40, 108, 0], ['Rais Manzil', 'रईस मंज़िल', -154, 94, 0],
   ['Kebabchi Lucknow', 'कबाबची लखनऊ', -272, -72, 0], ['Zaika Biryani', 'ज़ायक़ा बिरयानी', -286, -80, 0], ['Kunafa Day', 'कुनाफ़ा डे', -248, -58, 0], ['Cafe Dubai', 'कैफ़े दुबई', -258, -64, 0],
@@ -65,17 +65,19 @@ const SHOPS = [
   ['Route 32', 'रूट 32', 207, 218, 0], ['Khalsa Service Centre', 'खालसा सर्विस सेंटर', 64, 212, 0], ['Mahalaxmi Travels', 'महालक्ष्मी ट्रैवल्स', 145, -6, 0],
   ['Ibrahim’s Kitchen', 'इब्राहिम्स किचन', 116, -80, 0], ['Zaalim Chai', 'ज़ालिम चाय', 4, -146, 0], ['Tafree Coffee & Tea', 'तफ़री कॉफ़ी एंड टी', 300, 46, 0],
   ['Haideri Perfumes', 'हैदरी परफ़्यूम्स', ..._pk(-134, 50), 1], ['Vishal Kachaudi Bhandar', 'विशाल कचौड़ी भंडार', ..._pk(-134, 58), 1], ['Abbas Pan Shop', 'अब्बास पान शॉप', ..._pk(-134, 66), 1],
-  ['OK OK Chinese', 'ओके ओके चाइनीज़', ..._pk(-45.5, 16), 1], ['Zayka-e-Ghanta Ghar', 'ज़ायक़ा-ए-घंटाघर', ..._pk(-17, -13), 1], ['Kamar Sheermal Shop', 'क़मर शीरमाल शॉप', ..._pk(-17, 15), 1],
+  ['OK OK Chinese', 'ओके ओके चाइनीज़', ..._pk(-45.5, 16), 1], ['Zayka-e-Ghanta Ghar', 'ज़ायक़ा-ए-घंटाघर', ..._pk(-17, -13), 1],
   ['Rehan Toys Shop', 'रेहान टॉयज़ शॉप', ..._pk(-12, 56), 1], ['Motu Ke Momos', 'मोटू के मोमोज़', ..._pk(-12, 66), 1], ['Govind Pani Puri Center', 'गोविंद पानी पूरी सेंटर', ..._pk(20, -52), 1],
   ['Shree Shyam Fast Food Corner', 'श्री श्याम फ़ास्ट फ़ूड कॉर्नर', ..._pk(45, -29), 1], ['The Pizza Centre', 'द पिज़्ज़ा सेंटर', ..._pk(64, -52), 1], ['Z A Bangles', 'ज़ेड ए बैंगल्स', ..._pk(58, -72), 1],
   ['Apna Cafe', 'अपना कैफ़े', ..._pk(-148, 32), 1], ['Cafe Awadh Darbar', 'कैफ़े अवध दरबार', ..._pk(-148, 22), 1], ['Yadav Doodh Corner', 'यादव दूध कॉर्नर', ..._pk(-150, 44), 1], ['Aur Theek Tea Point', 'और ठीक टी पॉइंट', ..._pk(-150, -40), 1],
   ['Patiyala Pahalwan', 'पटियाला पहलवान', 349, 281, 1], ['Anand Ki Chai', 'आनंद की चाय', 256, 201, 1], ['Hans Bus Service', 'हंस बस सर्विस', 211, 180, 1],
-  ['Irani Dum Tea', 'ईरानी दम टी', 0, 0, 2], ['Irani Fast Food', 'ईरानी फ़ास्ट फ़ूड', 0, 0, 2], ['Zaika', 'ज़ायक़ा', 0, 0, 2], ['Irani Chai', 'ईरानी चाय', 0, 0, 2],
+  ['Irani Fast Food', 'ईरानी फ़ास्ट फ़ूड', 0, 0, 2], ['Zaika', 'ज़ायक़ा', 0, 0, 2],
   ['Lucknow Ka Mashhoor Khichda & Burger', 'लखनऊ का मशहूर खिचड़ा', 0, 0, 2], ['SK Chikan Art', 'एसके चिकन आर्ट', 0, 0, 2], ['The Gulf Shawarma', 'द गल्फ़ शावरमा', 0, 0, 2],
-  ['Tunday Kababi', 'टुंडे कबाबी', ..._pk(-52, 60), 3],
   ['HUSAINABAD HERITAGE ZONE', 'हुसैनाबाद हेरिटेज ज़ोन', 0, 0, 4], ['PARKING', 'पार्किंग', 0, 0, 4], ['PUBLIC TOILET', 'शौचालय', 0, 0, 4], ['TICKETS', 'टिकट घर', 0, 0, 4],
 ];
-const SIGN_ROWS = 32, shopCell = n => SHOPS.findIndex(q => q[0] === n), genericCell = () => ri(SHOPS.length, SIGN_ROWS * 4 - 1);
+const SHOP_IDS = Object.keys(SHOP_CATALOG);
+const SIGN_ROWS = 32;
+const shopCell = name => SHOPS.findIndex(shop => shop[0] === name);
+const genericCell = () => ri(SHOPS.length + SHOP_IDS.length, SIGN_ROWS * 4 - 1);
 const signUV = c => { const u0 = (c % 4) / 4, v1 = 1 - ((c / 4) | 0) / SIGN_ROWS; return [u0, v1 - 1 / SIGN_ROWS, u0 + 0.25, v1]; };
 /** give the real names to the house fronts nearest to where those businesses stand */
 function nameShops() {
@@ -142,7 +144,15 @@ waterNormal.colorSpace = THREE.NoColorSpace;
 const waterMat = new THREE.MeshStandardMaterial({ color: 0x2d6068, roughness: 0.16, metalness: 0.4, normalMap: waterNormal, normalScale: new THREE.Vector2(0.22, 0.22), envMap: ENV, transparent: true, opacity: 0.94, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -5 });
 const talabWater = waterMat.clone(); talabWater.color.set(0x3d6a4a); talabWater.metalness = 0.22; talabWater.roughness = 0.24; talabWater.normalMap = waterNormal;
 ENVMATS.push(waterMat, talabWater);
-UPDATERS.push((dt, t) => { waterNormal.offset.set(t * 0.012, t * 0.007); });
+const riverTint = waterMat.color.clone(), talabTint = talabWater.color.clone();
+UPDATERS.push((dt, t) => {
+  waterNormal.offset.set(t * 0.012, t * 0.007);
+  waterNormal.repeat.setScalar(1 + 0.55 * wx.rain);
+  waterMat.roughness = 0.16 + 0.15 * wx.rain;
+  talabWater.roughness = 0.24 + 0.13 * wx.rain;
+  waterMat.color.copy(riverTint).lerp(skyU.hor.value, 0.14);
+  talabWater.color.copy(talabTint).lerp(skyU.hor.value, 0.19);
+});
 function ringVectors(ring) {
   const points = [];
   for (let i = 0; i < ring.length; i += 2) points.push(new THREE.Vector2(ring[i], ring[i + 1]));
@@ -251,13 +261,17 @@ function buildSidewalks() {
   });
   const pos = [], uv = [], nor = [], quad = (a, b, c, d, n) => { for (const q of [a, b, c, a, c, d]) { pos.push(q[0], q[1], q[2]); uv.push(q[0] + q[1], q[2] + q[1]); nor.push(n[0], n[1], n[2]); } };
   const H = 0.16, step = 2.5, a = [0, 0, 0, 0], b = [0, 0, 0, 0];
+  const cafe = SHOP_SITES.get('globe-cafe').frame;
+  const cut = mainProject(cafe.x, cafe.z);
+  const curbHeight = (s, side) => side === cut.side ? H * smooth(Math.abs(s - cut.s) / 3.6) : H;
   for (const side of [1, -1]) for (let s = S_PARK0; s < MAIN.len - step; s += step) {
     if (s > S_DUAL1 - 6 && s < S_RUMI1 + 4) continue;
     if (gaps.some(g => (g[2] === 0 || g[2] === side) && Math.abs(s + step / 2 - g[0]) < g[1])) continue;
     polyAt(MAIN, s, a); polyAt(MAIN, s + step, b);
     const h0 = mainHalf(s), h1 = mainHalf(s + step), w = 3.3;
     const p = (q, off, y) => [q[0] + q[3] * side * off, y, q[1] - q[2] * side * off];
-    const A0 = p(a, h0, H), A1 = p(a, h0 + w, H), B0 = p(b, h1, H), B1 = p(b, h1 + w, H);
+    const A0 = p(a, h0, curbHeight(s, side)), A1 = p(a, h0 + w, H);
+    const B0 = p(b, h1, curbHeight(s + step, side)), B1 = p(b, h1 + w, H);
     if (side > 0) { quad(A0, B0, B1, A1, [0, 1, 0]); quad(p(a, h0, 0), p(b, h1, 0), B0, A0, [-a[3], 0, a[2]]); quad(A1, B1, p(b, h1 + w, 0), p(a, h0 + w, 0), [a[3], 0, -a[2]]); }
     else { quad(A0, A1, B1, B0, [0, 1, 0]); quad(A0, B0, p(b, h1, 0), p(a, h0, 0), [a[3], 0, -a[2]]); quad(p(a, h0 + w, 0), p(b, h1 + w, 0), B1, A1, [-a[3], 0, a[2]]); }
   }
@@ -291,7 +305,7 @@ function obbHit(a, b) {
 function tryHouse(x, z, w, d, rot, cfg) {
   if (!inFocus(x, z)) return null;
   const c = Math.cos(rot), s = Math.sin(rot), h = { x, z, hw: w / 2, hd: d / 2, ux: c, uz: -s, vx: s, vz: c, rot };
-  if (blocksPilotTrail(h)) return null;
+  if (blocksPilotTrail(h) || SHOP_PLOTS.some(plot => obbHit(h, plot))) return null;
   const Bd = MAP.bounds;
   for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
     const px = x + h.ux * h.hw * i + h.vx * h.hd * j, pz = z + h.uz * h.hw * i + h.vz * h.hd * j;
@@ -402,8 +416,19 @@ function drawSigns() {
   signAtlas = canvasTex(1024, 64 * SIGN_ROWS, x => {
     x.textAlign = 'center'; x.textBaseline = 'middle';
     for (let i = 0; i < SIGN_ROWS * 4; i++) {
-      const cx = (i % 4) * 256, cy = ((i / 4) | 0) * 64, real = SHOPS[i]; let a, b, bg, fg;
-      if (real) { a = real[0]; b = real[1]; [bg, fg] = real[4] === 4 ? ['#14553a', '#ffffff'] : BG[(i * 3 + 1) % BG.length]; } else { [a, b] = NAMES[(i * 5) % NAMES.length].split('|'); [bg, fg] = BG[(i * 7 + ((i / 4) | 0)) % BG.length]; }
+      const cx = (i % 4) * 256, cy = ((i / 4) | 0) * 64;
+      const real = SHOPS[i], feature = SHOP_CATALOG[SHOP_IDS[i - SHOPS.length]];
+      let a, b, bg, fg;
+      if (feature) {
+        [a, b] = [feature.name.en, feature.name.hi];
+        [bg, fg] = feature.sign;
+      } else if (real) {
+        [a, b] = real;
+        [bg, fg] = real[4] === 4 ? ['#14553a', '#ffffff'] : BG[(i * 3 + 1) % BG.length];
+      } else {
+        [a, b] = NAMES[(i * 5) % NAMES.length].split('|');
+        [bg, fg] = BG[(i * 7 + ((i / 4) | 0)) % BG.length];
+      }
       x.fillStyle = bg; x.fillRect(cx, cy, 256, 64); x.strokeStyle = fg; x.lineWidth = 2; x.strokeRect(cx + 3, cy + 3, 250, 58);
       x.fillStyle = fg; x.font = 'bold 25px "Nirmala UI","Urdu Typesetting","Segoe UI",sans-serif'; x.fillText(a, cx + 128, cy + 24, 238);
       x.font = 'bold 15px "Nirmala UI","Segoe UI",sans-serif'; x.fillText(b, cx + 128, cy + 49, 238);
@@ -457,7 +482,7 @@ function buildHouseMeshes() {
   const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); sg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); sg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   const signMat = new THREE.MeshStandardMaterial({ map: signAtlas, emissiveMap: signAtlas, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.7 });
   const sm = new THREE.Mesh(sg, signMat); sm.matrixAutoUpdate = false; scene.add(sm); signMats.push(signMat);
-  NIGHTFX.push(n => { signMat.emissiveIntensity = n * 0.55; });
+  NIGHTFX.push(n => { signMat.emissiveIntensity = n * 0.12; });
   const AWN = [0xb3261e, 0x1f7a8c, 0xe2a400, 0x2e7d4f, 0xd35400, 0x1b6ca8, 0xe9e2d0, 0x8a2f4f];
   const am = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.07, 1.9), M(0xffffff, { roughness: 0.8 }), awn.length);
   awn.forEach((h, i) => { o.position.set(h.x + h.vx * (h.hd + 0.9), 2.62, h.z + h.vz * (h.hd + 0.9)); o.rotation.set(0.26, h.rot, 0, 'YXZ'); o.scale.set(h.hw * 1.8, 1, 1); o.updateMatrix(); am.setMatrixAt(i, o.matrix); am.setColorAt(i, col.set(pick(AWN))); });
@@ -544,7 +569,7 @@ function scatterTrees() {
 function buildTrees() {
   const o = new THREE.Object3D(), col = new THREE.Color();
   // Leave room for the trunk, the walker's clearance and the 1 m collision cells.
-  const trees = treeSpots.filter(t => !nearPilotTrail(t[0], t[1], 1.9));
+  const trees = treeSpots.filter(t => !nearPilotTrail(t[0], t[1], 1.9) && !nearShopEntrance(t[0], t[1], 1.6));
   const broad = trees.filter(t => t[2] < 2), palms = trees.filter(t => t[2] === 2), small = trees.filter(t => t[2] === 3);
   const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.2, 0.4, 3.8, 6).translate(0, 1.9, 0), M(0x5a4636), broad.length);
   const ico = (r, x, y, z) => new THREE.IcosahedronGeometry(r, 1).translate(x, y, z);
@@ -572,7 +597,7 @@ function planStreetFurniture() {
   for (let s = S_PARK0 + 6, i = 0; s < MAIN.len - 6; s += 15, i++) {
     if (s > S_DUAL1 - 4 && s < S_RUMI1) continue;
     const side = i % 2 ? 1 : -1; polyAt(MAIN, s, a); const off = mainHalf(s) + 0.7, x = a[0] + a[3] * side * off, z = a[1] - a[2] * side * off;
-    if (roadGap(x, z) > 0.2) LAMPS.push([x, z, Math.atan2(-a[3] * side, a[2] * side), i % 5 === 0 ? 1 : 0]);
+    if (roadGap(x, z) > 0.2 && !nearShopEntrance(x, z, 0.65)) LAMPS.push([x, z, Math.atan2(-a[3] * side, a[2] * side), i % 5 === 0 ? 1 : 0]);
   }
   for (const q of [[-250, -50], [-300, -76], [-352, -104], [-376, -74], [-320, -46], [-272, -22]]) LAMPS.push([q[0], q[1], rr(0, TAU), 1]);
   for (const q of [[352, 300], [376, 330], [444, 296], [462, 316]]) LAMPS.push([q[0], q[1], rr(0, TAU), 1]);
@@ -590,8 +615,8 @@ function buildStreetDetail() {
     if (s > S_DUAL1 - 8 && s < S_RUMI1 + 8) continue; polyAt(MAIN, s, a);
     for (const side of [1, -1]) {
       const h = mainHalf(s), px = (o2, ds = 0) => { polyAt(MAIN, s + ds, b); return [b[0] + b[3] * side * o2, b[1] - b[2] * side * o2, Math.atan2(-b[3] * side, b[2] * side)]; };
-      const q = px(h + 2.7, 3); if (roadGap(q[0], q[1]) > 1 && i % 2 === (side > 0 ? 0 : 1)) { const bg = grp(g, q[0], q[1], q[2]); B(bg, MAT.pink, 2.2, 0.12, 0.6, 0, 0.5, 0, true); B(bg, MAT.pinkD, 0.28, 0.36, 0.5, -0.8, 0.16, 0, true); B(bg, MAT.pinkD, 0.28, 0.36, 0.5, 0.8, 0.16, 0, true); SEATS.push([q[0], 0.62, q[1], q[2]]); }
-      const d = px(h + 0.75, 9); if (roadGap(d[0], d[1]) > 0.3) C(g, bin, 0.26, 0.22, 0.8, d[0], 0.16, d[1], 8, false, true);
+      const q = px(h + 2.7, 3); if (roadGap(q[0], q[1]) > 1 && !nearShopEntrance(q[0], q[1], 1.15) && i % 2 === (side > 0 ? 0 : 1)) { const bg = grp(g, q[0], q[1], q[2]); B(bg, MAT.pink, 2.2, 0.12, 0.6, 0, 0.5, 0, true); B(bg, MAT.pinkD, 0.28, 0.36, 0.5, -0.8, 0.16, 0, true); B(bg, MAT.pinkD, 0.28, 0.36, 0.5, 0.8, 0.16, 0, true); SEATS.push([q[0], 0.62, q[1], q[2]]); }
+      const d = px(h + 0.75, 9); if (roadGap(d[0], d[1]) > 0.3 && !nearShopEntrance(d[0], d[1], 0.35)) C(g, bin, 0.26, 0.22, 0.8, d[0], 0.16, d[1], 8, false, true);
       if (side < 0 || s > S_RUMI1) for (let k = 0, n = ri(1, 4); k < n; k++) { const v = px(h - 0.7, -6 + k * 1.1 + rr(-0.2, 0.2)); PARKED.push([v[0], v[1], v[2] + rr(-0.25, 0.25), pick(['scooter', 'bike', 'scooter', 'cycle'])]); }
       if (side < 0 && i % 3 === 1) { const v = px(h + 1.5, 12); if (roadGap(v[0], v[1]) > 0.8) VENDORS.push([v[0], v[1], v[2], pick(['fruit', 'chaat', 'juice', 'tea', 'corn'])]); }
     }
@@ -630,7 +655,13 @@ function buildLamps() {
   const poolMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffb45a, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -40 });
   const pool = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), poolMat, lampSpots.length);
   lampSpots.forEach((l, i) => { const s = l[3] === 2 ? 52 : l[1] < 4 ? 11 : 24; o.position.set(l[0], 0.06, l[2]); o.rotation.y = 0; o.scale.set(s, 1, s); o.updateMatrix(); pool.setMatrixAt(i, o.matrix); }); pool.frustumCulled = false; pool.renderOrder = 2; scene.add(pool);
-  NIGHTFX.push(n => { lampMat.emissiveIntensity = n * 2.2; haloMat.opacity = n; poolMat.opacity = n * 0.4; halo.visible = pool.visible = n > 0.02; });
+  NIGHTFX.push(() => {
+    const light = TIME.lamps;
+    lampMat.emissiveIntensity = light * 1.75;
+    haloMat.opacity = light * 0.72;
+    poolMat.opacity = light * 0.25;
+    halo.visible = pool.visible = light > 0.02;
+  });
 }
 function buildWires() {
   const poles = [], pos = [], a = [0, 0, 0, 0];

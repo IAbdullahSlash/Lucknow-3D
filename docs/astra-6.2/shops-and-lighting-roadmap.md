@@ -1,5 +1,7 @@
 # Lucknow street shops, Tunday Kababi and the city through the day
 
+[Implementation results and renders](shop-implementation.md)
+
 **Proposed next release on `ASTRA-6.2`, based on `14ab9e4`.** Start with three places a visitor can recognize on foot. At Globe, the entrance should read as a café. At Irani Chai, the visitor should see where tea is poured and collected. At Tunday, the visitor should be able to read the sign, watch the cook at the tawa and walk past the counter. Return to that same counter at dusk to judge whether the lighting works. These views give the shop, street and lighting work a common test.
 
 ## Street-level review

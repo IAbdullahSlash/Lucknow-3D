@@ -18,7 +18,11 @@
 
   function showGuide() {
     if (typeof renderItinerary === 'function') {
-      renderItinerary(document.getElementById('fallbackStops'), document.getElementById('fallbackLanguage').value);
+      const locale = document.getElementById('fallbackLanguage').value;
+      renderItinerary(document.getElementById('fallbackStops'), locale);
+      writeVisitorText(document.getElementById('fallbackShopTitle'), SHOP_COPY.title, locale);
+      renderPlaceList(document.getElementById('fallbackShopList'), Object.values(SHOP_CATALOG), locale);
+      document.getElementById('fallbackShops').hidden = false;
     }
   }
 
@@ -38,7 +42,7 @@
   function loadScript(file) {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = file + '?v=22';
+      script.src = file + '?v=23';
       script.onload = resolve;
       script.onerror = () => reject(new Error('Could not load ' + file + '.'));
       document.head.append(script);
@@ -54,7 +58,7 @@
   try {
     for (const file of [
       'data/places.js', 'data/map.js', 'vendor/three-r160.js', 'src/core.js',
-      'src/sky.js', 'src/city.js', 'src/monuments.js', 'src/life.js', 'src/navigation.js', 'src/ui.js',
+      'src/solar.js', 'src/sky.js', 'src/city.js', 'src/monuments.js', 'src/shops.js', 'src/life.js', 'src/navigation.js', 'src/ui.js',
     ]) {
       await loadScript(file);
       if (failed) return;

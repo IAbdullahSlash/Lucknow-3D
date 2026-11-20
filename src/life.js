@@ -220,7 +220,8 @@ function buildStaticProps() {
     const def = VDEF[type];
     if (!def) continue;
     const c = Math.cos(yaw), s = Math.sin(yaw);
-    if (blocksPilotTrail({ x, z, hw: 0.75, hd: def.len / 2, ux: c, uz: -s, vx: s, vz: c })) continue;
+    if (nearShopEntrance(x, z, def.len / 2)
+        || blocksPilotTrail({ x, z, hw: 0.75, hd: def.len / 2, ux: c, uz: -s, vx: s, vz: c })) continue;
     PARK_MODE = 1; const model = vehicleModel(type, rpick(def.colors)), p = painter(); PARK_MODE = 0;
     for (const w of model.wheels) { if (w[4]) { const g = spokeGeo.clone(); g.scale(w[3], w[2], w[2]); g.translate(w[0], w[2], w[1]); const c = g.attributes.color, cc = _c.set(def.spoke || 0x444444); for (let i = 0; i < c.count; i++) c.setXYZ(i, cc.r, cc.g, cc.b); p.geo(g, def.spoke || 0x444444); } else { const g = tyreGeo.clone(); g.scale(w[3], w[2], w[2]); g.translate(w[0], w[2], w[1]); const keep = g.attributes.color.array.slice(); p.geo(g, 0); g.attributes.color.array.set(keep); } }
     if (model.horse) for (let k = 0; k < 4; k++) p.box(0.13, 1.04, 0.15, k & 1 ? 0.2 : -0.2, 0.52, model.horse[0] + (k < 2 ? 0.62 : -0.6), _c.set(model.horse[1]).multiplyScalar(0.8).getHex());
@@ -320,7 +321,11 @@ function posePerson(p, t) {
   else setLimb(PP.torso.instanceMatrix.array, i, p.x, y, p.z, cy, sy, 0, 1.13 * s, 0, 0, s, s, s);
   if (p.legs) { setLimb(PP.leg.instanceMatrix.array, i * 2, p.x, y, p.z, cy, sy, -0.11 * s, 0.86 * s, 0, legA, s, s, s); setLimb(PP.leg.instanceMatrix.array, i * 2 + 1, p.x, y, p.z, cy, sy, 0.11 * s, 0.86 * s, 0, legB, s, s, s); }
   else if (p.sit) { setLimb(PP.leg.instanceMatrix.array, i * 2, p.x, y, p.z, cy, sy, -0.11 * s, 0.86 * s, 0, -1.48, s * 1.3, s * 0.9, s * 1.3); setLimb(PP.leg.instanceMatrix.array, i * 2 + 1, p.x, y, p.z, cy, sy, 0.11 * s, 0.86 * s, 0, -1.48, s * 1.3, s * 0.9, s * 1.3); }
-  setLimb(PP.arm.instanceMatrix.array, i * 2, p.x, y, p.z, cy, sy, -0.28 * s * (p.robe ? p.rw * 0.92 : 1), 1.4 * s, 0, armA, s, s, s); setLimb(PP.arm.instanceMatrix.array, i * 2 + 1, p.x, y, p.z, cy, sy, 0.28 * s * (p.robe ? p.rw * 0.92 : 1), 1.4 * s, 0, p.wave ? -2.6 + Math.sin(t * 9) * 0.3 : p.sit ? armA : -armA, s, s, s);
+  const shoulder = 0.28 * s * (p.robe ? p.rw * 0.92 : 1);
+  const rightArm = p.shop ? -0.86 + 0.23 * Math.sin(t * 2.7 + p.ph)
+    : p.wave ? -2.6 + Math.sin(t * 9) * 0.3 : p.sit ? armA : -armA;
+  setLimb(PP.arm.instanceMatrix.array, i * 2, p.x, y, p.z, cy, sy, -shoulder, 1.4 * s, 0, armA, s, s, s);
+  setLimb(PP.arm.instanceMatrix.array, i * 2 + 1, p.x, y, p.z, cy, sy, shoulder, 1.4 * s, 0, rightArm, s, s, s);
   setLimb(PP.head.instanceMatrix.array, i, p.x, y, p.z, cy, sy, 0, 1.58 * s, 0, 0, s, s, s);
   setLimb(PP.hair.instanceMatrix.array, i, p.x, y, p.z, cy, sy, 0, (1.6 + (p.hs > 1.1 ? -0.015 : 0.012)) * s, -0.03 * s * p.hs, 0, s * p.hs, s * (p.hs > 1.1 ? p.hs : 0.86), s * p.hs);
   if (p.bag >= 0) setLimb(PP.bag.instanceMatrix.array, p.bag, p.x, y, p.z, cy, sy, 0, 1.16 * s, -0.2 * s, 0, s, s, s);
@@ -349,10 +354,20 @@ function spawnPeople() {
     const v = newPerson(R() < 0.75 ? (R() < 0.5 ? 0 : 1) : 3); if (!v) break; v.mode = 3; const back = type === 'candy' || type === 'balloon' ? 0 : -0.95; v.x = x + Math.sin(yaw) * back; v.z = z + Math.cos(yaw) * back; v.yaw = v.yaw0 = yaw; v.vend = true;
     for (let k = 0, n = R() < 0.35 ? 0 : R() < 0.6 ? 1 : 2; k < n; k++) { const c = newPerson(); if (!c) break; c.mode = 3; const a = yaw + (R() - 0.5) * 1.2, d = 1.3 + R() * 0.7; c.x = x + Math.sin(a) * d; c.z = z + Math.cos(a) * d; c.yaw = a + Math.PI; }
   }
+  for (const shop of SHOP_SITES.values()) {
+    const staff = newPerson(shop.id === 'tunday-kababi' ? 1 : 0);
+    if (!staff) break;
+    const { point, yaw, floor } = shop.staff;
+    [staff.x, staff.z] = point;
+    Object.assign(staff, { shop, yaw, y: floor });
+  }
   for (const [i, stall] of MARKET_STALLS.entries()) {
     const person = newPerson();
     if (!person) break;
-    person.market = { stall, phase: 0.2 + i * 0.47, period: 24 + i * 10, threshold: 0.43 + i * 0.25 };
+    person.market = stall.shop
+      ? { stall, phase: (0.35 + i * 0.14) % 1, period: 18 + i % 3 * 4, threshold: 0.66 }
+      : { stall, phase: 0.2 + i * 0.47, period: 24 + i * 10, threshold: 0.43 + i * 0.25 };
+    person.y = stall.floor ?? 0;
     [person.x, person.z] = stall.entry;
   }
   for (const im of Object.values(PP)) if (im.instanceColor) im.instanceColor.needsUpdate = true;
@@ -382,7 +397,7 @@ function updateMarketCustomer(person, dt, time) {
   if (person.moving) {
     person.yaw = Math.atan2(target[0] - from[0], target[1] - from[1]);
     person.ph += dt * 5;
-  }
+  } else if (stall.shop) person.yaw = stall.shop.frame.rot + Math.PI;
   posePerson(person, time);
 }
 let _pf = 0;
@@ -390,12 +405,16 @@ function updatePeople(dt, t) {
   const A = LIFE.people, nOn = Math.round(A.length * busyAt('crowd', TIME.hour)), cx = camera.position.x, cz = camera.position.z, P = LIFE.player, pa = !!(P && P.active); _pf++;
   const market = marketActivity(TIME.hour);
   for (let i = 0; i < A.length; i++) {
-    const p = A[i], on = p.market ? market > p.market.threshold : (i * 7919) % A.length < nOn;
+    const p = A[i];
+    const on = p.market ? (p.market.stall.shop?.activity ?? market) > p.market.threshold
+      : p.shop ? p.shop.activity > 0.36 : (i * 7919) % A.length < nOn;
     if (on !== p.on) { p.on = on; if (!on) hidePerson(p); else p.dirty = true; }
     if (!on) continue;
     const far = Math.abs(p.x - cx) + Math.abs(p.z - cz) > 420; if (far && (i + _pf) % 4) continue; const d = far ? dt * 4 : dt;
     if (p.market) {
       updateMarketCustomer(p, d, t);
+    } else if (p.shop) {
+      posePerson(p, t);
     } else if (p.mode === 1) {
       p.s += p.sp * d; if (p.s >= p.e.len) pedNext(p);
       const a = polyAt(p.e.pl, p.d > 0 ? p.s : p.e.len - p.s, _pp), tx = a[2] * p.d, tz = a[3] * p.d; let gx = a[0] + tz * p.off, gz = a[1] - tx * p.off;
@@ -454,17 +473,43 @@ function spawnFx() {
   const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gp, 3)); gg.setAttribute('color', new THREE.Float32BufferAttribute(gc, 3));
   const gm = new THREE.PointsMaterial({ map: glowTex, size: 6, vertexColors: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }); jetGlow = new THREE.Points(gg, gm); jetGlow.frustumCulled = false; scene.add(jetGlow);
   NIGHTFX.push(nn => { gm.opacity = nn * 0.9; jetGlow.visible = nn > 0.05; });
-  for (const [x, z, , type] of VENDORS) if (type === 'cook' || type === 'corn' || type === 'tea' || type === 'chaat') for (let k = 0; k < 5; k++) SMOKE.push([x, z, R()]);
-  smoke = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(SMOKE.length * 3), 3)), new THREE.PointsMaterial({ map: radialTex('rgba(235,235,235,.5)', 'rgba(200,200,200,.18)'), size: 1.7, transparent: true, opacity: 0.5, depthWrite: false })); smoke.frustumCulled = false; scene.add(smoke);
+  for (const [x, z, , type] of VENDORS) if (type === 'cook' || type === 'corn' || type === 'tea' || type === 'chaat') {
+    for (let k = 0; k < 5; k++) SMOKE.push({ x, y: 1.6, z, phase: R() });
+  }
+  for (const shop of SHOP_SITES.values()) if (shop.steam) {
+    const [x, y, z] = shop.steam;
+    for (let k = 0; k < 5; k++) SMOKE.push({ x, y, z, phase: k / 5, shop });
+  }
+  const vapour = new THREE.BufferGeometry();
+  vapour.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(SMOKE.length * 3), 3));
+  vapour.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(SMOKE.length * 4).fill(1), 4));
+  smoke = new THREE.Points(vapour, new THREE.PointsMaterial({
+    map: radialTex('rgba(235,235,235,.5)', 'rgba(200,200,200,.03)'), vertexColors: true,
+    size: 0.85, transparent: true, opacity: 0.52, depthWrite: false,
+  }));
+  smoke.frustumCulled = false;
+  scene.add(smoke);
 }
 function updateFx(dt, t) {
   const p = jetPts.geometry.attributes.position; let o = 0;
   for (const f of FOUNTAINS) { const dance = 0.62 + 0.38 * Math.sin(t * 0.9 + f.ph * 3 + f.x * 0.4); for (let i = 0; i < f.n; i++, o++) { const u = (t * 0.6 + i / f.n) % 1, a = i * 2.399, s = f.spread * (0.55 + 0.45 * ((i * 7) % 5) / 5) * u; p.setXYZ(o, f.x + Math.cos(a) * s, f.y + f.h * dance * 4 * u * (1 - u), f.z + Math.sin(a) * s); } }
   p.needsUpdate = true;
-  const sp = smoke.geometry.attributes.position; SMOKE.forEach((s, i) => { const u = (t * 0.22 + s[2]) % 1; sp.setXYZ(i, s[0] + Math.sin(u * 5 + s[2] * 9) * 0.5 * u + u * 0.8, 1.6 + u * 4.2, s[1] + Math.cos(u * 4 + s[2] * 7) * 0.4 * u); }); sp.needsUpdate = true;
+  const { position, color } = smoke.geometry.attributes;
+  SMOKE.forEach(({ x, y, z, phase, shop }, i) => {
+    const u = (t * 0.22 + phase) % 1;
+    const spread = shop ? 0.32 : 1;
+    position.setXYZ(i, x + (Math.sin(u * 5 + phase * 9) * 0.5 + 0.8) * u * spread,
+      y + u * (shop ? 1.25 : 4.2), z + Math.cos(u * 4 + phase * 7) * 0.35 * u * spread);
+    const activity = shop ? smooth((shop.activity - 0.12) / 0.72) : 1;
+    color.setW(i, activity * (1 - u));
+  });
+  position.needsUpdate = color.needsUpdate = true;
 }
 const animatedInstances = [TYRE, SPOKE, ALEG, ...Object.values(PP)];
 function buildLife() {
+  for (let i = VENDORS.length - 1; i >= 0; i--) {
+    if (nearShopEntrance(VENDORS[i][0], VENDORS[i][1], 0.65)) VENDORS.splice(i, 1);
+  }
   buildStaticProps();
   spawnVehicles();
   spawnRiders();

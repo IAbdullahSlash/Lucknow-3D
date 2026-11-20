@@ -12,7 +12,7 @@ Open `index.html` in a modern WebGL browser, or serve the folder with Python.
 python3 -m http.server 8123
 ```
 
-Visit `http://localhost:8123`. If 3D startup fails, the page offers a retry, a text itinerary and the 2D map.
+Visit `http://localhost:8123`. If 3D startup fails, the page offers a retry, the itinerary and shop guide in text, and the 2D map.
 
 ## What you can do
 
@@ -22,7 +22,9 @@ Visit `http://localhost:8123`. If 3D startup fails, the page offers a retry, a t
 | **Walk** | Press `2`, double-click any spot on the ground, or use *Walk here* on a place card. `W A S D` to move, or hold the left mouse button to walk where you look (right button steps back); mouse to look, `Shift` to run, `Space` to hop. On a phone a stick on the left walks you, dragging the view looks around, a pinch pulls the camera in or out (all the way to first person), and Run / View / Hop / Exit buttons sit on the right. People step round you, stall-keepers turn and beckon as you pass, and each monument introduces itself when you reach it. After dark you carry a lantern. You steer a figure seen from behind; the wheel brings the camera nearer or farther, and all the way in is a first-person view. Buildings, railings and water block you; steps and plinths can be climbed. On a phone a joystick appears. |
 | **Tour** | Follow the Clock Tower, Talab and Rumi Darwaza in order. Use Previous, Next or Pause to set the pace, Itinerary to read all three stops, and Walk here to start a leg. The minimap marks the route and the next destination. The Rumi card shows both faces of the gate. |
 
-**Options** (`O`) cover label language (Hindi, Urdu, English), weather (clear, haze, overcast, winter fog, monsoon rain), festive night illumination, walking pace, graphics quality, shadows and synthesised street sound. The time bar follows live Indian Standard Time with the real sun path for Lucknow, or jumps to sunrise, midday, golden hour, dusk or night. Crowds and traffic follow the hour on their own: near-empty before dawn, a morning rush, and the busiest streets in the evening.
+**Places → Street shops** opens six illustrated storefronts from their public side. Choose **At the counter** for a closer view or **Walk here** to arrive on foot. Tunday Kababi has a second approach from the square.
+
+The time bar uses Lucknow local time. Select **Live**, choose a solar preset, or use the slider to set a minute by hand. Crowds, traffic, shop shutters and the counter lighting follow the selected time. **Options** (`O`) includes English, Hindi and Urdu labels, five weather presets, festive illumination, walking pace, quality, shadows and optional street sound.
 
 Use `H` for photo mode, `P` to save a screenshot, `M` for the minimap, `L` to cycle label languages, and `T` for the tour. Show controls restores the interface in photo mode. With reduced motion enabled, the tour starts paused and viewpoint changes are immediate.
 
@@ -31,13 +33,15 @@ Use `H` for photo mode, `P` to save a screenshot, `M` for the minimap, `L` to cy
 | Path | Role |
 | --- | --- |
 | `data/map.js` | Streets, river, parks and landmark footprints, generated from OpenStreetMap |
-| `data/places.js` | Heritage walk itinerary, translations, views and arrival coordinates |
+| `data/places.js` | Heritage walk, featured shops, translations and arrival coordinates |
 | `tools/build_map.py` | Converts an Overpass API export into `data/map.js` (query in `tools/overpass_query.txt`) |
-| `src/bootstrap.js` | Local script loading and the text itinerary on startup failure |
+| `src/bootstrap.js` | Local script loading and the text guides on startup failure |
 | `src/core.js` | Renderer, options, textures, materials, geometry helpers, collision records |
-| `src/sky.js` | Solar position, sky and clouds, weather, rain, night lighting |
+| `src/solar.js` | Lucknow civil time and dated solar positions |
+| `src/sky.js` | Sky, haze, rain, wet ground and night lighting |
 | `src/city.js` | Ground, roads, footpaths, river, houses grown along the real lanes, trees, lamps, wires |
 | `src/monuments.js` | The hand-modelled monuments, each in its surveyed position and orientation |
+| `src/shops.js` | Featured shopfronts, street fittings, counter lights and service schedules |
 | `src/life.js` | Traffic on the street graph, horses, people, stray cows, dogs and goats, vendors, birds, kites, fountains |
 | `src/navigation.js` | Walkable floors, water, bridge decks and building collisions |
 | `src/ui.js` | Explore / walk / tour, labels, minimap, options, sound, main loop |
@@ -46,7 +50,7 @@ The scripts are plain files sharing one scope so the folder also works when open
 
 ## Measure the scene
 
-Serve the project and open `tools/benchmark.html` from the same server. Choose a quality preset. The tool repeats a 60-second run across midday Explore, a Rumi Darwaza walk, and an evening monsoon tour. It reports startup and stage timings, median and p95 frame intervals, draw calls and triangles. Leave the tab visible for the optional ten-minute run. To measure a cold load, clear the site cache before starting. [Implementation and review notes](docs/astra-6.2/implementation.md)
+Serve the project and open `tools/benchmark.html` from the same server. Each run includes midday Explore, a Rumi Darwaza walk and an evening monsoon tour. Select **Include shop passes** for two additional passes at the Tunday counter. The report includes startup time, median and p95 frame intervals, draw calls and triangles. Leave the tab visible for the optional ten-minute soak. Use `node --test tools/test_solar.cjs` to check the local time and solar calculation. [Heritage walk review](docs/astra-6.2/implementation.md)
 
 ## Update the street map
 
@@ -69,7 +73,7 @@ To rebuild the local Three.js bundle from the locked npm packages, run `npm ci -
 - Monuments were modelled by hand against current satellite and street-level imagery. They are stylised, not surveyed.
 - Most detail is concentrated between the Husainabad gateways and Bara Imambara. The minimap marks the approximate extent. A few mapped building footprints provide simpler context outside it.
 - Ordinary houses are generated along the real lanes; individual buildings are not real.
-- About 55 shop and stall names (Tunday Kababi, Irani Dum Tea, Kebabchi, Cafe Dubai, Naval Medical Store and others) come from current map listings and are placed at or near their mapped spots. Other shop boards use generic names.
+- Chai Mahal uses the tea-shop point in the checked-in OpenStreetMap extract. The five other featured shops use illustrated placements and façades. Opening, service and closing follow scene schedules.
 - Rumi Darwaza is shown as it is now: closed to vehicles, with traffic looping round its north end.
 - The short history notes in the app are summaries and should be checked before being quoted.
 

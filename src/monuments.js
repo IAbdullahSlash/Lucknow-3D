@@ -20,10 +20,10 @@ function wallRun(p, mat, x0, z0, x1, z1, h, t = 0.9, crenel = true) {
   const g = grp(p, (x0 + x1) / 2, (z0 + z1) / 2, Math.atan2(-dz, dx)); B(g, mat, len, h, t, 0, 0, 0);
   if (crenel) merlons(g, mat, -len / 2, len / 2, h, 0, Math.max(2, Math.round(len / 1.7)), 0.85, 0.6, t);
 }
-function signBoard(p, w, x, y, z, cell = genericCell()) {
+function signBoard(p, w, x, y, z, cell = genericCell(), material = signMats[0]) {
   const g = new THREE.PlaneGeometry(w, w / 4), q = signUV(cell), uv = g.attributes.uv;
   uv.setXY(0, q[0], q[3]); uv.setXY(1, q[2], q[3]); uv.setXY(2, q[0], q[1]); uv.setXY(3, q[2], q[1]);
-  const m = new THREE.Mesh(g, signMats[0]); m.position.set(x, y + w / 8, z + 0.12); p.add(m); return m;
+  const m = new THREE.Mesh(g, material); m.position.set(x, y + w / 8, z + 0.12); p.add(m); return m;
 }
 /** a board with its own lettering (used for the few big named signs) */
 const BOARD_MATS = [];
@@ -55,7 +55,6 @@ function buildKiosks() {
       else { const a = polyAt(MAIN, mp.s); rot = Math.atan2(-a[3] * mp.side, a[2] * mp.side); }
       kiosk(g, q[2], q[3], rot, i); q[5] = [q[2] + Math.sin(rot) * 1.4, q[3] + Math.cos(rot) * 1.4]; VENDORS.push([q[2] + Math.sin(rot), q[3] + Math.cos(rot), rot + Math.PI, 'cook']);
     }
-    if (q[4] === 3) q[5] = [q[2], q[3]];
     if (q[5]) LABELS.push({ id: 'poi' + i, poi: true, en: q[0], hi: q[1], pos: [q[5][0], q[4] === 0 ? 5.3 : 4.5, q[5][1]] });
   });
   const along = (s, side, off) => { const a = polyAt(MAIN, s); return [a[0] + a[3] * side * off, a[1] - a[2] * side * off, Math.atan2(a[2], a[3])]; };
@@ -165,11 +164,9 @@ function buildPark() {
     const e = ri(0, 7), lvl = ri(1, 6), O = off(talabOct((lvl - 0.45) * T.tread)), a = O[e], b = O[(e + 1) % 8], t = rr(0.1, 0.9), x = lerp(a[0], b[0], t), z = lerp(a[1], b[1], t);
     seatAt(F, x, z, -lvl * T.rise + 0.42, Math.atan2(cx - x, cz - z));
   }
-  [[-134, 30], [-134, -40], [-46, 70], [-46, -52], [22, 30], [20, -28]].forEach(q => lampAt(F, q[0], q[1], 2));
+  [[-134, 30], [-134, -40], [-42, 68], [-46, -52], [22, 30], [20, -28]].forEach(q => lampAt(F, q[0], q[1], 2));
   [[-126, 46, 0], [-108, 60, 0], [-88, 62, 0], [-66, 60, 0], [-126, -20, Math.PI / 2], [-126, 10, Math.PI / 2], [-44, 20, -Math.PI / 2], [-44, -20, -Math.PI / 2], [-100, -54, 0], [-76, -54, 0], [12, 16, Math.PI], [-12, 16, Math.PI]].forEach(q => bench(g, F, q[0], q[1], q[2]));
-  // kebab canopy by the road, the corner tea stall, play area and bandstand
-  { const k = grp(g, -52, 60); for (const sx of [-1, 1]) for (const sz of [-1, 1]) C(k, MAT.iron, 0.07, 0.07, 3, sx * 3.6, 0, sz * 3.6, 6, false, true); const c = cone(k, MAT.white, 5.6, 2.2, 0, 3, 0, 4); c.rotation.y = Math.PI / 4; B(k, MAT.wood, 5, 0.9, 1.1, 0, 0, 2.6); B(k, MAT.iron, 1.6, 0.5, 0.9, -1.2, 0.9, 2.6, true); signBoard(k, 5.2, 0, 2.2, 3.7, shopCell('Tunday Kababi')); signBoard(grp(k, 0, 0, Math.PI), 5.2, 0, 2.2, 3.7, shopCell('Tunday Kababi')); vendor(F, -52, 61.4, 0, 'cook'); }
-  { const k = grp(g, -142, 4, Math.PI / 2); B(k, MAT.teal, 3.6, 2.6, 2.6, 0, 0, 0); B(k, MAT.cloth, 4, 0.08, 1.6, 0, 2.5, 2, true).rotation.x = 0.25; rectDecal(k, MAT.black, 2.6, 1.1, 0, 1.0, 1.3); textBoard(k, ['CHAI MAHAL', 'चाय महल'], 3.6, 0.9, 0, 2.7, 1.3, '#7a1f5c', '#ffe9a8'); vendor(F, -140.5, 4, Math.PI / 2, 'cook'); }
+  // Play area and bandstand.
   const toy = c => M(c, { roughness: 0.5 }), RD = toy(0xd7352c), YL = toy(0xf0b90b), BL = toy(0x2f6fc4), GR = toy(0x3d9a4c);
   { const pa = grp(g, 39, -47); B(pa, BL, 2, 0.1, 2, -8, 2.2, 0, true); for (const sx of [-1, 1]) for (const sz of [-1, 1]) C(pa, YL, 0.07, 0.07, 2.2, -8 + sx * 0.9, 0, sz * 0.9, 6, false, true);
     const sl = B(pa, RD, 0.9, 0.08, 4.4, -8, 1.1, 2.9, true); sl.rotation.x = 0.52; cone(pa, GR, 1.6, 1.1, -8, 2.9, 0, 4).rotation.y = Math.PI / 4;
@@ -188,7 +185,7 @@ function buildPark() {
     hd.add(h, m); scene.add(hd); CLOCK_HANDS.push({ h, m });
   }
   // life in the square
-  zone(F, -134, 45, -42, 79, 62); zone(F, -138, -40, -127, 40, 12); zone(F, -44, -58, -33, 79, 24); zone(F, -120, -58, -52, -43, 14);
+  zone(F, -134, 45, -57, 79, 55); zone(F, -138, -40, -127, 40, 12); zone(F, -44, -58, -33, 79, 24); zone(F, -120, -58, -52, -43, 14);
   zone(F, -22, 9, 22, 21, 9); zone(F, -22, -21, 22, -9, 5); zone(F, 9, -9, 21, 9, 3); zone(F, -21, -9, -9, 9, 3); zone(F, -5, 22, 5, 78, 12); zone(F, 26, -58, 60, -36, 10);
   const stalls = ['chaat', 'fruit', 'juice', 'icecream', 'corn', 'chaat', 'toys', 'fruit', 'tea', 'chaat', 'candy'];
   stalls.forEach((t, i) => vendor(F, -132 + i * 8.4, 75.5, 0, t));
@@ -263,11 +260,36 @@ function buildChota() {
   wallRun(g, MAT.aged, -Wd, 0, -11, 0, 5.6); wallRun(g, MAT.aged, 11, 0, Wd, 0, 5.6);
   wallRun(g, MAT.whiteD, -Wd, 0, -Wd, D, 5); wallRun(g, MAT.whiteD, Wd, 0, Wd, D, 5); wallRun(g, MAT.whiteD, -Wd, D, Wd, D, 5);
   for (const [x, z] of [[-Wd, 0], [Wd, 0], [-Wd, D], [Wd, D]]) { C(g, MAT.aged, 3.4, 3.6, 5.6, x, 0, z, 8, true); C(g, MAT.aged, 3.9, 3.9, 0.4, x, 5.6, z, 8, true, true); chhatri(g, MAT.cream, MAT.cream, 5.2, x, 6, z, 8); }
-  const rowCells = SHOPS.map((q, i) => q[4] === 2 ? i : -1).filter(i => i >= 0);
-  for (const s of [-1, 1]) {                    // the row of little shops built against the street wall
-    B(g, MAT.whiteD, 50, 3.3, 3.2, s * 37.5, 0, -2.05); const f = grp(g, s * 37.5, -3.65, Math.PI);
-    for (let i = 0; i < 12; i++) { const x = -22.9 + i * 4.16; const named = s > 0 && i >= 3 && i <= 9; rectDecal(f, named || chance(0.4) ? MAT.recessLit : MAT.shutter, 3.3, 2.3, x, 0.05, 0); signBoard(f, 3.7, x, 2.42, 0.02, named ? rowCells[i - 3] : genericCell()); if (chance(0.5)) { const a = B(f, pick([MAT.cloth, MAT.fabricG, MAT.teal, MAT.gold]), 3.6, 0.06, 1.5, x, 2.3, 0.85, true); a.rotation.x = 0.28; } }
-    for (let i = 0; i < 16; i++) C(g, MAT.wood, 0.11, 0.13, 0.75, s * (13 + i * 3.1), 0, -5.4, 6, false, true);          // kerb posts
+  const rowCells = SHOPS.flatMap((shop, i) => shop[4] === 2 ? [i] : []);
+  const { centre, edge, first, step, count } = CHOTA_SHOP_ROW;
+  const namedBays = [4, 5, 7, 8, 9];
+  const featuredBays = new Set(Object.values(SHOP_CATALOG).filter(shop => shop.kind === 'bay').map(shop => shop.bay));
+  for (const side of [-1, 1]) {
+    const row = grp(g, side * centre, edge, Math.PI);
+    for (let i = 0; i < count; i++) {
+      if (side > 0 && featuredBays.has(i)) continue;
+      const x = first + i * step;
+      const namedIndex = side > 0 ? namedBays.indexOf(i) : -1;
+      B(row, MAT.whiteD, step, 3.3, 3.2, x, 0, -1.6);
+      const serving = side > 0 && (i === 5 || i === 8);
+      rectDecal(row, serving || chance(0.3) ? MAT.recess : MAT.shutter, 3.3, 2.25, x, 0.07, 0);
+      signBoard(row, 3.7, x, 2.40, 0.02, namedIndex >= 0 ? rowCells[namedIndex] : genericCell());
+      if (serving) {
+        B(row, MAT.woodL, 2.7, 0.10, 0.43, x, 0.87, 0.22, true);
+        for (let j = 0; j < 3; j++) {
+          if (i === 5) C(row, MAT.copper, 0.14, 0.13, 0.18, x + (j - 1) * 0.52, 0.97, 0.22, 8, false, true);
+          else B(row, [MAT.teal, MAT.fabricG, MAT.cream][j], 0.5, 0.12, 0.34, x + (j - 1) * 0.68, 0.97, 0.24, true);
+        }
+      }
+      if (serving || chance(0.4)) {
+        const awning = B(row, pick([MAT.cloth, MAT.fabricG, MAT.teal, MAT.gold]), 3.55, 0.06, 1.25, x, 2.27, 0.65, true);
+        awning.rotation.x = 0.24;
+      }
+    }
+    for (let i = 0; i < 16; i++) {
+      const x = side * (13 + i * 3.1);
+      if (!nearShopEntrance(...toWorld(F, x, -5.4), 0.12)) C(g, MAT.wood, 0.11, 0.13, 0.75, x, 0, -5.4, 6, false, true);
+    }
   }
   // main gateway, white with gilded pinnacles
   gateSlab(g, w, 22, 12.5, 6, [{ x: 0, w: 6.4, h: 9, cusps: 5 }, { x: -7.4, w: 3.2, h: 5.8, cusps: 4 }, { x: 7.4, w: 3.2, h: 5.8, cusps: 4 }]);
@@ -316,7 +338,11 @@ function buildChota() {
   LABELS.push({ id: 'chota', en: 'Chota Imambara', hi: 'छोटा इमामबाड़ा', ur: 'چھوٹا امام باڑہ', pos: [hw[0], 40, hw[1]], cam: [-324, 15, -10], tgt: [-380, 9, 72], walk: [...toWorld(F, 0, 14), hw[0], hw[1]], yr: 'Imambara Husainabad Mubarak · 1838',
     text: 'Built by Muhammad Ali Shah, third King of Awadh, as a congregation hall and his own mausoleum. Black calligraphy panels band the white facade under a gilded dome; chandeliers inside earned it the name “Palace of Lights”. Across the water channel two small Taj-inspired tombs face each other, with the Husainabad mosque and the royal hammam by the gate.' });
   LABELS.push({ id: 'chowk', small: true, en: 'Husainabad Chowk', hi: 'हुसैनाबाद चौक', ur: 'حسین آباد چوک', pos: [...toWorld(F, 0, -26).slice(0, 1), 5, toWorld(F, 0, -26)[1]] });
-  rowCells.forEach((c, k) => { if (k % 2 === 0) { const w = toWorld(F, 37.5 + 22.9 - (k + 3) * 4.16, -4.6); LABELS.push({ id: 'poi' + c, poi: true, en: SHOPS[c][0], hi: SHOPS[c][1], pos: [w[0], 4.4, w[1]] }); } });
+  for (const index of [1, 4]) {
+    const cell = rowCells[index];
+    const [x, z] = toWorld(F, centre - first - namedBays[index] * step, edge - 0.95);
+    LABELS.push({ id: 'poi' + cell, poi: true, en: SHOPS[cell][0], hi: SHOPS[cell][1], pos: [x, 4.4, z] });
+  }
   // Naubat Khana across the open ground, facing the gate
   const n = frameGroup({ x: toWorld(F, 0, -66)[0], z: toWorld(F, 0, -66)[1], rot: F.rot });
   B(n, MAT.stone, 31, 0.7, 14); B(n, MAT.whiteW, 28, 5.4, 12, 0, 0.7, 0); arcadeBox(n, 0, 0, 28, 12, 0.9, 4, 5, 2, { cusps: 3, lit: 0.4 }); B(n, MAT.whiteD, 29, 0.45, 13, 0, 6.1, 0, true);
@@ -546,6 +572,7 @@ function buildFestive() {
 }
 function buildMonuments() {
   buildPark(); buildSatkhanda(); buildHGate(FRAME.gateE, 'gateE'); buildHGate(FRAME.gateW, 'gateW'); buildChota(); buildRumi(); buildBara(); buildOuterMosques(); buildFoodCourt(); buildKiosks();
+  buildShopFronts();
   for (const [id, place] of Object.entries(PLACE_CATALOG)) {
     const frame = FRAME[place.frame];
     const world = ([x, y, z]) => {

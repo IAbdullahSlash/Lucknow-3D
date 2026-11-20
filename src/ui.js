@@ -69,7 +69,20 @@ function setPlaces(open) {
   el('bPlaces').setAttribute('aria-expanded', open);
 }
 
+function setPlaceGroup(group) {
+  if (UI.placeGroup === group) return;
+  UI.placeGroup = group;
+  for (const button of el('placeGroups').querySelectorAll('button')) {
+    const active = button.dataset.places === group;
+    button.classList.toggle('on', active);
+    button.setAttribute('aria-pressed', active);
+  }
+  for (const button of el('places').querySelectorAll('button')) button.hidden = group !== button.dataset.group;
+  el('places').scrollTo(0, 0);
+}
+
 function selectPlace(p, duration = 2.2) {
+  setPlaceGroup(p.shop ? 'shops' : 'landmarks');
   for (const button of el('places').querySelectorAll('button')) {
     button.classList.toggle('on', button.dataset.id === p.id);
     button.setAttribute('aria-pressed', button.dataset.id === p.id);
@@ -96,7 +109,8 @@ function showCard(p, restoreFocus = true) {
     return;
   }
   writeVisitorText(el('placeTitle'), placeName(p), locale());
-  writeVisitorText(card.querySelector('.yr'), p.record?.mapOnly ? GUIDE_COPY.mapOnly : { en: p.yr || '' }, locale());
+  const coverage = p.shop ? SHOP_COPY[p.record.placement] : p.record?.mapOnly ? GUIDE_COPY.mapOnly : { en: p.yr || '' };
+  writeVisitorText(card.querySelector('.yr'), coverage, locale());
   writeVisitorText(el('cardWalk'), GUIDE_COPY.walk, locale());
   writeVisitorText(card.querySelector('p'), p.record?.description || { en: p.text }, locale());
   el('cardWalk').hidden = !p.walk || !!UI.tour;
@@ -369,6 +383,8 @@ function buildLabels() {
   for (const p of ordered) {
     const button = document.createElement('button');
     button.dataset.id = p.id;
+    button.dataset.group = p.shop ? 'shops' : 'landmarks';
+    if (p.shop) button.title = [p.record.area, ...(p.record.aliases || [])].join(' · ');
     button.setAttribute('aria-pressed', 'false');
     p.listButton = button;
     button.onclick = () => {
@@ -380,6 +396,7 @@ function buildLabels() {
     };
     list.append(button);
   }
+  setPlaceGroup('landmarks');
   for (const p of LABELS) {
     if (p.nolabel) continue;
     const label = document.createElement('div');
@@ -397,13 +414,15 @@ function buildLabels() {
 }
 function labelAt(x, y) {
   if (OPT.labels === 'off' || document.body.classList.contains('photo')) return null;
-  for (const p of LABELS) if (p.dom && !p.road && !p.poi && p.obj.visible && p.dom.style.display !== 'none') { const r = p.dom.getBoundingClientRect(); if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return p; }
+  for (const p of LABELS) if (p.dom && !p.road && (!p.poi || p.shop) && p.obj.visible && p.dom.style.display !== 'none') { const r = p.dom.getBoundingClientRect(); if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return p; }
   return null;
 }
 function setHot(p) { if (UI.hot === p) return; if (UI.hot) UI.hot.dom.classList.remove('hot'); UI.hot = p; if (p) p.dom.classList.add('hot'); renderer.domElement.style.cursor = p ? 'pointer' : ''; }
 function applyLabelLang() {
   document.body.classList.toggle('nolabels', OPT.labels === 'off');
   document.body.classList.toggle('lang-en', OPT.labels === 'en');
+  writeVisitorText(el('placeGroups').querySelector('[data-places="landmarks"]'), SHOP_COPY.landmarks, locale());
+  writeVisitorText(el('placeGroups').querySelector('[data-places="shops"]'), SHOP_COPY.title, locale());
   for (const p of LABELS) {
     const name = placeName(p);
     if (p.dom) {
@@ -427,7 +446,7 @@ function announce(p) {
   }
   banner.querySelector('.hi').hidden = true;
   writeVisitorText(banner.querySelector('b'), placeName(p), locale());
-  banner.querySelector('small').textContent = p.yr || '';
+  writeVisitorText(banner.querySelector('small'), p.shop ? SHOP_COPY[p.record.placement] : { en: p.yr || '' }, locale());
   const text = visitorText(p.record?.description || { en: p.text }, locale());
   const firstSentence = text.text.match(/^[^.!?।۔]+[.!?।۔]/)?.[0] || text.text;
   writeVisitorText(banner.querySelector('p'), { en: firstSentence, [text.lang]: firstSentence }, text.lang);
@@ -441,15 +460,30 @@ function updateLabels() {
   const place = (p, w, h) => { v.set(...p.pos).project(camera); if (v.z > 1 || Math.abs(v.x) > 1.08 || Math.abs(v.y) > 1.08) return null; const x = (v.x + 1) * W / 2, y = (1 - v.y) * Hh / 2; if (boxes.some(b => Math.abs(b[0] - x) < b[2] + w && Math.abs(b[1] - y) < b[3] + h)) return false; boxes.push([x, y, w, h]); return true; };
   const cand = [], hiLen = p => placeName(p)[OPT.labels]?.length || 0;
   for (const p of LABELS) if (p.obj) { p.obj.visible = false; if (p.poi) continue; const d = Math.hypot(p.pos[0] - cp.x, p.pos[2] - cp.z); if (d < (p.small || p.road ? far * 0.42 : far) && !(!orbit && d < 14)) cand.push([(p.small ? 1 : p.road ? 2 : 0) * 1e5 + d, p]); }
+  const shopTags = OPT.shopTags && OPT.labels !== 'off' && !(orbit && cp.y > 110);
+  const shopLabel = p => place(p, Math.max(70, p.en.length * 6.2, hiLen(p) * 6.4) * k / 2, 15 * k);
+  const focused = UI.card?.shop ? UI.card : UI.anchor;
+  const featured = shopTags && orbit && focused?.shop
+    && Math.hypot(focused.pos[0] - cp.x, focused.pos[2] - cp.z) < 35 && shopLabel(focused);
+  if (featured) focused.obj.visible = true;
   cand.sort((a, b) => a[0] - b[0]);      // monuments first, then the lesser names, then roads; nearer before farther
   let n = 0; const lim = phone ? 9 : 22;
   for (const [, p] of cand) { if (n >= lim) break; const sm = p.small || p.road, w = Math.max(p.en.length * (sm ? 5.4 : 6.6), hiLen(p) * (sm ? 6.6 : 8.2)) * k / 2 + 4, h = (p.road ? 13 : sm ? 17 : 21) * k; if (place(p, w, h)) { p.obj.visible = true; n++; } }
   // shop-name tags: nearest first, skip any hidden behind walls or overlapping a name already shown
-  if (OPT.shopTags && OPT.labels !== 'off' && !(orbit && cp.y > 110)) {
+  if (shopTags) {
     const lim = orbit ? 150 : 70, cap = phone ? 6 : 14, cand = [];
-    for (const p of LABELS) if (p.poi) { const d = Math.hypot(p.pos[0] - cp.x, p.pos[2] - cp.z); if (d < lim) cand.push([d, p]); }
+    for (const p of LABELS) if (p.poi) {
+      if (featured && p === focused) continue;
+      const d = Math.hypot(p.pos[0] - cp.x, p.pos[2] - cp.z);
+      if (d < lim) cand.push([d - (p.shop ? 18 : 0), p]);
+    }
     cand.sort((a, b) => a[0] - b[0]);
-    let m = 0; for (const [, p] of cand) { if (m >= cap) break; if (!orbit && !lineOfSight(cp.x, cp.z, p.pos[0], p.pos[2])) continue; if (place(p, Math.max(70, p.en.length * 6.2) * k / 2, 15 * k)) { p.obj.visible = true; m++; } }
+    let m = featured ? 1 : 0;
+    for (const [, p] of cand) {
+      if (m >= cap) break;
+      if (!orbit && !lineOfSight(cp.x, cp.z, p.pos[0], p.pos[2])) continue;
+      if (shopLabel(p)) { p.obj.visible = true; m++; }
+    }
   }
   if (UI.mode === 'walk') { let best = null, bd = 1e9; for (const p of LABELS) if (p.pos && !p.road && !p.poi) { const d = Math.hypot(p.pos[0] - WALK.x, p.pos[2] - WALK.z); if (d < bd) { bd = d; best = p; } } const where = el('where');
     if (best && bd < 400) {
@@ -458,7 +492,14 @@ function updateLabels() {
       where.replaceChildren('Near ', name, ' · ' + Math.round(bd) + ' m');
     } else where.textContent = 'Old city lanes';
     // within reach of a monument (its centre, or the spot you are meant to see it from) for the first time: say where you are
-    let at = null, ad = 1e9; for (const p of LABELS) if (p.text && p.pos) { const d = Math.min(Math.hypot(p.pos[0] - WALK.x, p.pos[2] - WALK.z) - 35, p.walk ? Math.hypot(p.walk[0] - WALK.x, p.walk[1] - WALK.z) : 1e9); if (d < ad) { ad = d; at = p; } }
+    let at = null, ad = 1e9;
+    for (const p of LABELS) if (p.text && p.pos) {
+      const front = Math.hypot(p.pos[0] - WALK.x, p.pos[2] - WALK.z);
+      if (p.shop && front > 11) continue;
+      const arrival = p.walk ? Math.hypot(p.walk[0] - WALK.x, p.walk[1] - WALK.z) : Infinity;
+      const d = p.shop ? Math.min(front, arrival) - 50 : Math.min(front - 35, arrival);
+      if (d < ad) { ad = d; at = p; }
+    }
     if (at && ad < 40) { if (UI.at !== at.id) { UI.at = at.id; announce(at); } } else if (ad > 75) UI.at = null;
   }
 }
@@ -532,7 +573,17 @@ function drawMinimap() {
     g.stroke();
   }
   g.font = '600 10px "Segoe UI",sans-serif'; g.textAlign = 'center';
-  for (const p of LABELS) if (p.pos && (p.cam || p.record?.mapOnly) && !p.small) { const x = S / 2 + (p.pos[0] - sx) / mpp, y = S / 2 + (p.pos[2] - sz) / mpp; if (x < 4 || y < 4 || x > S - 4 || y > S - 4) continue; g.fillStyle = p.record?.mapOnly ? '#4b4550' : '#7a1f12'; g.beginPath(); g.arc(x, y, 3, 0, TAU); g.fill(); if (mpp < 3.2) { g.fillStyle = '#3a2416'; g.fillText(visitorText(placeName(p), locale()).text, x, y - 6); } }
+  for (const p of LABELS) if (p.pos && (p.cam || p.record?.mapOnly) && !p.small) {
+    if (p.shop && (UI.placeGroup !== 'shops' || UI.tour)) continue;
+    const x = S / 2 + (p.pos[0] - sx) / mpp, y = S / 2 + (p.pos[2] - sz) / mpp;
+    if (x < 4 || y < 4 || x > S - 4 || y > S - 4) continue;
+    g.fillStyle = p.shop ? '#176765' : p.record?.mapOnly ? '#4b4550' : '#7a1f12';
+    g.beginPath(); g.arc(x, y, 3, 0, TAU); g.fill();
+    if (mpp < 3.2 && (!p.shop || UI.card === p)) {
+      g.fillStyle = '#3a2416';
+      g.fillText(visitorText(placeName(p), locale()).text, x, y - 6);
+    }
+  }
   const d = new THREE.Vector3(); camera.getWorldDirection(d); const a = Math.atan2(d.x, -d.z);
   g.save(); g.translate(S / 2, S / 2); g.rotate(a); g.fillStyle = 'rgba(231,180,90,.35)'; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 46, -Math.PI / 2 - 0.5, -Math.PI / 2 + 0.5); g.fill(); g.fillStyle = '#c0392b'; g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, -9); g.lineTo(6, 7); g.lineTo(0, 3.5); g.lineTo(-6, 7); g.closePath(); g.fill(); g.stroke(); g.restore();
 }
@@ -549,6 +600,7 @@ const SND = {
     const br = this.noise(3, true), wh = this.noise(2, false);
     this.hum = this.loop(br, 'lowpass', 380, 0.5); this.crowd = this.loop(wh, 'bandpass', 950, 0.7); this.rainG = this.loop(wh, 'highpass', 2600, 0.4); this.wh = wh;
     this.market = this.loop(br, 'bandpass', 640, 1.2);
+    this.counter = this.loop(wh, 'bandpass', 1550, 1.15);
   },
   stop() { if (this.ctx) this.ctx.suspend(); },
   tone(type, f0, f1, dur, vol, at = 0) { const c = this.ctx, o = c.createOscillator(), g = c.createGain(), t = c.currentTime + at; o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g).connect(this.out); o.start(t); o.stop(t + dur + 0.05); },
@@ -561,8 +613,14 @@ const SND = {
     this.out.gain.setTargetAtTime(OPT.volume, t, 0.2); this.hum.gain.setTargetAtTime(0.5 * near * (0.35 + 0.65 * road) * (0.3 + 0.7 * busy), t, 0.4);
     this.crowd.gain.setTargetAtTime(0.045 * near * road * busyAt('crowd', TIME.hour), t, 0.4); this.rainG.gain.setTargetAtTime(0.11 * wx.rain, t, 0.5);
     const [mx, mz] = MARKET_STALLS[0].counter;
-    const distance = Math.hypot(camera.position.x - mx, camera.position.y, camera.position.z - mz);
+    const distance = Math.hypot(cp.x - mx, cp.y, cp.z - mz);
     this.market.gain.setTargetAtTime(0.075 * marketActivity(TIME.hour) * smooth(1 - distance / 66), t, 0.45);
+    let serving = 0;
+    for (const shop of SHOP_SITES.values()) {
+      const [x, z] = shop.service.counter;
+      serving = Math.max(serving, shop.activity * smooth(1 - Math.hypot(cp.x - x, cp.y - 1.2, cp.z - z) / 17));
+    }
+    this.counter.gain.setTargetAtTime(serving * 0.044, t, 0.32);
     this.next -= dt;
     if (this.next <= 0) {
       this.next = 0.5 + Math.random() * 2.6; const r = Math.random(), v = near * (0.25 + 0.75 * road);
@@ -573,7 +631,11 @@ const SND = {
     }
     this.hoof -= dt;
     if (this.hoof <= 0) { let bd = 60; for (const v of LIFE.vehicles) if (v.on && v.horse && v.v > 0.5) { const d = Math.hypot(v.x - cp.x, v.z - cp.z) + cp.y * 0.5; if (d < bd) bd = d; } this.hoof = 0.34; if (bd < 60) { const vv = 0.2 * (1 - bd / 60); this.burst(1500, 0.045, vv); this.burst(1150, 0.05, vv * 0.8, 0.13); } }
-    const h = Math.floor(TIME.hour); if (h !== this.hour) { if (this.hour >= 0) this.bell(TIME.mode === 'live' ? (h % 12 || 12) : 2, 0.16 * clamp(1 - Math.hypot(cp.x, cp.z, cp.y) / 700, 0.08, 1)); this.hour = h; }
+    const h = Math.floor(TIME.hour);
+    if (TIME.mode === 'live' && (h + 23) % 24 === this.hour) {
+      this.bell(h % 12 || 12, 0.16 * clamp(1 - Math.hypot(cp.x, cp.z, cp.y) / 700, 0.08, 1));
+    }
+    this.hour = TIME.mode === 'live' ? h : -1;
   },
 };
 
@@ -634,9 +696,13 @@ function screenshot() { renderer.render(scene, camera); renderer.domElement.toBl
 
 /* ───────────── time bar ───────────── */
 function setTime(kind, hour) {
-  if (kind === 'live') { TIME.mode = 'live'; UI.preset = null; } else { TIME.mode = 'fixed'; TIME.hour = hour !== undefined ? hour : presetHour(kind); UI.preset = hour !== undefined ? null : kind; }
+  updateSceneClock();
+  TIME.mode = kind === 'live' ? 'live' : 'fixed';
+  TIME.preset = TIME.mode === 'fixed' && hour === undefined ? kind : null;
+  if (TIME.mode === 'live') updateSceneClock();
+  else TIME.hour = hour === undefined ? presetHour(kind) : ((hour % 24) + 24) % 24;
   document.querySelectorAll('#timebar button').forEach(b => {
-    const active = TIME.mode === 'live' ? b.dataset.t === 'live' : UI.preset === b.dataset.t;
+    const active = b.dataset.t === (TIME.mode === 'live' ? 'live' : TIME.preset);
     b.classList.toggle('on', active);
     b.setAttribute('aria-pressed', active);
   });
@@ -674,10 +740,16 @@ function wire() {
     if (open && el('options').classList.contains('show')) el('bOptions').click();
     setPlaces(open);
   };
+  el('placeGroups').onclick = event => {
+    const group = event.target.closest('button')?.dataset.places;
+    if (group) setPlaceGroup(group);
+  };
   el('card').querySelector('.x').onclick = () => showCard(null);
   el('cardWalk').onclick = () => { if (UI.card?.walk) enterWalk(...UI.card.walk.slice(0, 4), UI.card.walk[4], !!UI.tour); };
   el('restoreView').onclick = togglePhoto;
   document.querySelectorAll('#timebar button').forEach(b => { b.onclick = () => setTime(b.dataset.t); });
+  el('sceneHour').oninput = event => setTime('fixed', event.target.valueAsNumber / 60);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) updateSceneClock(); });
   el('tExit').onclick = () => {
     setMode('orbit', true, !!UI.tour);
     updateTourControls();
@@ -696,7 +768,7 @@ function wire() {
   el('minimap').onclick = e => { if (UI.mode !== 'orbit') return; const r = e.currentTarget.getBoundingClientRect(), mpp = clamp(camera.position.distanceTo(controls.target) / 80, 1.2, 8) * 200 / r.width; panTo(controls.target.x + (e.clientX - r.left - r.width / 2) * mpp, controls.target.z + (e.clientY - r.top - r.height / 2) * mpp); };
   const cv = renderer.domElement, pts = new Map();
   cv.tabIndex = 0;
-  cv.setAttribute('aria-label', 'Hussainabad 3D scene. Use Places for a landmark or Tour for the heritage walk.');
+  cv.setAttribute('aria-label', 'Hussainabad 3D scene. Use Places for a shop or landmark, or Tour for the heritage walk.');
   let press = null, hoverT = 0, tap = null, pinch = null;
   cv.addEventListener('pointerdown', e => {
     pauseTour(); UI.fly = null; UI.anchor = null; ZOOM.v = 0; press = [e.clientX, e.clientY, performance.now(), e.button]; UI.ptr = e.pointerType;
@@ -768,7 +840,7 @@ function frame() {
   if (document.body.classList.contains('scene-failed')) return;
   requestAnimationFrame(frame);
   const raw = _clock.getDelta(), dt = Math.min(raw, 0.05); UI.T += dt; UI.frame++;
-  if (TIME.mode === 'live') TIME.hour = istHour();
+  updateSceneClock();
   // camera first, so the sky and shadows follow it without lag
   if (UI.mode === 'orbit') {
     if (UI.fly) { const f = UI.fly; f.t += Math.min(raw, 0.3) / f.dur; const k = ease(Math.min(f.t, 1)); camera.position.lerpVectors(f.c0, f.c1, k); controls.target.lerpVectors(f.t0, f.t1, k); if (f.t >= 1) UI.fly = null; }
@@ -790,12 +862,19 @@ function frame() {
     FOG_SCALE = 1; _foc.set(camera.position.x, 0, camera.position.z); if (_shadowHalf !== 95) { _shadowHalf = 95; const sc = sun.shadow.camera; sc.left = sc.bottom = -95; sc.right = sc.top = 95; sc.updateProjectionMatrix(); }
   }
   applyTime(dt, UI.T);
+  updateShopService(dt);
   for (const u of UPDATERS) u(dt, UI.T);
   updateLife(dt, UI.T);
-  sun.target.position.copy(_foc); sun.position.copy(_foc).addScaledVector(lightDir, 900);
+  sun.target.position.copy(_foc); sun.position.copy(_foc).addScaledVector(sunVec, 900);
   const hr = -(TIME.hour % 12) / 12 * TAU, mn = -(TIME.hour % 1) * TAU; for (const c of CLOCK_HANDS) { c.h.rotation.z = hr; c.m.rotation.z = mn; }
-  const hh = Math.floor(TIME.hour), mm = Math.floor((TIME.hour % 1) * 60), s = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
-  if (s !== _lastClock) { _lastClock = s; el('clock').firstChild.textContent = s; }
+  const minute = Math.min(1439, Math.floor(TIME.hour * 60 + 1e-7));
+  const s = String(Math.floor(minute / 60)).padStart(2, '0') + ':' + String(minute % 60).padStart(2, '0');
+  if (s !== _lastClock) {
+    _lastClock = s;
+    el('clock').firstChild.textContent = s;
+    el('sceneHour').value = minute;
+    el('sceneHour').setAttribute('aria-valuetext', s + ' IST');
+  }
   if (UI.frame % 6 === 0) updateLabels();
   if (OPT.minimap && UI.frame % 4 === 0) drawMinimap();
   SND.tick(dt);
@@ -816,11 +895,18 @@ async function startScene() {
   await step('monuments', 'Raising the monuments…', buildMonuments);
   await step('vegetation', 'Planting trees and lighting the lamps…', () => { gFlush(); scatterTrees(); buildTrees(); planStreetFurniture(); buildStreetDetail(); buildLamps(); buildWires(); });
   await step('life', 'Calling out the tongas, rickshaws and crowds…', buildLife);
-  await step('navigation', 'Preparing walkable ground…', () => { buildNav(); buildPilotLegs(); });
+  await step('navigation', 'Preparing walkable ground…', () => {
+    buildNav();
+    buildPilotLegs();
+    for (const place of LABELS) {
+      if (place.shop && floorAt(place.walk[0], place.walk[1], 0) === null) place.walk = null;
+    }
+  });
   await step('controls', 'Opening the gates…', () => { buildMinimap(); buildLabels(); buildOptions(); wire(); });
   el('mapWrap').classList.toggle('show', OPT.minimap);
   setTime(BENCHMARK ? 'noon' : 'live');
   applyTime(0.016, 0);
+  updateShopService(2.5);
   if (OPT.sound) addEventListener('pointerdown', () => SND.start(), { once: true });
   controls.enableDamping = !REDUCED_MOTION.matches;
   REDUCED_MOTION.addEventListener('change', () => {

@@ -21,9 +21,10 @@
 <iframe id="sceneView" title="Lucknow-3D during the benchmark" hidden></iframe>
 <main>
   <h1>Lucknow-3D benchmark</h1>
-  <p id="instructions">Keep this tab visible. Each run opens a fresh scene and measures three 20-second passes through the heritage corridor.</p>
+  <p id="instructions">Each run measures three 20-second passes through the heritage corridor. The optional shop passes repeat the same counter view at midday and at dusk in monsoon rain. Keep this tab visible.</p>
   <form id="settings">
     <label>Quality <select id="quality"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select></label>
+    <label><input id="shops" type="checkbox"> Include shop passes</label>
     <label><input id="soak" type="checkbox"> Repeat after 10 minutes</label>
     <button>Run benchmark</button>
   </form>

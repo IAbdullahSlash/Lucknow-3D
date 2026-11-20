@@ -6,7 +6,7 @@
 <title>Hussainabad, Live — Lucknow's heritage mile in 3D</title>
 <meta name="description" content="An animated, walkable 3D model of Hussainabad, Lucknow: Clock Tower, Talab, Chota Imambara, Rumi Darwaza and Bara Imambara on the real street map.">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=22">
+<link rel="stylesheet" href="css/style.css?v=23">
 </head>
 <body>
 <div id="stage"></div>
@@ -29,6 +29,10 @@
 
   <div id="placesWrap">
     <button id="bPlaces" class="mini" aria-expanded="false" aria-controls="places">Places</button>
+    <div id="placeGroups" aria-label="Types of places" role="group">
+      <button class="mini on" data-places="landmarks" aria-pressed="true" aria-controls="places">Landmarks</button>
+      <button class="mini" data-places="shops" aria-pressed="false" aria-controls="places">Street shops</button>
+    </div>
     <div id="places"></div>
   </div>
 
@@ -56,7 +60,10 @@
   <aside id="options" class="panel" aria-label="Options"></aside>
 
   <div id="timebar" class="panel">
-    <div id="clock">--:--<small>IST</small></div>
+    <div class="timeReadout">
+      <div id="clock">--:--<small>IST</small></div>
+      <input id="sceneHour" type="range" min="0" max="1439" step="1" value="720" aria-label="Scene time in Lucknow">
+    </div>
     <button data-t="live">Live</button>
     <button data-t="sunrise">Sunrise</button>
     <button data-t="noon">Midday</button>
@@ -100,8 +107,12 @@
     </label>
   </div>
   <ol id="fallbackStops"><li>Clock Tower</li><li>Husainabad Talab</li><li>Rumi Darwaza</li></ol>
+  <details id="fallbackShops" hidden>
+    <summary id="fallbackShopTitle">Street shops</summary>
+    <ul id="fallbackShopList"></ul>
+  </details>
 </main>
-<script src="src/bootstrap.js?v=22"></script>
+<script src="src/bootstrap.js?v=23"></script>
 <noscript><style>#load{display:none}</style><main class="readingPanel"><h1>Hussainabad heritage walk</h1><p>Enable JavaScript to explore the Clock Tower, Husainabad Talab and Rumi Darwaza in 3D.</p></main></noscript>
 </body>
 </html>

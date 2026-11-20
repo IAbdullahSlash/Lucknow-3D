@@ -37,6 +37,7 @@ byId('settings').onsubmit = async event => {
       const win = await openScene(quality, i);
       const options = {
         passMs: quick ? 1500 : 20000, warmupMs: quick ? 500 : 5000,
+        shops: byId('shops').checked,
         onPhase(name) { status.textContent = 'Run ' + i + ' of ' + repeats + ' · ' + name; },
       };
       runs.push(await win.measureLucknow(options));

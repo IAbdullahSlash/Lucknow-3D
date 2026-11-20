@@ -2,7 +2,7 @@
 
 /* Loaded in benchmark mode. The regular render loop still does all drawing,
    simulation and input work while the harness supplies a repeatable camera. */
-window.measureLucknow = async ({ passMs = 20000, warmupMs = 5000, onPhase = () => {} } = {}) => {
+window.measureLucknow = async ({ passMs = 20000, warmupMs = 5000, shops = false, onPhase = () => {} } = {}) => {
   const { renderer } = HUSSAINABAD;
   const navigation = performance.getEntriesByType('navigation')[0];
   const context = renderer.getContext();
@@ -37,6 +37,20 @@ window.measureLucknow = async ({ passMs = 20000, warmupMs = 5000, onPhase = () =
       begin() { flyTo(placeById('food'), passMs / 1000); },
     },
   ];
+  if (shops) {
+    const counter = placeById('tunday-kababi').views[1];
+    const enter = (time, weather) => {
+      setTime(time);
+      setWeather(weather);
+      flyTo(counter, 0);
+      applyTime(2, UI.T);
+      updateShopService(3);
+    };
+    passes.push(
+      { name: 'Tunday counter at midday', enter() { enter('noon', 'clear'); } },
+      { name: 'Tunday counter in monsoon at dusk', enter() { enter('dusk', 'rain'); } },
+    );
+  }
   const metrics = [];
   for (const pass of passes) {
     onPhase(pass.name);
