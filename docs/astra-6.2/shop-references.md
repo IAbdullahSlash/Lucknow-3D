@@ -1,0 +1,45 @@
+# Street shop references
+
+The featured storefronts in [`src/shops.js`](../../src/shops.js) and the food court in [`src/monuments.js`](../../src/monuments.js) were placed and modelled from three kinds of source, all checked on 21 November 2026:
+
+- **OpenStreetMap:** current map data read from the OSM API. It supplied footprints and points; some were mapped on 20 November 2026.
+- **Google Maps:** place pins, satellite views and listing photos.
+- **Public photos:** food blogs, news sites and video thumbnails.
+
+World coordinates below are metres from the Clock Tower origin (26.874° N, 80.90801° E), with +x east and +z south. The project stores no copies of these photos. The sign artwork is redrawn for the model: it follows each board's colours, layout and wording, but does not copy any logo file.
+
+## Placements
+
+| Shop or building | Where it is in the scene | Evidence |
+| --- | --- | --- |
+| **Tunday Kababi** | Shop No 5, Nagar Nigam food safety zone, at the south-east corner of the Talab, facing the plaza. World (−61, 16). | OSM node 14398852831 at (−63.5, 16.5). Google pin "Tunday kababi, HUSSAINABAD" at 26.87386, 80.90739, which is (−61.3, 15.6). Google satellite shows a flat-roofed pavilion south of the Talab terraces. |
+| **Husainabad Food Court** | Exact OSM footprint, east of Durgadevi Marg, with its glass corner facing the Clock Tower. | OSM way 1582317775 (amenity=food_court). Google pin at 26.87362, 80.90973, which is (171, 42), inside the footprint. Listed as "Opp. Clock Tower". |
+| **Lucknow Museum of Heritage and Arts** and its square | Exact OSM footprints south of the food court. | OSM ways 1366159503 (museum) and 1582317782 (place=square). |
+| **Globe Cafe 24x7** | Hussainabad Trust Road, opposite the Ghanta Ghar. | Google pin at 26.87347, 80.90706, which is (−94.6, 59.4). That is 1 m along and 6 m in front of the modelled facade. |
+| **Turkish Cafe & Food Junction** | The same row, between Huzoor and Mehfil Cool Corner. | Google pin at 26.87330, 80.90738, which is (−63.1, 77.6). |
+| **Kebabchi Lucknow** | Row of shops facing the Chota Imambara gate across Husainabad Chowk. | Address: Shop 38, Husainabad Main Road, opposite Chota Imambara. Google pin at 26.87456, 80.90529, which is (−271, −63). The model keeps the shop on its chowk building line, about 14 m behind the pin, because the model's open chowk is deeper than the real square. |
+| **Irani Chai, Irani Dum Tea, Irani Fast Food** | Chota Imambara wall row. | Google satellite labels Irani Chai on the row beside the Khichda (Haleem) shop. The photos below show the boards. |
+| **Kiosks round the Clock Tower** (OK OK Chinese, Zayka-e-Ghanta Ghar, Haideri Perfumes, Vishal Kachaudi, Abbas Pan and others) | Existing OSM-based positions, now drawn as peach heritage kiosks. | Google pins agree within about 5 m, for example OK OK Chinese at (−47.8, −0.1) against the model's (−47.9, −5.5). A Google panorama of the plaza shows the peach kiosks with crenellated parapets. |
+
+## Appearance
+
+| Shop or building | What the references show | Sources |
+| --- | --- | --- |
+| **Tunday Kababi (Clock Tower)** | A single-storey pavilion with a full-width steel-framed glass front, brushed-steel panels below and an outside rail. Above is a long charcoal fascia: a white panel with the red-and-green TK emblem and "Melt in mouth kababs", white "TUNDAY KABABI®", the branch line "Aminabad · Aliganj · Delhi · Dubai · Dubagga · Lulu Mall", a gold "Since 1905" laurel and a "TAKEAWAY" box. The takeaway door sits under a vent grille. A peach heritage pavilion with pilasters and a cornice stands beside it. Open until 2 AM. | Google Maps listing photo "Façade de Tunday Kababi", and the listing (Shop No 5, Ghanta Ghar, Nigam Food Safety Zone-22; 4.7 stars from 917 reviews) |
+| **Husainabad Food Court** | A two-storey red-brick hall. Double-height glass wraps the corner under a deep white angular canopy, and white lit "HUSAINABAD FOOD COURT" letters with round badges run along the parapet. Brick planters, bench boxes and tables stand outside. Inside, kiosks (HOCCO and others) and orange chairs on a black-and-white floor. Outlets include Rumi Cafe, Kabeer's, Tunday Kababi, EFC and Pista House. | Google Maps listing photos (night exterior, promotional image, interiors). [Opening video thumbnail with the outlet board](https://i.ytimg.com/vi/UaYI7avApFE/maxresdefault.jpg) |
+| **Lucknow Museum of Heritage and Arts** | A red sandstone block with a projecting upper box on white columns, a glass band and a purple banner. A red jali boundary wall runs along the road. | Google Maps photo from the food court listing |
+| **Globe Cafe 24x7** | Black fascia with warm-white lit "GLOBE CAFE" letters, a white globe badge with "OPEN-24x7", and a maroon strip of round dish pictures. The open front has a white interior and a red drinks fridge. | [Night storefront, YouTube thumbnail](https://i.ytimg.com/vi/9bi9PvzOtg0/maxresdefault.jpg) · [Zomato](https://www.zomato.com/lucknow/globe-cafe-husainabad) |
+| **Turkish Cafe** | Charcoal fascia with cream-gold serif "Türkish Cafe" and a cup. In front: a printed counter cart, a four-colour umbrella and a red lattice screen. | [Storefront, YouTube thumbnail](https://i.ytimg.com/vi/RTHR1AS-Cic/maxresdefault.jpg) |
+| **Kebabchi Lucknow** | White backlit fascia with an orange "K" roundel and orange "KEBABCHI", over arched openings. | [Fascia photo, Tripadvisor](https://media-cdn.tripadvisor.com/media/photo-s/27/6e/12/2d/if-you-are-kebab-lover.jpg) · [Address, Tripadvisor](https://www.tripadvisor.com/Restaurant_Review-g297684-d24077991-Reviews-Kebabchi_Lucknow-Lucknow_Lucknow_District_Uttar_Pradesh.html) |
+| **Irani Dum Tea** | Black flex board with red, white-edged letters, a white "I.D.T" starburst and a black tarpaulin. Bell-shaped aluminium dum pots sit on a sooty brick hearth. | [Board](https://i.ytimg.com/vi/Wghe3iqlOsI/maxresdefault.jpg) · [Dum pots, Dainik Bhaskar](https://images.bhaskarassets.com/web2images/521/2024/05/11/new-project-2024-05-11t192648770_1715435816.jpg) · [Wall row, Explurger](https://cdn.explurger.com/media/places_photo/ChIJLUWMmZ79mzkRJV7fKb95SAU/ChIJLUWMmZ79mzkRJV7fKb95SAU.jpg) |
+| **Irani Fast Food** | Black board with red "IRANI FAST FOOD" under a row of dish pictures. | [Wall row at night](https://i.ytimg.com/vi/zK1GVF_gZtU/maxresdefault.jpg) |
+| **Irani Chai** | Black backlit board with yellow "IRANI CHAI", and a second board reading "SULEMANI CHAI". Inside: a red fridge, an aluminium pot and clay kulhads. | [Board](https://i.ytimg.com/vi/n42Z3DtH_mQ/oardefault.jpg) · [Counter](https://i.ytimg.com/vi/irLAeXXeFW4/oar2.jpg) |
+
+Chai Mahal and Kamar Sheermal Shop keep their illustrated kiosks. Google marks Kamar Sheermal as temporarily closed.
+
+## Still to check on site
+
+- Tunday's exact depth, and how it joins the peach pavilion. The satellite view resolves the roof but not the dividing wall.
+- The food court's rear elevations and the museum's side wings. These are plain extrusions of the OSM footprints.
+- The bay order on the Chota Imambara row.
+- The real depth of Husainabad Chowk opposite the Chota Imambara, which would let Kebabchi move onto its pin.

@@ -1,6 +1,6 @@
 # Hussainabad, Live — Lucknow's heritage mile in 3D
 
-An animated, walkable 3D model of the Hussainabad precinct of Lucknow, with the Clock Tower, Husainabad Talab, Picture Gallery, Satkhanda, Chota Imambara, the two Husainabad gateways, Rumi Darwaza, Bara Imambara with the Asfi Mosque, and the food court. Jama Masjid is marked in Places and on the 2D map.
+An animated, walkable 3D model of the Hussainabad precinct of Lucknow, with the Clock Tower, Husainabad Talab, Picture Gallery, Satkhanda, Chota Imambara, the two Husainabad gateways, Rumi Darwaza, Bara Imambara with the Asfi Mosque, and the food court.
 
 The scene runs without an internet connection or a build step. The repository includes the pinned Three.js r160 bundle and its license. [Three.js license](vendor/THREE-LICENSE.txt)
 
@@ -22,7 +22,7 @@ Visit `http://localhost:8123`. If 3D startup fails, the page offers a retry, the
 | **Walk** | Press `2`, double-click any spot on the ground, or use *Walk here* on a place card. `W A S D` to move, or hold the left mouse button to walk where you look (right button steps back); mouse to look, `Shift` to run, `Space` to hop. On a phone a stick on the left walks you, dragging the view looks around, a pinch pulls the camera in or out (all the way to first person), and Run / View / Hop / Exit buttons sit on the right. People step round you, stall-keepers turn and beckon as you pass, and each monument introduces itself when you reach it. After dark you carry a lantern. You steer a figure seen from behind; the wheel brings the camera nearer or farther, and all the way in is a first-person view. Buildings, railings and water block you; steps and plinths can be climbed. On a phone a joystick appears. |
 | **Tour** | Follow the Clock Tower, Talab and Rumi Darwaza in order. Use Previous, Next or Pause to set the pace, Itinerary to read all three stops, and Walk here to start a leg. The minimap marks the route and the next destination. The Rumi card shows both faces of the gate. |
 
-**Places → Street shops** opens six illustrated storefronts from their public side. Choose **At the counter** for a closer view or **Walk here** to arrive on foot. Tunday Kababi has a second approach from the square.
+Select a shop's name tag in the scene to open its card: Tunday Kababi, Globe Cafe 24x7, Turkish Cafe, Kebabchi, the three Irani tea and food stalls, Chai Mahal and Kamar Sheermal. Choose **At the counter** for a closer view or **Walk here** to arrive on foot. Places lists the landmarks, including the Husainabad Food Court.
 
 The time bar uses Lucknow local time. Select **Live**, choose a solar preset, or use the slider to set a minute by hand. Crowds, traffic, shop shutters and the counter lighting follow the selected time. **Options** (`O`) includes English, Hindi and Urdu labels, five weather presets, festive illumination, walking pace, quality, shadows and optional street sound.
 

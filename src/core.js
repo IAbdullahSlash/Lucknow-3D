@@ -9,11 +9,13 @@ const TAU = Math.PI * 2;
 
 /* ───────────── user options (persisted) ───────────── */
 const OPT = {
-  quality: 'medium', shadows: true, labels: 'hi', shopTags: true, minimap: true, weather: 'haze',
+  quality: 'medium', shadows: true, labels: 'en', shopTags: true, minimap: true, weather: 'haze',
   festive: false, sound: false, volume: 0.6, walkSpeed: 1,
 };
 let _saved = {}; try { _saved = JSON.parse(localStorage.getItem('hussainabad-options') || '{}'); } catch (e) { /* private mode */ } Object.assign(OPT, _saved);
 for (const k of ['traffic', 'crowd', 'carriages', 'kites', 'birds', 'fov', 'cycleMin', 'lookSens']) delete OPT[k];   // settings that were retired
+// Older saves stored the former Hindi default; keep a label language only if the visitor chose it.
+if (!_saved.labelsChosen) OPT.labels = 'en';
 // a phone with little memory or few cores starts light; whatever the user picks afterwards is kept
 if (!_saved.quality && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820 && ((navigator.deviceMemory || 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4)) OPT.quality = 'low';
 const BENCHMARK = window.LUCKNOW_BENCHMARK;
@@ -82,7 +84,6 @@ const FRAME = {
   bara: { x: 547.5, z: 357, rot: -0.314 },            // origin = outer gate, +z runs into the complex
   rumi: { x: 413.5, z: 307.5, rot: -1.8755 },         // wall along local x, grand arch faces +z (west-north-west)
   asfi: { x: 398.5, z: 497, rot: 1.713 },             // Asfi mosque, front (+z) faces east
-  jama: { x: -700, z: 121, rot: Math.PI / 2 },        // Jama Masjid, front faces east
   food: { x: 190, z: 80, rot: 0.231 },                 // +z runs along Durgadevi Marg
   gateE: { x: -246, z: -22, rot: 1.134 },             // Husainabad gateways straddle the road
   gateW: { x: -384, z: -88, rot: 1.134 },

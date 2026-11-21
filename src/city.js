@@ -58,7 +58,7 @@ const SHOPS = [
   ['Naval Medical Store', 'नवल मेडिकल स्टोर', -214, 6, 0], ['Pizza Cave', 'पिज़्ज़ा केव', -131, 40, 0],
   ['Azhar Muradabadi Chicken Biryani', 'अज़हर मुरादाबादी चिकन बिरयानी', -82, 66, 0], ['Mehfil Cool Corner', 'महफ़िल कूल कॉर्नर', -68, 72, 0], ['Huzoor', 'हुज़ूर', -58, 78, 0],
   ['Rajwadi Chai', 'रजवाड़ी चाय', -46, 84, 0], ['SK Wrap Lucknow', 'एसके रैप लखनऊ', -40, 108, 0], ['Rais Manzil', 'रईस मंज़िल', -154, 94, 0],
-  ['Kebabchi Lucknow', 'कबाबची लखनऊ', -272, -72, 0], ['Zaika Biryani', 'ज़ायक़ा बिरयानी', -286, -80, 0], ['Kunafa Day', 'कुनाफ़ा डे', -248, -58, 0], ['Cafe Dubai', 'कैफ़े दुबई', -258, -64, 0],
+  ['Zaika Biryani', 'ज़ायक़ा बिरयानी', -286, -80, 0], ['Kunafa Day', 'कुनाफ़ा डे', -248, -58, 0], ['Cafe Dubai', 'कैफ़े दुबई', -258, -64, 0],
   ['Gulf Abaya Mart', 'गल्फ़ अबाया मार्ट', -214, -66, 0], ['Chaurasiya Bakery', 'चौरसिया बेकरी', -238, -86, 0], ['A.M. Medicals', 'ए.एम. मेडिकल्स', -244, -94, 0],
   ['Stoles Collection', 'स्टोल्स कलेक्शन', -252, -74, 0], ['Irshad Communication', 'इरशाद कम्युनिकेशन', -256, -84, 0], ['Style Garments', 'स्टाइल गारमेंट्स', -262, -96, 0],
   ['Shalimar Batteries', 'शालीमार बैटरीज़', -258, -104, 0], ['Khalid Auto Parts', 'ख़ालिद ऑटो पार्ट्स', -216, -120, 0],
@@ -70,7 +70,7 @@ const SHOPS = [
   ['Shree Shyam Fast Food Corner', 'श्री श्याम फ़ास्ट फ़ूड कॉर्नर', ..._pk(45, -29), 1], ['The Pizza Centre', 'द पिज़्ज़ा सेंटर', ..._pk(64, -52), 1], ['Z A Bangles', 'ज़ेड ए बैंगल्स', ..._pk(58, -72), 1],
   ['Apna Cafe', 'अपना कैफ़े', ..._pk(-148, 32), 1], ['Cafe Awadh Darbar', 'कैफ़े अवध दरबार', ..._pk(-148, 22), 1], ['Yadav Doodh Corner', 'यादव दूध कॉर्नर', ..._pk(-150, 44), 1], ['Aur Theek Tea Point', 'और ठीक टी पॉइंट', ..._pk(-150, -40), 1],
   ['Patiyala Pahalwan', 'पटियाला पहलवान', 349, 281, 1], ['Anand Ki Chai', 'आनंद की चाय', 256, 201, 1], ['Hans Bus Service', 'हंस बस सर्विस', 211, 180, 1],
-  ['Irani Fast Food', 'ईरानी फ़ास्ट फ़ूड', 0, 0, 2], ['Zaika', 'ज़ायक़ा', 0, 0, 2],
+  ['Zaika', 'ज़ायक़ा', 0, 0, 2],
   ['Lucknow Ka Mashhoor Khichda & Burger', 'लखनऊ का मशहूर खिचड़ा', 0, 0, 2], ['SK Chikan Art', 'एसके चिकन आर्ट', 0, 0, 2], ['The Gulf Shawarma', 'द गल्फ़ शावरमा', 0, 0, 2],
   ['HUSAINABAD HERITAGE ZONE', 'हुसैनाबाद हेरिटेज ज़ोन', 0, 0, 4], ['PARKING', 'पार्किंग', 0, 0, 4], ['PUBLIC TOILET', 'शौचालय', 0, 0, 4], ['TICKETS', 'टिकट घर', 0, 0, 4],
 ];
@@ -174,6 +174,15 @@ function inOpen(x, z, soft = false) { for (const o of OPEN) { if (soft && o.soft
 function inflate(p, m) { const c = polyCentroid(p), o = []; for (let i = 0; i < p.length; i += 2) { const dx = p[i] - c[0], dz = p[i + 1] - c[1], l = Math.hypot(dx, dz) || 1; o.push(p[i] + dx / l * m, p[i + 1] + dz / l * m); } return o; }
 const rectWorld = (f, x0, z0, x1, z1) => [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].flatMap(q => toWorld(f, q[0], q[1]));
 const circlePoly = (x, z, r, n = 12) => { const o = []; for (let i = 0; i < n; i++) o.push(x + Math.cos(i * TAU / n) * r, z + Math.sin(i * TAU / n) * r); return o; };
+// Food court, museum and the square between them: OpenStreetMap ways
+// 1582317775, 1366159503 and 1582317782 (mapped November 2026), in world metres.
+const FOOD_COURT = [[147.1, 30.3], [154.8, 28.8], [154.2, 25.7], [176.8, 20.9], [182.0, 41.9], [175.9, 43.1], [177.8, 50.2], [151.6, 55.7]];
+const MUSEUM = [[160.9, 89.6], [189.5, 83.6], [182.8, 58.9], [183.0, 56.3], [184.8, 55.6], [208.2, 78.3], [230.2, 72.9], [234.1, 89.0], [220.0, 92.6],
+  [256.2, 131.2], [256.3, 132.8], [221.2, 118.3], [201.9, 97.1], [171.8, 103.9], [169.7, 92.9], [166.6, 96.7], [160.1, 97.9], [159.6, 91.8], [161.1, 91.6]];
+const FOOD_SQUARE = [[157.6, 67.7], [181.5, 62.2], [187.2, 82.0], [158.4, 88.6], [155.4, 76.3]];
+/** Durgadevi Marg's centre line beside the food court, from the same map. */
+const durgadeviX = z => 127.4 + (z - 8.9) * 0.2414;
+
 const CHOWK = [-229, -56, -368, -124, -398, -74, -256, -4];                      // the open ground between the two Husainabad gateways
 const SATK_BLOCK = [-224, -24, -216, -46, -224, -66, -241, -88, -252, -106, -205, -110, -188, -118, -150, -140, -138, -100, -158, -62, -177, -37, -196, -12];
 {
@@ -184,7 +193,7 @@ const SATK_BLOCK = [-224, -24, -216, -46, -224, -66, -241, -88, -252, -106, -205
   addOpen(CHOWK, 'chowk'); addOpen(SATK_BLOCK, 'satkhanda');
   addOpen([330, 262, 372, 252, 414, 252, 440, 258, 462, 276, 478, 300, 494, 326, 470, 330, 430, 326, 404, 350, 376, 356, 342, 334, 328, 290], 'rumi');
   addOpen([130, 12, 216, 36, 268, 124, 304, 220, 262, 216, 178, 170, 158, 150], 'foodcourt');
-  addOpen([-726, 66, -640, 66, -640, 176, -726, 176], 'jama');
+  addOpen(inflate(FOOD_COURT.flat(), 4), 'food-court-hall'); addOpen(inflate(MUSEUM.flat(), 3), 'museum');
   addOpen(circlePoly(FRAME.gateE.x, FRAME.gateE.z, 24), 'gateE'); addOpen(circlePoly(FRAME.gateW.x, FRAME.gateW.z, 24), 'gateW');
   addOpen([520, 300, 668, 348, 660, 376, 512, 330], 'naubat-bara');
   addOpen(rectWorld(FRAME.chota, -17, -76, 17, -56), 'naubat-chota');
@@ -494,7 +503,7 @@ function buildHouseMeshes() {
 }
 
 /* mapped institutional buildings (colleges, hospital blocks) as simple extrusions */
-// Site boundaries for hand-built complexes and the map-only Jama Masjid.
+// Site boundaries for hand-built complexes.
 // These remain tied to the model when an upstream display name changes.
 const RESERVED_BUILDING_SITES = {
   clock: circlePoly(FRAME.park.x, FRAME.park.z, 10),
@@ -504,7 +513,6 @@ const RESERVED_BUILDING_SITES = {
   bara: [367.9, 626.2, 394.9, 550.1, 378.8, 353.2, 426.5, 319.6, 724.6, 423.5, 696.2, 515.5, 584.2, 582.7, 507.5, 669.7],
   baraEntrance: [520, 300, 668, 348, 660, 376, 512, 330],
   food: rectWorld(FRAME.food, -40, -65, 56, 60),
-  jama: [-726, 66, -640, 66, -640, 176, -726, 176],
 };
 const MAPPED_SOLIDS = [];
 function buildMappedBuildings() {

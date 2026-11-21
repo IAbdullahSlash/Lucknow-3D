@@ -13,7 +13,6 @@ const GUIDE_COPY = {
   itinerary: { en: 'Itinerary', hi: 'यात्रा क्रम', ur: 'سیر کا راستہ' },
   return: { en: 'Back to the scene', hi: 'दृश्य पर लौटें', ur: 'منظر پر واپس جائیں' },
   onFoot: { en: 'Next on foot', hi: 'पैदल अगला पड़ाव', ur: 'اگلا پیدل پڑاؤ' },
-  mapOnly: { en: 'Map location', hi: 'नक्शे पर स्थान', ur: 'نقشے پر مقام' },
 };
 // Waypoints along the modeled plazas and north-side path. Arrival anchors
 // and navigation are checked in the scene before a leg is shown.
@@ -72,76 +71,100 @@ const PLACE_CATALOG = {
     ],
     walk: [9, 39, 0, 0, 16],
   },
-  jama: {
-    name: { en: 'Jama Masjid', hi: 'जामा मस्जिद', ur: 'جامع مسجد' },
-    description: {
-      en: 'The OpenStreetMap footprint marks Jama Masjid west of the detailed heritage corridor. It can be located on the map.',
-      hi: 'ओपनस्ट्रीटमैप में जामा मस्जिद विस्तृत विरासत क्षेत्र के पश्चिम में दर्ज है। उसका स्थान नक्शे पर देख सकते हैं।',
-      ur: 'اوپن اسٹریٹ میپ میں جامع مسجد تفصیلی ورثہ گزرگاہ کے مغرب میں درج ہے۔ اس کا مقام نقشے پر دیکھا جا سکتا ہے۔',
-    },
-    source: 'https://www.openstreetmap.org/?mlat=26.87289&mlon=80.9011#map=19/26.87289/80.9011',
-    mapOnly: true, frame: 'jama', position: [0, 0, 0],
-  },
 };
 
 const SHOP_COPY = {
   title: { en: 'Street shops', hi: 'सड़क की दुकानें', ur: 'سڑک کی دکانیں' },
-  landmarks: { en: 'Landmarks', hi: 'दर्शनीय स्थल', ur: 'اہم مقامات' },
   interpreted: { en: 'Illustrated storefront', hi: 'दुकान का कल्पित रूप', ur: 'دکان کی تخیّلی جھلک' },
   mapped: { en: 'Mapped location · illustrated storefront', hi: 'नक्शे का स्थान · दुकान का कल्पित रूप', ur: 'نقشے کا مقام · دکان کی تخیّلی جھلک' },
+  photographed: { en: 'Listed location · storefront from photos', hi: 'सूचीबद्ध स्थान · तस्वीरों से बनी दुकान', ur: 'درج شدہ مقام · تصاویر سے بنی دکان' },
   service: { en: 'At the counter', hi: 'काउंटर के पास', ur: 'کاؤنٹر کے پاس' },
   approach: { en: 'From the street', hi: 'सड़क से', ur: 'سڑک سے' },
-  opposite: { en: 'From the square', hi: 'चौक से', ur: 'چوک سے' },
 };
 
-// Anchors are metres in the given frame. A bay uses its zero-based slot on
-// the Chota wall. Service hours drive the scene in IST and are illustrative.
+// Anchors are metres in the given frame (world when no frame is named). A bay
+// uses its zero-based slot on the Chota wall. `style` picks the builder in
+// src/shops.js. Hours drive the scene in IST; sources are in
+// docs/astra-6.2/shop-references.md.
 const SHOP_CATALOG = {
   'tunday-kababi': {
     name: { en: 'Tunday Kababi', hi: 'टुंडे कबाबी', ur: 'ٹنڈے کبابی' },
-    aliases: ['Tunde Ke Kabab'],
+    aliases: ['Tunde Ke Kabab', 'Tunday Kababi Hussainabad'],
     description: {
-      en: 'This park stall depicts galawati kebabs cooked on a broad iron tawa. Watch the cook on the left and collect plates at the right-hand end. The stall is an illustration of the dish and its service in Lucknow.',
-      hi: 'इस कल्पित स्टॉल में गलावटी कबाब लोहे के चौड़े तवे पर बनते हैं। बाईं ओर तवा देखें और दाईं ओर परोसने की जगह।',
-      ur: 'اس تخیّلی اسٹال میں گلاوٹی کباب چوڑے لوہے کے توے پر بنتے ہیں۔ بائیں جانب توا اور دائیں جانب کھانا لینے کی جگہ دیکھیں۔',
+      en: 'The Clock Tower outlet, Shop No 5 in the Nagar Nigam food safety zone at the south-east corner of the Talab. A single-storey dining room sits behind a full-width glass front under a long charcoal fascia with the TK emblem, the branch list and “Since 1905”. Takeaway is from the door at the east end, beside a peach heritage pavilion. It stays open until 2 AM. The original 1905 shop is at Akbari Gate in Chowk.',
+      hi: 'घंटाघर वाली दुकान, तालाब के दक्षिण-पूर्वी कोने पर नगर निगम फ़ूड सेफ़्टी ज़ोन की दुकान नंबर 5। एक मंज़िला हॉल, सामने पूरा शीशा और ऊपर TK निशान व “सिन्स 1905” वाला लंबा स्लेटी बोर्ड। पूर्वी दरवाज़े से टेकअवे, रात 2 बजे तक खुली। मूल दुकान चौक के अकबरी गेट पर है।',
+      ur: 'گھنٹہ گھر والی دکان، تالاب کے جنوب مشرقی کونے پر نگر نگم فوڈ سیفٹی زون کی دکان نمبر 5۔ ایک منزلہ ہال، سامنے پورا شیشہ اور اوپر TK نشان اور “سنس 1905” والا لمبا سلیٹی بورڈ۔ مشرقی دروازے سے ٹیک اوے، رات 2 بجے تک کھلی۔ اصل دکان چوک کے اکبری گیٹ پر ہے۔',
     },
-    placement: 'interpreted', frame: 'park', anchor: [-52, 60], facing: 0, kind: 'stall',
-    area: 'Clock Tower and Talab square', sign: ['#711f22', '#ffedc5'],
-    arrival: [0, 8.1], reserve: [4.2, -3.8, 9.0], hours: [10.75, 23.1],
+    placement: 'photographed', style: 'tunday', kind: 'frontage', frame: 'park', anchor: [-50, 41.8], facing: 0,
+    area: 'Talab square, south-east corner (Nagar Nigam food safety zone)', sign: ['#2c2e30', '#f2f2f2'], width: 9.0, depth: 6.6, kerb: 0.03,
+    arrival: [2.4, 3.6], reserve: [5.6, -0.5, 4.4], hours: [11, 26],
   },
   'globe-cafe': {
     name: { en: 'Globe Cafe 24x7', hi: 'ग्लोब कैफ़े 24x7', ur: 'گلوب کیفے 24x7' },
     aliases: ['Globe', 'Globe Cafe'],
     description: {
-      en: 'Look for the striped awning, recessed entrance and a window seat. “24x7” is the name on the model’s sign. Opening and closing here follow the scene’s clock.',
-      hi: 'धारीदार शामियाना, अंदर की ओर बना प्रवेश और खिड़की के पास बैठने की जगह देखें। यहाँ दुकान का खुलना और बंद होना दृश्य के समय के अनुसार है।',
-      ur: 'دھاری دار سائبان، اندر کی طرف بنا دروازہ اور کھڑکی کے پاس نشست دیکھیں۔ یہاں دکان کا کھلنا اور بند ہونا منظر کے وقت کے مطابق ہے۔',
+      en: 'Open round the clock opposite the Ghanta Ghar. Look for the black fascia with lit “GLOBE CAFE” letters and the “Open 24x7” globe badge, a strip of round menu pictures, and a bright counter with tea urns and drinks coolers.',
+      hi: 'घंटाघर के सामने चौबीसों घंटे खुला। रोशन “GLOBE CAFE” अक्षरों वाला काला बोर्ड, “ओपन 24x7” वाला ग्लोब निशान, गोल तस्वीरों वाली मेन्यू पट्टी और चाय के बर्तनों व ठंडे पेयों वाला चमकता काउंटर देखें।',
+      ur: 'گھنٹہ گھر کے سامنے چوبیس گھنٹے کھلا۔ روشن “GLOBE CAFE” حروف والا کالا بورڈ، “اوپن 24x7” والا گلوب نشان، گول تصویروں والی مینیو پٹی اور چائے کے برتنوں اور ٹھنڈے مشروبات والا روشن کاؤنٹر دیکھیے۔',
     },
-    placement: 'interpreted', anchor: [-98.20, 64.40], facing: 2.69274, kind: 'frontage',
-    area: 'Husainabad Trust Road', sign: ['#213b42', '#fff1c8'], width: 6.2, depth: 7.6,
-    arrival: [-0.45, 2.65], reserve: [4.5, -0.5, 4.7], hours: [8.0, 23.85],
+    placement: 'photographed', style: 'globe', kind: 'frontage', anchor: [-98.20, 64.40], facing: 2.69274,
+    area: 'Opposite Ghanta Ghar, Husainabad', sign: ['#111111', '#f7ebcd'], width: 6.2, depth: 7.6,
+    arrival: [-0.45, 2.65], reserve: [4.5, -0.5, 4.7], hours: [-1, 25],
+  },
+  'turkish-cafe': {
+    name: { en: 'Turkish Cafe & Food Junction', hi: 'टर्किश कैफ़े', ur: 'ٹرکش کیفے' },
+    description: {
+      en: 'A small café opposite the Ghanta Ghar with a charcoal fascia in cream-gold lettering. Out front, a printed counter cart serves tea and coffee under a big four-colour umbrella, beside a red jali screen.',
+      hi: 'घंटाघर के सामने छोटा कैफ़े, गहरे सलेटी बोर्ड पर सुनहरी लिखावट। सामने छपे हुए ठेले से चाय-कॉफ़ी मिलती है, बड़ी चौरंगी छतरी के नीचे और लाल जाली के पास।',
+      ur: 'گھنٹہ گھر کے سامنے چھوٹا کیفے، گہرے سرمئی بورڈ پر سنہری حروف۔ سامنے چھپے ہوئے ٹھیلے سے چائے اور کافی ملتی ہے، بڑی چورنگی چھتری کے نیچے اور سرخ جالی کے پاس۔',
+    },
+    placement: 'photographed', style: 'turkish', kind: 'frontage', anchor: [-63.97, 80.89], facing: 2.69274,
+    area: 'Opposite Ghanta Ghar, Husainabad', sign: ['#353430', '#e3c78a'], width: 4.6, depth: 6.6,
+    arrival: [0.4, 3.4], reserve: [3.6, -0.5, 4.9], hours: [9, 24],
+  },
+  'kebabchi-lucknow': {
+    name: { en: 'Kebabchi Lucknow', hi: 'कबाबची लखनऊ', ur: 'کبابچی لکھنؤ' },
+    description: {
+      en: 'Shop 38 on Husainabad Main Road, across the chowk from the Chota Imambara gate. A white backlit fascia with an orange K roundel sits over arched glass doors into a chandelier-lit dining room, with a seekh grill at the pavement edge.',
+      hi: 'हुसैनाबाद मेन रोड की दुकान 38, छोटे इमामबाड़े के दरवाज़े के सामने चौक के पार। नारंगी “K” वाला सफ़ेद रोशन बोर्ड, नीचे मेहराबदार शीशे के दरवाज़े और अंदर झाड़-फ़ानूस, सामने सीख कबाब की अंगीठी।',
+      ur: 'حسین آباد مین روڈ کی دکان 38، چھوٹے امام باڑے کے دروازے کے سامنے چوک کے پار۔ نارنجی “K” والا سفید روشن بورڈ، نیچے محراب دار شیشے کے دروازے اور اندر جھاڑ فانوس، سامنے سیخ کباب کی انگیٹھی۔',
+    },
+    placement: 'photographed', style: 'kebabchi', kind: 'frontage', frame: 'chota', anchor: [39.4, -61.6], facing: 0,
+    area: 'Opposite Chota Imambara, Husainabad Main Road', sign: ['#f7f4ee', '#cf5a1b'], width: 7.0, depth: 7.0, kerb: 0.03,
+    arrival: [-0.6, 3.4], reserve: [4.8, -0.5, 4.6], hours: [12, 23.5],
   },
   'irani-chai': {
     name: { en: 'Irani Chai', hi: 'ईरानी चाय', ur: 'ایرانی چائے' },
     description: {
-      en: 'Find the tea counter beside Zaika on the Chota Imambara wall. The metal urn, glasses and serving ledge mark this bay.',
-      hi: 'छोटे इमामबाड़े की दीवार पर ज़ायक़ा के पास चाय का काउंटर देखें। धातु की केतली, गिलास और परोसने की चौकी से इसे पहचानें।',
-      ur: 'چھوٹے امام باڑے کی دیوار کے ساتھ ذائقہ کے پاس چائے کا کاؤنٹر دیکھیں۔ دھات کی کیتلی، گلاس اور اونچی چوکی اس کی پہچان ہیں۔',
+      en: 'A narrow stall on the Chota Imambara row. The black board glows with yellow “IRANI CHAI” and a second board reads “SULEMANI CHAI”. Inside: a big aluminium pot on the stove, stacked clay kulhads and a red drinks fridge.',
+      hi: 'छोटे इमामबाड़े की कतार में पतली सी दुकान। काले बोर्ड पर पीले अक्षरों में “ईरानी चाय” और नीचे दूसरा बोर्ड “सुलेमानी चाय”। अंदर चूल्हे पर बड़ा एल्युमिनियम का पतीला, मिट्टी के कुल्हड़ों के ढेर और लाल फ़्रिज।',
+      ur: 'چھوٹے امام باڑے کی قطار میں پتلی سی دکان۔ کالے بورڈ پر پیلے حروف میں “ایرانی چائے” اور نیچے دوسرا بورڈ “سلیمانی چائے”۔ اندر چولہے پر بڑا المونیم کا پتیلا، مٹی کے کلہڑوں کے ڈھیر اور سرخ فریج۔',
     },
-    placement: 'interpreted', frame: 'chota', bay: 6, facing: Math.PI, kind: 'bay',
-    area: 'Chota Imambara wall', sign: ['#164942', '#fff4d6'],
-    arrival: [-0.45, 4.7], reserve: [2.05, -0.55, 5.6], hours: [6, 22.1],
+    placement: 'photographed', style: 'iraniChai', kind: 'bay', frame: 'chota', bay: 6, facing: Math.PI,
+    area: 'Husainabad Trust Road, Chota Imambara row', sign: ['#141414', '#f7c51e'],
+    arrival: [-0.45, 4.7], reserve: [2.05, -0.55, 5.6], hours: [6, 24],
   },
   'irani-dum-tea': {
     name: { en: 'Irani Dum Tea', hi: 'ईरानी दम टी', ur: 'ایرانی دم چائے' },
     description: {
-      en: 'The copper-coloured tea urn and biscuit jars sit near the east end of the Chota Imambara shop row. Continue along the wall for the other tea counter beside Zaika.',
-      hi: 'छोटे इमामबाड़े की दुकानों की कतार के पूर्वी छोर के पास चाय का तांबे रंग का बर्तन और बिस्कुट की बरनियाँ देखें।',
-      ur: 'چھوٹے امام باڑے کی دکانوں کی قطار کے مشرقی سرے کے پاس تانبئی چائے دان اور بسکٹ کی برنیاں دیکھیں۔',
+      en: 'The open-air tea stall on the Chota Imambara wall. Red, white-edged letters on a black board, a sagging black tarpaulin, and bell-shaped aluminium dum pots simmering on a soot-dark brick hearth. Tea is served in kulhads at the benches.',
+      hi: 'छोटे इमामबाड़े की दीवार के पास खुली चाय की दुकान। काले बोर्ड पर सफ़ेद किनारे वाले लाल अक्षर, झूलता काला तिरपाल और कालिख लगे ईंटों के चूल्हे पर घंटी जैसे एल्युमिनियम के दम वाले बर्तन। चाय बेंचों पर कुल्हड़ में मिलती है।',
+      ur: 'چھوٹے امام باڑے کی دیوار کے پاس کھلی چائے کی دکان۔ کالے بورڈ پر سفید کنارے والے سرخ حروف، جھولتا کالا ترپال اور کالک لگے اینٹوں کے چولہے پر گھنٹی نما المونیم کے دم والے برتن۔ چائے بنچوں پر کلہڑ میں ملتی ہے۔',
     },
-    placement: 'interpreted', frame: 'chota', bay: 3, facing: Math.PI, kind: 'bay',
-    area: 'Chota Imambara wall', sign: ['#603927', '#ffefd1'],
-    arrival: [0, 4.4], reserve: [1.95, -0.55, 5.2], hours: [5.6, 21.2],
+    placement: 'photographed', style: 'iraniDum', kind: 'bay', frame: 'chota', bay: 3, facing: Math.PI,
+    area: 'Chota Imambara wall', sign: ['#121212', '#d0141b'],
+    arrival: [0.6, 4.6], reserve: [1.95, -0.55, 5.2], hours: [5.6, 23],
+  },
+  'irani-fast-food': {
+    name: { en: 'Irani Fast Food', hi: 'ईरानी फ़ास्ट फ़ूड', ur: 'ایرانی فاسٹ فوڈ' },
+    description: {
+      en: 'Next to Irani Dum Tea on the same wall: red “IRANI FAST FOOD” on black under a row of round dish pictures, with a steel griddle counter for rolls and kebabs.',
+      hi: 'उसी दीवार पर ईरानी दम टी के बगल में: काले बोर्ड पर लाल “ईरानी फ़ास्ट फ़ूड”, ऊपर गोल पकवानों की तस्वीरें, और रोल व कबाब के लिए स्टील के तवे वाला काउंटर।',
+      ur: 'اسی دیوار پر ایرانی دم ٹی کے برابر: کالے بورڈ پر سرخ “ایرانی فاسٹ فوڈ”، اوپر گول پکوانوں کی تصویریں، اور رول اور کباب کے لیے اسٹیل کے توے والا کاؤنٹر۔',
+    },
+    placement: 'photographed', style: 'iraniFast', kind: 'bay', frame: 'chota', bay: 4, facing: Math.PI,
+    area: 'Chota Imambara wall', sign: ['#111111', '#d0141b'],
+    arrival: [-0.3, 4.5], reserve: [1.95, -0.55, 5.2], hours: [12, 23.5],
   },
   'chai-mahal': {
     name: { en: 'Chai Mahal', hi: 'चाय महल', ur: 'چائے محل' },
@@ -150,7 +173,7 @@ const SHOP_CATALOG = {
       hi: 'बंडल के ओपनस्ट्रीटमैप में तालाब चौक के पश्चिमी किनारे पर चाय महल दर्ज है। केतली और प्यालों वाली नीली-हरी दुकान देखें।',
       ur: 'ساتھ دیے گئے اوپن اسٹریٹ میپ میں چائے محل تالاب کے چوک کے مغربی کنارے پر درج ہے۔ کیتلی اور پیالیوں والی نیلگوں دکان دیکھیں۔',
     },
-    placement: 'mapped', frame: 'park', anchor: [-142, 4], facing: Math.PI / 2, kind: 'kiosk',
+    placement: 'mapped', style: 'kiosk', kind: 'kiosk', frame: 'park', anchor: [-142, 4], facing: Math.PI / 2,
     source: 'https://www.openstreetmap.org/?mlat=26.87453&mlon=80.90671#map=19/26.87453/80.90671',
     area: 'Talab square, west edge', sign: ['#17484b', '#fff1c4'],
     arrival: [0, 4.6], reserve: [2.4, -1.5, 5.2], hours: [5.4, 21],
@@ -162,7 +185,7 @@ const SHOP_CATALOG = {
       hi: 'काउंटर पर रखी सुनहरी गोल रोटियाँ देखें। यह दुकान लखनऊ की हल्की मीठी रोटी शीरमाल दिखाती है।',
       ur: 'کاؤنٹر پر رکھی سنہری گول روٹیاں دیکھیں۔ یہاں لکھنؤ کی ہلکی میٹھی روٹی شیرمال دکھائی گئی ہے۔',
     },
-    placement: 'interpreted', frame: 'park', anchor: [-17, 15], facing: 0, kind: 'kiosk',
+    placement: 'interpreted', style: 'kiosk', kind: 'kiosk', frame: 'park', anchor: [-17, 15], facing: 0,
     area: 'Clock Tower square', sign: ['#55331f', '#ffe1a1'],
     arrival: [0, 4.6], reserve: [2.4, -1.5, 5.2], hours: [8.5, 21.8],
   },

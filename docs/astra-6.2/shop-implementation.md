@@ -1,24 +1,26 @@
 # Street shops and lighting in ASTRA 6.2
 
-Open **Places → Street shops** to visit Tunday Kababi, Globe Cafe 24x7, Irani Chai, Irani Dum Tea, Chai Mahal and Kamar Sheermal Shop. Each has a street view, a counter view and a walking arrival. Tunday also has a view from the square. The three-language place guide and the text fallback carry the same storefront descriptions.
+Select a shop's name tag in the scene to open Tunday Kababi, Globe Cafe 24x7, Turkish Cafe & Food Junction, Kebabchi Lucknow, Irani Chai, Irani Dum Tea, Irani Fast Food, Chai Mahal or Kamar Sheermal Shop. Places lists the landmarks only. Each shop has a street view, a counter view and a walking arrival, and the text fallback carries the same storefront descriptions.
 
-| Updated Tunday at midday | Updated Tunday at civil dusk |
-| --- | --- |
-| ![Tunday’s unobstructed bilingual fascia, iron tawa, plates and service counter](shop-implementation/tunday-midday.jpg) | ![Tunday’s illuminated counter and fascia against cooler paving and twilight](shop-implementation/tunday-dusk.jpg) |
+## Storefronts rebuilt from photos
 
-| Updated Globe | Updated Irani Chai at dusk |
-| --- | --- |
-| ![Globe’s striped awning and sign above a recessed entry, café counter and seating bay](shop-implementation/globe-midday.jpg) | ![Light falls over the tea urn and cups at Irani Chai beside Zaika and a closed shutter](shop-implementation/irani-dusk.jpg) |
+The first passes drew these shops without references or at the wrong spots. They are now modelled from public photos and listings, recorded with what each source established in [Street shop references](shop-references.md).
 
-The storefronts share metre-based anchors for geometry, nameboards and public arrivals. The Tunday fascia sits forward of the canopy. Globe’s dedicated plot keeps its façade in the same place at every graphics setting. Irani Chai and Irani Dum Tea retain separate names and bays, with different signs and vessels. The surrounding model gains recessed display space, paving strips, a kerb cut, a drain and shop-side fittings. Reserved entrances keep procedural trees, parked vehicles and carts clear of the approaches. [Baseline and camera positions](shops-and-lighting-roadmap.md) · [Irani Chai at midday](shop-implementation/irani-midday.jpg) · [Shop models](../../src/shops.js)
+- **Tunday Kababi** is its Clock Tower outlet, at the mapped position on the south-east corner of the Talab: a single-storey glass-fronted dining pavilion under a long charcoal fascia with the TK emblem, branch list and "Since 1905", beside a peach heritage pavilion. It stays open until 2 AM.
+- **Globe Cafe 24x7** and **Turkish Cafe & Food Junction** stand on the row opposite the Ghanta Ghar at their Google Maps pins. Globe has a black fascia with lit letters, a menu strip, a white interior, a red fridge and a tea counter, and stays open all night. Turkish Cafe has a charcoal fascia, a printed counter cart, a four-colour umbrella and a red jali screen.
+- **Kebabchi Lucknow** stands at the listed address, opposite the Chota Imambara gate. Its white backlit fascia and orange K roundel sit over arched openings and a seekh grill.
+- **Irani Dum Tea**, **Irani Fast Food** and **Irani Chai** use the black flex boards of the Chota Imambara wall row. Irani Dum Tea has a black tarpaulin and bell-shaped dum pots on a sooty hearth. Irani Chai has yellow lettering, a "Sulemani Chai" board, a red fridge and stacked kulhads.
+- **Husainabad Food Court** is rebuilt on its OpenStreetMap footprint as the two-storey red-brick hall it is, with a double-height glass corner facing the Clock Tower and lit parapet lettering. The **Lucknow Museum of Heritage and Arts** stands on its footprint behind a red jali wall. The kiosks round the Clock Tower now use the peach heritage style of the municipal food zone.
+
+Each storefront draws its sign at full resolution with a matching glow map, so lettering lights up at night while the board stays dark. Interiors brighten while a shop is serving. Featured frontages reserve their plots before generic houses are placed. Arrivals, staff positions and customer loops were checked against the walking grid. [Shop models](../../src/shops.js) · [Catalogue](../../data/places.js)
 
 ## Map evidence and scene schedules
 
-Chai Mahal uses the tea-shop point in the bundled OpenStreetMap extract, at approximately `26.87453°, 80.90671°`. The other five modeled placements come from the preceding scene and its shop audit. In the app this coverage appears as **Illustrated storefront**. Contemporaneous street photographs, branch confirmations and opening hours could not be accessed from the cloud workspace. The models use authored geometry and original sign artwork. The clock drives illustrated hours, including the earlier tea service and later kebab counter. [Catalogue](../../data/places.js) · [Bundled map](../../data/map.js)
+Chai Mahal uses the tea-shop point in the bundled OpenStreetMap extract, at approximately `26.87453°, 80.90671°`. Globe and Turkish Cafe follow their "opposite Ghanta Ghar" listings. Kebabchi follows its listed address and the bundled map point. The Irani shops are on the Chota Imambara wall row. Opening hours are illustrative except Globe's 24 hours and Irani Chai's midnight close. [Catalogue](../../data/places.js) · [Bundled map](../../data/map.js)
 
 ## Lucknow time and weather
 
-Live time uses IST, including the solar date after local midnight. The presets use apparent sunrise, solar transit, a descending solar elevation of 6° for golden hour, civil dusk at −6°, and 22:00 IST for Night. The slider selects any minute. The directional light and sun disk share a direction while the sun casts shadows. Dusk has a cooler ambient gradient, with warmth concentrated toward the setting sun and the active counters. Clouds dim stars and direct sunlight. Monsoon rain roughens the water surface and changes the reflection from exposed paving. Individual counters ease between shutter, staff, customer, steam and optional sound states. [Solar calculation](../../src/solar.js) · [Weather and light](../../src/sky.js) · [Rainy dusk render](shop-implementation/tunday-rain.jpg)
+Live time uses IST, including the solar date after local midnight. The presets use apparent sunrise, solar transit, a descending solar elevation of 6° for golden hour, civil dusk at −6°, and 22:00 IST for Night. The slider selects any minute. The directional light and sun disk share a direction while the sun casts shadows. Dusk has a cooler ambient gradient, with warmth concentrated toward the setting sun and the active counters. Clouds dim stars and direct sunlight. Monsoon rain roughens the water surface and changes the reflection from exposed paving. Individual counters ease between shutter, staff, customer, steam and optional sound states. [Solar calculation](../../src/solar.js) · [Weather and light](../../src/sky.js)
 
 ## Verification
 

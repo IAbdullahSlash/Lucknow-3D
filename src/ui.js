@@ -69,27 +69,13 @@ function setPlaces(open) {
   el('bPlaces').setAttribute('aria-expanded', open);
 }
 
-function setPlaceGroup(group) {
-  if (UI.placeGroup === group) return;
-  UI.placeGroup = group;
-  for (const button of el('placeGroups').querySelectorAll('button')) {
-    const active = button.dataset.places === group;
-    button.classList.toggle('on', active);
-    button.setAttribute('aria-pressed', active);
-  }
-  for (const button of el('places').querySelectorAll('button')) button.hidden = group !== button.dataset.group;
-  el('places').scrollTo(0, 0);
-}
-
 function selectPlace(p, duration = 2.2) {
-  setPlaceGroup(p.shop ? 'shops' : 'landmarks');
   for (const button of el('places').querySelectorAll('button')) {
     button.classList.toggle('on', button.dataset.id === p.id);
     button.setAttribute('aria-pressed', button.dataset.id === p.id);
   }
   UI.view = 0;
   if (p.cam) flyTo(p, duration);
-  else if (p.record?.mapOnly) panTo(p.pos[0], p.pos[2]);
   showCard(p);
 }
 
@@ -109,7 +95,7 @@ function showCard(p, restoreFocus = true) {
     return;
   }
   writeVisitorText(el('placeTitle'), placeName(p), locale());
-  const coverage = p.shop ? SHOP_COPY[p.record.placement] : p.record?.mapOnly ? GUIDE_COPY.mapOnly : { en: p.yr || '' };
+  const coverage = p.shop ? SHOP_COPY[p.record.placement] : { en: p.yr || '' };
   writeVisitorText(card.querySelector('.yr'), coverage, locale());
   writeVisitorText(el('cardWalk'), GUIDE_COPY.walk, locale());
   writeVisitorText(card.querySelector('p'), p.record?.description || { en: p.text }, locale());
@@ -378,13 +364,11 @@ function setMode(m, quiet, keepTour = false) {
 /* ───────────── labels and the places list ───────────── */
 function buildLabels() {
   const list = el('places');
-  const explore = LABELS.filter(p => (p.cam && !p.small && !p.road) || p.record?.mapOnly);
+  const explore = LABELS.filter(p => p.cam && !p.small && !p.road && !p.shop);   // shops open from their tags in the scene
   const ordered = [...PILOT_STOPS.map(placeById), ...explore.filter(p => !PILOT_STOPS.includes(p.id))];
   for (const p of ordered) {
     const button = document.createElement('button');
     button.dataset.id = p.id;
-    button.dataset.group = p.shop ? 'shops' : 'landmarks';
-    if (p.shop) button.title = [p.record.area, ...(p.record.aliases || [])].join(' · ');
     button.setAttribute('aria-pressed', 'false');
     p.listButton = button;
     button.onclick = () => {
@@ -396,7 +380,6 @@ function buildLabels() {
     };
     list.append(button);
   }
-  setPlaceGroup('landmarks');
   for (const p of LABELS) {
     if (p.nolabel) continue;
     const label = document.createElement('div');
@@ -422,8 +405,6 @@ function setHot(p) { if (UI.hot === p) return; if (UI.hot) UI.hot.dom.classList.
 function applyLabelLang() {
   document.body.classList.toggle('nolabels', OPT.labels === 'off');
   document.body.classList.toggle('lang-en', OPT.labels === 'en');
-  writeVisitorText(el('placeGroups').querySelector('[data-places="landmarks"]'), SHOP_COPY.landmarks, locale());
-  writeVisitorText(el('placeGroups').querySelector('[data-places="shops"]'), SHOP_COPY.title, locale());
   for (const p of LABELS) {
     const name = placeName(p);
     if (p.dom) {
@@ -574,11 +555,11 @@ function drawMinimap() {
     g.stroke();
   }
   g.font = '600 10px "Segoe UI",sans-serif'; g.textAlign = 'center';
-  for (const p of LABELS) if (p.pos && (p.cam || p.record?.mapOnly) && !p.small) {
-    if (p.shop && (UI.placeGroup !== 'shops' || UI.tour)) continue;
+  for (const p of LABELS) if (p.pos && p.cam && !p.small) {
+    if (p.shop && UI.card !== p) continue;   // a shop's dot appears only while its card is open
     const x = S / 2 + (p.pos[0] - sx) / mpp, y = S / 2 + (p.pos[2] - sz) / mpp;
     if (x < 4 || y < 4 || x > S - 4 || y > S - 4) continue;
-    g.fillStyle = p.shop ? '#176765' : p.record?.mapOnly ? '#4b4550' : '#7a1f12';
+    g.fillStyle = p.shop ? '#176765' : '#7a1f12';
     g.beginPath(); g.arc(x, y, 3, 0, TAU); g.fill();
     if (mpp < 3.2 && (!p.shop || UI.card === p)) {
       g.fillStyle = '#3a2416';
@@ -653,7 +634,7 @@ function buildOptions() {
   const btn = (label, text, fn) => { const b = document.createElement('button'); b.className = 'mini'; b.textContent = text; b.onclick = fn; return row(label, b); };
 
   h('Labels & view');
-  seg('Labels', [['hi', 'हिंदी'], ['ur', 'اردو'], ['en', 'English'], ['off', 'Off']], () => OPT.labels, v => { OPT.labels = v; applyLabelLang(); });
+  seg('Labels', [['hi', 'हिंदी'], ['ur', 'اردو'], ['en', 'English'], ['off', 'Off']], () => OPT.labels, v => { OPT.labels = v; OPT.labelsChosen = true; applyLabelLang(); });
   check('Shop name tags', () => OPT.shopTags, v => { OPT.shopTags = v; });
   check('Minimap', () => OPT.minimap, v => { OPT.minimap = v; el('mapWrap').classList.toggle('show', v); });
   btn('Photo mode', 'Hide interface (H)', () => togglePhoto());
@@ -741,10 +722,6 @@ function wire() {
     if (open && el('options').classList.contains('show')) el('bOptions').click();
     setPlaces(open);
   };
-  el('placeGroups').onclick = event => {
-    const group = event.target.closest('button')?.dataset.places;
-    if (group) setPlaceGroup(group);
-  };
   el('card').querySelector('.x').onclick = () => showCard(null);
   el('cardWalk').onclick = () => { if (UI.card?.walk) enterWalk(...UI.card.walk.slice(0, 4), UI.card.walk[4], !!UI.tour); };
   el('restoreView').onclick = togglePhoto;
@@ -826,7 +803,7 @@ function wire() {
     else if (e.code === 'Equal' || e.code === 'NumpadAdd') zoomBy(0.6); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') zoomBy(1 / 0.6);
     else if (e.code === 'KeyO') el('bOptions').click(); else if (e.code === 'KeyH') togglePhoto(); else if (e.code === 'KeyF') toggleFull(); else if (e.code === 'KeyP') screenshot(); else if (e.code === 'KeyT' && UI.mode === 'orbit') el('bTour').click();
     else if (e.code === 'KeyM') { OPT.minimap = !OPT.minimap; el('mapWrap').classList.toggle('show', OPT.minimap); saveOptions(); buildOptions(); }
-    else if (e.code === 'KeyL') { const o = ['hi', 'ur', 'en', 'off']; OPT.labels = o[(o.indexOf(OPT.labels) + 1) % 4]; applyLabelLang(); saveOptions(); buildOptions(); }
+    else if (e.code === 'KeyL') { const o = ['hi', 'ur', 'en', 'off']; OPT.labels = o[(o.indexOf(OPT.labels) + 1) % 4]; OPT.labelsChosen = true; applyLabelLang(); saveOptions(); buildOptions(); }
   });
   addEventListener('keyup', e => { KEYS[e.code] = false; });
   addEventListener('focusin', e => { if (e.target !== cv) for (const key in KEYS) KEYS[key] = false; });
