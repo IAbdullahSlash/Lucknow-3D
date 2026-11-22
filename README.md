@@ -22,17 +22,6 @@ https://github.com/user-attachments/assets/bc17c748-9c4c-4a25-8e97-80db52ac1f74
 
 <sub><b>23 s · 1080p.</b> Video not playing? <a href="docs/media/hussainabad-launch.mp4">Download hussainabad-launch.mp4</a>.</sub>
 
-Every frame is the real model, captured in the browser:
-
-| Scene | What you see |
-|---|---|
-| **01 · Hook** | The Clock Tower at dusk as the city lights come on: *Every city gets a 3D model. Why not Lucknow?* |
-| **02 · Reveal** | A dive from above the whole precinct down to the Talab and the Clock Tower at golden hour |
-| **03 · Landmarks** | Rumi Darwaza, Bara Imambara, Chota Imambara and Husainabad Talab |
-| **04 · Time of day** | The time bar sweeps from dawn to night while the light changes over the Clock Tower |
-| **05 · Walk** | Walk mode: jogging across the plaza toward Rumi Darwaza through the crowd |
-| **06 · Outro** | The Talab and Clock Tower at dusk with festive lights |
-
 ## About
 
 An animated, walkable 3D model of the Hussainabad precinct of Lucknow, with the Clock Tower, Husainabad Talab, Picture Gallery, Satkhanda, Chota Imambara, the two Husainabad gateways, Rumi Darwaza, Bara Imambara with the Asfi Mosque, and the food court.
