@@ -1,4 +1,39 @@
-# Hussainabad, Live — Lucknow's heritage mile in 3D
+<div align="center">
+
+# 🕌 Hussainabad, Live
+
+**Lucknow's heritage mile in 3D, on its real street map**
+
+Fly over the Clock Tower, Rumi Darwaza and the Imambaras, watch the sun follow live Lucknow time, then drop to street level and walk through the crowd.
+
+[![Live demo](https://img.shields.io/badge/Live%20demo-lucknow--3d.vercel.app-e7b45a?logo=vercel&logoColor=white)](https://lucknow-3d.vercel.app)
+![Three.js](https://img.shields.io/badge/Three.js-r160-000000?logo=threedotjs&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-no%20build%20step-f7df1e?logo=javascript&logoColor=black)
+![WebGL](https://img.shields.io/badge/WebGL-runs%20offline-990000?logo=webgl&logoColor=white)
+![OpenStreetMap](https://img.shields.io/badge/OpenStreetMap-street%20data-7ebc6f?logo=openstreetmap&logoColor=white)
+
+</div>
+
+## Launch video
+
+<!-- launch-video -->
+
+https://github.com/user-attachments/assets/bc17c748-9c4c-4a25-8e97-80db52ac1f74
+
+<sub><b>23 s · 1080p.</b> Video not playing? <a href="docs/media/hussainabad-launch.mp4">Download hussainabad-launch.mp4</a>.</sub>
+
+Every frame is the real model, captured in the browser:
+
+| Scene | What you see |
+|---|---|
+| **01 · Hook** | The Clock Tower at dusk as the city lights come on: *Every city gets a 3D model. Why not Lucknow?* |
+| **02 · Reveal** | A dive from above the whole precinct down to the Talab and the Clock Tower at golden hour |
+| **03 · Landmarks** | Rumi Darwaza, Bara Imambara, Chota Imambara and Husainabad Talab |
+| **04 · Time of day** | The time bar sweeps from dawn to night while the light changes over the Clock Tower |
+| **05 · Walk** | Walk mode: jogging across the plaza toward Rumi Darwaza through the crowd |
+| **06 · Outro** | The Talab and Clock Tower at dusk with festive lights |
+
+## About
 
 An animated, walkable 3D model of the Hussainabad precinct of Lucknow, with the Clock Tower, Husainabad Talab, Picture Gallery, Satkhanda, Chota Imambara, the two Husainabad gateways, Rumi Darwaza, Bara Imambara with the Asfi Mosque, and the food court.
 
