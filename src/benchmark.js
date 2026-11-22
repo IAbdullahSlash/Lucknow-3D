@@ -38,7 +38,7 @@ window.measureLucknow = async ({ passMs = 20000, warmupMs = 5000, shops = false,
     },
   ];
   if (shops) {
-    const counter = placeById('tunday-kababi').views[1];
+    const counter = placeById('tunday-kababi').views.find(view => view.name === SHOP_COPY.service);   // the counter view, whatever its order
     const enter = (time, weather) => {
       setTime(time);
       setWeather(weather);
