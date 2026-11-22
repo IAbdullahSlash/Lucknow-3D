@@ -17,7 +17,7 @@ const GUIDE_COPY = {
 // Waypoints along the modeled plazas and north-side path. Arrival anchors
 // and navigation are checked in the scene before a leg is shown.
 const PILOT_WAYPOINTS = [
-  [-54.5, 26.5, -70.5, 14.5],
+  [-54.5, 26.5, -62.5, 23.5, -70.9, 18.9, -70.5, 14.5],   // between Tunday's kitchen and its dining pavilion
   [
     -109.5, 31.5, -107.5, 36.5, -104.5, 39.5, -87.5, 48.5, -51.5, 64.5,
     -32.5, 75.5, 3.5, 91.5, 39.5, 109.5, 53.5, 116.5, 89.5, 132.5,
@@ -79,6 +79,8 @@ const SHOP_COPY = {
   mapped: { en: 'Mapped location · illustrated storefront', hi: 'नक्शे का स्थान · दुकान का कल्पित रूप', ur: 'نقشے کا مقام · دکان کی تخیّلی جھلک' },
   photographed: { en: 'Listed location · storefront from photos', hi: 'सूचीबद्ध स्थान · तस्वीरों से बनी दुकान', ur: 'درج شدہ مقام · تصاویر سے بنی دکان' },
   service: { en: 'At the counter', hi: 'काउंटर के पास', ur: 'کاؤنٹر کے پاس' },
+  square: { en: 'From the square', hi: 'चौक से', ur: 'چوک سے' },
+  court: { en: 'Dining court', hi: 'डाइनिंग कोर्ट', ur: 'ڈائننگ کورٹ' },
   approach: { en: 'From the street', hi: 'सड़क से', ur: 'سڑک سے' },
 };
 
@@ -91,13 +93,19 @@ const SHOP_CATALOG = {
     name: { en: 'Tunday Kababi', hi: 'टुंडे कबाबी', ur: 'ٹنڈے کبابی' },
     aliases: ['Tunde Ke Kabab', 'Tunday Kababi Hussainabad'],
     description: {
-      en: 'The Clock Tower outlet, Shop No 5 in the Nagar Nigam food safety zone at the south-east corner of the Talab. A single-storey dining room sits behind a full-width glass front under a long charcoal fascia with the TK emblem, the branch list and “Since 1905”. Takeaway is from the door at the east end, beside a peach heritage pavilion. It stays open until 2 AM. The original 1905 shop is at Akbari Gate in Chowk.',
+      en: 'The Clock Tower outlet, Shop No 5 in the Nagar Nigam food safety zone between the Talab square and Hussainabad Trust Road. The kitchen is a 10 by 6 metre steel-and-glass pavilion, signed on both long sides: “World’s famous melt in mouth kababs” faces the road behind a chain-and-bollard fence, and the plaza side has the TK emblem, the branch list, “Since 1905” and the takeaway door. A peach pavilion adjoins it on the west. Its dining pavilion, a peach heritage building with leaf merlons and an arched navy awning over its gate, stands just north-east, with a fenced court under a lattice pergola lit green after dark. Open until 2 AM. The original 1905 shop is at Akbari Gate in Chowk.',
       hi: 'घंटाघर वाली दुकान, तालाब के दक्षिण-पूर्वी कोने पर नगर निगम फ़ूड सेफ़्टी ज़ोन की दुकान नंबर 5। एक मंज़िला हॉल, सामने पूरा शीशा और ऊपर TK निशान व “सिन्स 1905” वाला लंबा स्लेटी बोर्ड। पूर्वी दरवाज़े से टेकअवे, रात 2 बजे तक खुली। मूल दुकान चौक के अकबरी गेट पर है।',
       ur: 'گھنٹہ گھر والی دکان، تالاب کے جنوب مشرقی کونے پر نگر نگم فوڈ سیفٹی زون کی دکان نمبر 5۔ ایک منزلہ ہال، سامنے پورا شیشہ اور اوپر TK نشان اور “سنس 1905” والا لمبا سلیٹی بورڈ۔ مشرقی دروازے سے ٹیک اوے، رات 2 بجے تک کھلی۔ اصل دکان چوک کے اکبری گیٹ پر ہے۔',
     },
-    placement: 'photographed', style: 'tunday', kind: 'frontage', frame: 'park', anchor: [-50, 41.8], facing: 0,
-    area: 'Talab square, south-east corner (Nagar Nigam food safety zone)', sign: ['#2c2e30', '#f2f2f2'], width: 9.0, depth: 6.6, kerb: 0.03,
-    arrival: [2.4, 3.6], reserve: [5.6, -0.5, 4.4], hours: [11, 26],
+    placement: 'photographed', style: 'tunday', kind: 'frontage', frame: 'park', anchor: [-64.8, 45.5], facing: Math.PI,
+    area: 'Talab square, south-east corner (Nagar Nigam food safety zone)', sign: ['#2c2e30', '#f2f2f2'], width: 10.0, depth: 6.0, kerb: 0.03,
+    arrival: [1.5, 2.8], reserve: [5.6, -0.5, 3.8], hours: [11, 26],
+    views: [
+      { name: 'square', cam: [-6.5, 3.4, 12.5], tgt: [0, 2.0, 0] },
+      { name: 'approach', cam: [-3.0, 3.6, -21.0], tgt: [0, 2.0, -6.0] },
+      { name: 'service', cam: [-1.4, 2.0, 5.0], tgt: [-0.6, 1.6, -1.2] },
+      { name: 'court', cam: [-26, 6.5, -6], tgt: [-15, 2.0, 7] },
+    ],
   },
   'globe-cafe': {
     name: { en: 'Globe Cafe 24x7', hi: 'ग्लोब कैफ़े 24x7', ur: 'گلوب کیفے 24x7' },

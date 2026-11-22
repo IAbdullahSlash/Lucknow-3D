@@ -62,6 +62,7 @@ const SHOP_MAT = {
   tarp: M(0x25282a, { roughness: 0.85, side: THREE.DoubleSide }),
   stripe: M(0xffffff, { map: stripeTex }),
   jali: M(0xb8302a, { map: TEX.jaali, alphaTest: 0.5, side: THREE.DoubleSide }),
+  jaliDark: M(0x4a2a1c, { map: TEX.jaali, alphaTest: 0.5, side: THREE.DoubleSide }),
   brass: M(0xc59a45, { metalness: 0.75, roughness: 0.35, envMap: ENV }),
   pavilion: M(0xd8c9bd, { map: TEX.plaster }),
   peach: M(0xe9b392, { map: TEX.plaster }),
@@ -137,10 +138,11 @@ const SIGN_ART = {
     fitText(x, 'MELT IN MOUTH KABABS', ex, py + ph * 0.71, pw * 0.8, ph * 0.12, 'bold', FONT.sans);
     x.fillStyle = lit ? '#ff6a5e' : '#8a1d24';
     fitText(x, 'TUNDAY KABABI', ex, py + ph * 0.9, pw * 0.8, ph * 0.1, 'bold', FONT.serif);
+    const left = px + pw + H * 0.15, right = W * 0.83, mid = (left + right) / 2, span = right - left;
     x.fillStyle = lit ? '#ffffff' : '#f2f2f2';
-    fitText(x, 'TUNDAY KABABI', W * 0.5, H * 0.38, W * 0.54, H * 0.46, 'bold', FONT.sans);
-    fitText(x, '®', W * 0.79, H * 0.2, H * 0.2, H * 0.14, 'bold', FONT.sans);
-    fitText(x, 'AMINABAD - ALIGANJ - DELHI - DUBAI - DUBAGGA - LULU MALL', W * 0.525, H * 0.8, W * 0.54, H * 0.15, 'bold', FONT.sans);
+    fitText(x, 'TUNDAY KABABI', mid, H * 0.38, span * 0.92, H * 0.46, 'bold', FONT.sans);
+    fitText(x, '®', right - H * 0.06, H * 0.2, H * 0.2, H * 0.14, 'bold', FONT.sans);
+    fitText(x, 'AMINABAD - ALIGANJ - DELHI - DUBAI - DUBAGGA - LULU MALL', mid, H * 0.8, span * 0.96, H * 0.15, 'bold', FONT.sans);
     const gold = lit ? '#ffcf6a' : '#d4a64a';
     wreath(x, W * 0.895, H * 0.36, H * 0.25, gold);
     x.fillStyle = gold;
@@ -177,6 +179,38 @@ const SIGN_ART = {
     x.fillStyle = lit ? '#4a1f63' : '#5b2a7a'; x.fillRect(0, 0, W, H);
     x.fillStyle = '#ffffff';
     fitText(x, 'LUCKNOW MUSEUM OF HERITAGE AND ARTS', W / 2, H * 0.52, W * 0.9, H * 0.5, 'bold', FONT.sans);
+  },
+  // Road-side board: emblem, "TUNDAY KABABI®", the tagline and the gold Hussainabad medallion.
+  tundayRoad(x, W, H, lit) {
+    if (!lit) { x.fillStyle = '#23262c'; x.fillRect(0, 0, W, H); }
+    const ex = H * 0.7;
+    x.fillStyle = lit ? '#ff6a5e' : '#c8202b';
+    x.beginPath(); x.moveTo(ex - H * 0.12, H * 0.16); x.lineTo(ex + H * 0.2, H * 0.62); x.lineTo(ex - H * 0.44, H * 0.62); x.fill();
+    x.fillStyle = lit ? '#58d18a' : '#1f8a4c';
+    x.beginPath(); x.moveTo(ex + H * 0.12, H * 0.16); x.lineTo(ex + H * 0.44, H * 0.62); x.lineTo(ex - H * 0.2, H * 0.62); x.fill();
+    x.fillStyle = lit ? '#ffcf6a' : '#d4a64a'; x.fillRect(ex - H * 0.5, H * 0.66, H, H * 0.12);
+    x.fillStyle = lit ? '#ffffff' : '#f2f2f2';
+    fitText(x, 'TUNDAY KABABI®', W * 0.5, H * 0.4, W * 0.62, H * 0.5, 'bold', FONT.sans);
+    fitText(x, 'WORLD’S FAMOUS MELT IN MOUTH KABABS', W * 0.5, H * 0.8, W * 0.56, H * 0.16, 'bold', FONT.sans);
+    const mx = W - H * 0.7, gold = lit ? '#ffcf6a' : '#d4a64a';
+    disc(x, mx, H * 0.46, H * 0.34, gold); disc(x, mx, H * 0.46, H * 0.28, lit ? '#2a2414' : '#23262c');
+    x.fillStyle = gold; fitText(x, 'Husainabad', mx, H * 0.48, H * 0.5, H * 0.11, 'bold', FONT.serif);
+  },
+  // East end: the name in white on grey.
+  tundaySide(x, W, H, lit) {
+    if (!lit) { x.fillStyle = '#3a3d42'; x.fillRect(0, 0, W, H); }
+    x.fillStyle = lit ? '#ffffff' : '#f2f2f2';
+    fitText(x, 'TUNDAY KABABI', W / 2, H * 0.52, W * 0.86, H * 0.5, 'bold', FONT.sans);
+  },
+  // The arched navy awning over the dining pavilion's gate; transparent outside the arch.
+  tundayArch(x, W, H, lit) {
+    x.fillStyle = lit ? '#1a2a52' : '#18284a';
+    x.beginPath(); x.moveTo(0, H); x.lineTo(0, H * 0.5); x.arc(W / 2, H * 0.5, W / 2, Math.PI, 0); x.lineTo(W, H); x.closePath(); x.fill();
+    x.strokeStyle = lit ? '#ffcf6a' : '#d4a64a'; x.lineWidth = H * 0.03;
+    x.beginPath(); x.arc(W / 2, H * 0.5, W / 2 - H * 0.05, Math.PI, 0); x.stroke();
+    x.fillStyle = lit ? '#ffffff' : '#f2f2f2';
+    fitText(x, 'Tunday Kababi', W / 2, H * 0.48, W * 0.78, H * 0.26, 'bold', FONT.serif);
+    fitText(x, 'WORLD’S MOST DELICIOUS GALAWATI KEBABS', W / 2, H * 0.72, W * 0.86, H * 0.08, 'bold', FONT.sans);
   },
   // Black fascia, white globe badge with "Open 24x7", lit warm-white letters and a script line.
   globe(x, W, H, lit) {
@@ -426,58 +460,185 @@ function upperWindows(parent, w, y0, floors, n, { frame = MAT.whiteD, balcony = 
 }
 
 /* ───────────── storefronts ───────────── */
-// Tunday Kababi's Clock Tower outlet: a single-storey dining pavilion with a
-// full-width glass front, brushed-steel panels below and a long charcoal fascia,
-// beside one of the peach heritage-style pavilions of the Talab square.
+// Tunday Kababi's Clock Tower outlet, measured on Google and Esri satellite tiles and
+// checked against the Street View panorama at 26.87350, 80.90731 on Hussainabad Trust
+// Road (docs/astra-6.2/shop-references.md). The kitchen is a 10 × 6 m steel-and-glass
+// pavilion between the Talab square and the road, glazed and signed on both long
+// sides: the plaza side carries the TK emblem, branch list and takeaway door, the
+// road side "World's famous melt in mouth kababs" behind a chain-and-bollard fence.
+// A peach pavilion adjoins it on the west. North-east of it stands Tunday's peach
+// heritage dining pavilion, with an arched awning over its gate and a fenced court.
+// Local frame: front (+z) faces north over the square, +x runs west, -z is the road.
 function buildTunday(parent, shop) {
-  const { width: w, depth: d } = shop.record, h = 3.45;
-  const glassW = w - 2.2, gx = -w / 2 + glassW / 2, doorX = w / 2 - 1.1;
-  const wall = SHOP_MAT.pavilion;
-  P(parent, SHOP_MAT.tile, w, 0.16, d, 0, 0, -d / 2);
-  B(parent, wall, w, h, 0.25, 0, 0, -d + 0.125);
-  for (const s of [-1, 1]) B(parent, wall, 0.25, h, d, s * (w / 2 - 0.125), 0, -d / 2);
-  B(parent, wall, w + 0.5, 0.2, d + 0.45, 0, h, -d / 2 + 0.12, true);
-  B(parent, MAT.whiteD, w + 0.52, 0.1, 0.1, 0, h + 0.05, 0.36, true);
-  B(parent, MAT.tin, 1.1, 0.75, 0.85, -w / 2 + 1.4, h + 0.2, -d + 1.2, true);
-  // Warm dining room behind the glass: back wall, ceiling, steel tables.
+  const { width: w, depth: d } = shop.record, h = 3.6, doorW = 1.7;
+  P(parent, SHOP_MAT.tile, w, 0.12, d, 0, 0, -d / 2);
   const inner = SHOP_MAT.whiteWall.clone();
   inner.emissive.set(0x8f8573); inner.emissiveMap = inner.map;
   shop.glow.push(inner);
-  rectDecal(parent, inner, w - 0.6, h - 0.3, 0, 0.16, -d + 0.16);
-  B(parent, inner, w - 0.5, 0.05, d - 0.3, 0, h - 0.07, -d / 2, true);
-  for (let i = 0; i < 3; i++) for (const z of [-1.8, -3.6]) {
-    const tx = gx - glassW / 2 + 1.2 + i * (glassW - 2.4) / 2;
-    B(parent, SHOP_MAT.steel, 1.2, 0.05, 0.75, tx, 0.9, z, true);
-    for (const s of [-1, 1]) B(parent, MAT.wood, 1.1, 0.06, 0.32, tx, 0.6, z + s * 0.6, true);
+  // One long side of steel counter panels with sliding glass above, x0..x1 along the face.
+  const glazed = (g, x0, x1) => {
+    const gw = x1 - x0, gx = (x0 + x1) / 2;
+    B(g, SHOP_MAT.steel, gw, 1.25, 0.1, gx, 0.12, 0.02);
+    const pane = new THREE.Mesh(new THREE.PlaneGeometry(gw, 1.0), SHOP_MAT.window);
+    pane.position.set(gx, 1.87, 0.0); g.add(pane);
+    const n = Math.max(2, Math.round(gw / 1.75));
+    for (let i = 0; i <= n; i++) B(g, SHOP_MAT.steel, 0.06, 1.0, 0.08, x0 + i * gw / n, 1.37, 0.01, true);
+    for (let i = 0; i < n; i++) B(g, SHOP_MAT.steel, 0.24, 0.035, 0.05, x0 + (i + 0.5) * gw / n, 0.42, 0.1, true);
+    B(g, SHOP_MAT.steel, gw, 0.06, 0.09, gx, 2.33, 0.01, true);
+  };
+  // North (plaza) side: glass, the TK board and the takeaway door at the west end.
+  const glassW = w - doorW - 0.3, gx = -w / 2 + 0.15 + glassW / 2, doorX = w / 2 - 0.15 - doorW / 2;
+  glazed(parent, -w / 2 + 0.15, -w / 2 + 0.15 + glassW);
+  const sign = artPanel(shop, parent, 'tunday', glassW, 1.05, gx, 2.38, 0.07);
+  rectDecal(parent, MAT.recess, 1.1, 2.15, doorX, 0.12, -0.08);
+  B(parent, MAT.iron, doorW, 1.1, 0.05, doorX, 2.4, 0.02, true);
+  for (let i = 0; i < 12; i++) B(parent, SHOP_MAT.steel, 0.025, 1.0, 0.03, doorX - doorW / 2 + 0.1 + i * (doorW - 0.2) / 11, 2.45, 0.06, true);
+  for (const s2 of [-1, 1]) B(parent, SHOP_MAT.steel, 0.1, 2.27, 0.12, doorX + s2 * 0.62, 0.12, 0.02, true);
+  // South (road) side: full-width glass under "World's famous melt in mouth kababs".
+  const road = grp(parent, 0, -d, Math.PI);
+  glazed(road, -w / 2 + 0.15, w / 2 - 0.15);
+  artPanel(shop, road, 'tundayRoad', w - 0.3, 1.05, 0, 2.38, 0.07);
+  // East end: a short board facing the plaza's east side; the west end meets the gate.
+  const east = grp(parent, -w / 2, -d / 2, -Math.PI / 2);
+  B(east, SHOP_MAT.steel, d - 0.2, 2.3, 0.1, 0, 0.12, 0.02, true);
+  artPanel(shop, east, 'tundaySide', d - 0.4, 1.05, 0, 2.38, 0.07);
+  for (const s2 of [-1, 1]) B(parent, SHOP_MAT.steel, 0.14, h, d, s2 * (w / 2 - 0.07), 0, -d / 2);
+  // Thin flat roof with steel fascias and the black exhaust box on the east half.
+  B(parent, SHOP_MAT.pavilion, w + 0.4, 0.2, d + 0.4, 0, h, -d / 2, true);
+  for (const z of [0.2, -d - 0.2]) B(parent, SHOP_MAT.steel, w + 0.42, 0.16, 0.05, 0, h - 0.02, z, true);
+  B(parent, MAT.black, 1.7, 0.95, 1.3, -w / 2 + 2.6, h + 0.2, -d / 2 + 0.6, true);
+  // Kitchen inside, seen through both sides.
+  B(parent, inner, w - 0.3, 0.05, d - 0.3, 0, h - 0.07, -d / 2, true);
+  B(parent, SHOP_MAT.steel, w - 1.2, 0.92, 0.8, -0.3, 0.12, -d / 2, true);
+  B(parent, MAT.iron, w - 1.4, 0.05, 0.66, -0.3, 1.04, -d / 2, true);
+  B(parent, SHOP_MAT.steel, w - 1.2, 0.45, 1.0, -0.3, 2.5, -d / 2, true);
+  C(parent, SHOP_MAT.copper, 0.55, 0.42, 0.14, -2.6, 1.09, -d / 2, 20, false, true);
+  for (let i = 0; i < 5; i++) C(parent, SHOP_MAT.alu, 0.18, 0.16, 0.3, -0.8 + i * 0.6, 1.09, -d / 2, 10, false, true);
+  // Chain-and-bollard fence on a red sandstone kerb along the road side.
+  const fz = -d - 1.7;
+  B(parent, MAT.red, w + 3, 0.22, 0.45, 0, 0, fz, true);
+  for (let i = 0; i <= 8; i++) {
+    const x = -w / 2 - 1.5 + i * (w + 3) / 8;
+    C(parent, MAT.black, 0.06, 0.07, 0.95, x, 0.22, fz, 8, false, true);
+    S(parent, MAT.black, 0.08, x, 1.2, fz);
+    if (i < 8) {
+      const chain = B(parent, MAT.black, (w + 3) / 8, 0.03, 0.03, x + (w + 3) / 16, 0.95, fz, true);
+      chain.rotation.z = 0;
+    }
   }
-  // Glass front with steel mullions, kick panels and an outside rail.
-  B(parent, SHOP_MAT.steel, glassW, 0.85, 0.07, gx, 0.16, -0.04, true);
-  const pane = new THREE.Mesh(new THREE.PlaneGeometry(glassW, 1.45), SHOP_MAT.window);
-  pane.position.set(gx, 1.74, 0); parent.add(pane);
-  for (let i = 0; i <= 4; i++) B(parent, SHOP_MAT.steel, 0.07, 2.32, 0.09, gx - glassW / 2 + i * glassW / 4, 0.16, 0, true);
-  B(parent, SHOP_MAT.steel, glassW, 0.07, 0.09, gx, 2.46, 0, true);
-  B(parent, SHOP_MAT.steel, glassW, 0.045, 0.045, gx, 0.72, 0.2, true);
-  for (let i = 0; i <= 4; i++) B(parent, SHOP_MAT.steel, 0.04, 0.56, 0.04, gx - glassW / 2 + i * glassW / 4, 0.16, 0.2, true);
-  const sign = artPanel(shop, parent, 'tunday', glassW, 0.98, gx, 2.48, 0.06);
-  // Takeaway door at the east end, under a vent grille, with the counter just inside.
-  rectDecal(parent, MAT.recess, 1.5, 2.3, doorX, 0.16, -0.07);
-  B(parent, MAT.iron, 1.8, 0.85, 0.06, doorX, 2.5, 0.02, true);
-  for (let i = 0; i < 6; i++) B(parent, SHOP_MAT.steel, 1.7, 0.03, 0.03, doorX, 2.56 + i * 0.13, 0.06, true);
-  B(parent, SHOP_MAT.steel, 1.5, 0.95, 0.55, doorX, 0.16, -1.7);
-  B(parent, MAT.woodL, 1.6, 0.05, 0.62, doorX, 1.11, -1.7, true);
-  // The peach heritage pavilion that adjoins it, with pilasters and a cornice.
-  const ax = w / 2 + 1.65;
-  B(parent, SHOP_MAT.peach, 3.3, 4.5, d + 0.3, ax, 0, -d / 2);
-  B(parent, SHOP_MAT.peachD, 3.8, 0.28, d + 0.8, ax, 4.5, -d / 2, true);
-  merlons(parent, SHOP_MAT.peach, ax - 1.6, ax + 1.6, 4.78, 0.0, 4, 0.42, 0.45, 0.3);
-  for (const s of [-1, 1]) B(parent, SHOP_MAT.peachD, 0.32, 4.3, 0.14, ax + s * 1.38, 0, 0.2, true);
-  rectDecal(parent, MAT.door, 1.05, 2.2, ax, 0.05, 0.12);
-  counterCover(shop, 1.55, 2.25, doorX, 2.4, 0.12);
-  counterLight(shop, parent, doorX, 2.4, 0.42, 0.16, 1.7);
+  addCol(parent, 0, fz, (w + 3) / 2, 0.15, 0, 1.0);
+  // Steel gate across the passage, then the peach pavilion with its deep chhajja.
+  for (let i = 0; i < 3; i++) B(parent, SHOP_MAT.steel, 0.95, 0.04, 0.04, w / 2 + 0.5, 0.35 + i * 0.5, -0.4, true);
+  addCol(parent, w / 2 + 0.5, -0.4, 0.5, 0.05, 0, 1.4);
+  const px0 = w / 2 + 1.0, pw = 4.2, pd = d + 1.6, pcx = px0 + pw / 2, pcz = -d / 2 + 0.4;
+  B(parent, SHOP_MAT.peach, pw, 4.6, pd, pcx, 0, pcz);
+  B(parent, SHOP_MAT.peachD, pw + 1.2, 0.18, pd + 1.6, pcx, 4.55, pcz, true);
+  B(parent, SHOP_MAT.peach, pw + 0.3, 0.55, pd + 0.3, pcx, 4.73, pcz, true);
+  for (const x of [px0 + 0.25, pcx, px0 + pw - 0.25]) {
+    B(parent, SHOP_MAT.peachD, 0.36, 4.2, 0.16, x, 0.2, pcz + pd / 2 + 0.08, true);
+    B(parent, SHOP_MAT.peachD, 0.5, 0.2, 0.24, x, 4.25, pcz + pd / 2 + 0.1, true);
+  }
+  B(parent, SHOP_MAT.peachD, pw + 0.1, 0.22, pd + 0.1, pcx, 0, pcz, true);
+  rectDecal(parent, MAT.door, 1.1, 2.3, px0 + 1.05, 0.2, pcz + pd / 2 + 0.02);
+  const jali = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 2.1), SHOP_MAT.jaliDark);
+  jali.position.set(px0 + 1.05, 1.35, pcz + pd / 2 + 0.14); parent.add(jali);
+  rectDecal(parent, MAT.recess, 1.0, 1.4, px0 + 3.0, 1.2, pcz + pd / 2 + 0.02);
+
+  tundayDining(parent, shop);
+  // The green municipal sign to the Picture Gallery stands between the two buildings.
+  {
+    const sg = grp(parent, -8.2, -6.9, Math.PI);
+    for (const x of [-0.55, 0.55]) C(sg, MAT.iron, 0.05, 0.05, 3.6, x, 0, 0, 6, false, true);
+    textBoard(sg, ['पिक्चर गैलरी', 'Picture Gallery'], 1.3, 1.6, 0, 1.9, 0.02, '#1c7a46', '#ffffff');
+  }
+
+  counterCover(shop, glassW, 1.0, gx, 2.37, 0.12);
+  counterLight(shop, parent, gx, 2.33, 0.4, 0.0, glassW * 0.8);
   shopService(shop, {
-    staff: [doorX, -2.3], entry: [doorX + 2.8, 3.6], counter: [doorX, 0.95], exit: [doorX - 3.2, 3.8], floor: 0.16,
+    staff: [gx - 1.2, -1.6], entry: [gx - 4.2, 3.6], counter: [gx + 0.4, 1.7], exit: [doorX + 1.6, 3.4],
   });
   return sign;
+}
+
+/** Cream leaf-shaped merlon (kangura) used on Tunday's dining pavilion. */
+const LEAF_GEO = (() => {
+  const s = new THREE.Shape();
+  s.moveTo(-0.21, 0); s.lineTo(-0.21, 0.32);
+  s.quadraticCurveTo(-0.25, 0.6, 0, 0.82); s.quadraticCurveTo(0.25, 0.6, 0.21, 0.32);
+  s.lineTo(0.21, 0); s.closePath();
+  return new THREE.ExtrudeGeometry(s, { depth: 0.12, bevelEnabled: false }).translate(0, 0, -0.06);
+})();
+/** Tunday's dining pavilion and court, north-east of the kitchen, in the kitchen's
+    local frame. The outline follows the curved structure on the satellite tiles: a
+    peach pavilion on the west with leaf merlons, arched openings and an arched navy
+    awning over its gate on the road side, and a black-fenced court curving round
+    to the east under a lattice pergola lit green after dark. */
+function tundayDining(parent, shop) {
+  const peach = SHOP_MAT.peach, trim = M(0xeee3cc, { map: TEX.plaster });
+  const PAV = [[-11.9, -0.3], [-7.4, 5.6], [-8.0, 12.8], [-14.0, 14.6], [-15.0, 0.8]];
+  const COURT = [[-15.0, 0.8], [-17.9, 2.5], [-21.0, 5.5], [-22.2, 9.0], [-22.5, 13.6], [-18.8, 15.9], [-15.2, 15.6], [-14.0, 14.6]];
+  const H = 4.4;
+  parent.add(extrudeFootprint(PAV, H, peach));
+  parent.add(extrudeFootprint(PAV, 0.25, SHOP_MAT.peachD, H));
+  MAPPED_SOLIDS.push({ feature: { p: PAV.flatMap(([x, z]) => toWorld(shop.frame, x, z)) }, height: H + 0.25 });
+  const centre = [-11, 7];
+  // Leaf merlons round the roof, arched openings and pilasters on every face.
+  for (let i = 0; i < PAV.length; i++) {
+    const a = PAV[i], b = PAV[(i + 1) % PAV.length], f = edgeFrame(a, b, centre);
+    const n = Math.max(1, Math.round(f.len / 0.5));
+    for (let k = 0; k < n; k++) {
+      const q = along(a, b, (k + 0.5) / n), m = new THREE.Mesh(LEAF_GEO, trim);
+      m.position.set(q[0], H + 0.25, q[1]); m.rotation.y = f.rot; m.castShadow = true; parent.add(m);
+    }
+    const arches = Math.max(1, Math.floor(f.len / 2.6));
+    for (let k = 0; k < arches; k++) {
+      const q = along(a, b, (k + 0.5) / arches), g = grp(parent, q[0] + f.nx * 0.02, q[1] + f.nz * 0.02, f.rot);
+      decal(g, 1.3, 2.3, 0, 0.35, -0.12, { cusps: 3, trim: SHOP_MAT.peachD, mat: MAT.recessLit });
+    }
+    B(parent, SHOP_MAT.peachD, f.len + 0.3, 0.3, 0.3, f.mx + f.nx * 0.12, H - 0.5, f.mz + f.nz * 0.12, true).rotation.y = f.rot;
+  }
+  // The gate on the road side: an arched navy awning sign over a black grille.
+  {
+    const f = edgeFrame(PAV[4], PAV[0], centre), q = along(PAV[4], PAV[0], 0.5);
+    const g = grp(parent, q[0] + f.nx * 0.25, q[1] + f.nz * 0.25, f.rot);
+    litBoard(g, 'tundayArch', 3.0, 1.6, 0, 2.45, 0.06, { transparent: true, glow: 0.9 });
+    B(g, MAT.iron, 2.4, 2.4, 0.08, 0, 0.05, 0.02, true);
+    for (let i = 0; i < 11; i++) B(g, MAT.black, 0.03, 2.3, 0.04, -1.1 + i * 0.22, 0.08, 0.08, true);
+  }
+  // Yellow lamp posts in front of the pavilion.
+  const yellow = M(0xe0b02a, { metalness: 0.3, roughness: 0.5 });
+  const lantern = M(0xfff0c8, { emissive: 0xffd28a, emissiveIntensity: 0 });
+  NIGHTFX.push(() => { lantern.emissiveIntensity = 0.15 + TIME.lamps * 1.1; });
+  for (const [x, z] of [[-9.0, -2.0], [-15.5, -1.2], [-6.2, 3.5]]) {
+    C(parent, yellow, 0.07, 0.09, 3.2, x, 0, z, 8);
+    S(parent, lantern, 0.2, x, 3.35, z, 1.3);
+  }
+  // The court: paving, a black iron fence on a sandstone plinth, iron tables and the pergola.
+  flatPoly(parent, SHOP_MAT.tile, [...COURT, [-12.0, 8.0]], 0.03);
+  for (let i = 0; i < COURT.length - 1; i++) {
+    const a = COURT[i], b = COURT[i + 1], f = edgeFrame(a, b, [-17, 9]);
+    B(parent, MAT.red, f.len + 0.1, 0.35, 0.32, f.mx, 0, f.mz).rotation.y = f.rot;
+    B(parent, MAT.black, f.len, 0.05, 0.05, f.mx, 1.25, f.mz, true).rotation.y = f.rot;
+    const n = Math.max(2, Math.round(f.len / 0.18));
+    for (let k = 0; k <= n; k++) { const q = along(a, b, k / n); B(parent, MAT.black, 0.025, 0.9, 0.025, q[0], 0.35, q[1], true); }
+  }
+  const lattice = M(0x2e3b33, { map: TEX.jaali, alphaTest: 0.5, side: THREE.DoubleSide, emissive: 0x31ff9c, emissiveMap: TEX.jaali, emissiveIntensity: 0 });
+  NIGHTFX.push(() => { lattice.emissiveIntensity = TIME.lamps * 0.6; });
+  const pc = [-18.0, 9.0];
+  for (const [dx, dz] of [[-2.8, -3.6], [2.4, -3.6], [-2.8, 3.6], [2.4, 3.6]]) C(parent, MAT.iron, 0.07, 0.08, 2.9, pc[0] + dx, 0, pc[1] + dz, 8);
+  const roof = new THREE.Mesh(new THREE.PlaneGeometry(5.8, 7.8), lattice);
+  roof.rotation.x = -Math.PI / 2; roof.position.set(pc[0] - 0.2, 2.9, pc[1]); parent.add(roof);
+  B(parent, MAT.iron, 5.9, 0.08, 0.08, pc[0] - 0.2, 2.86, pc[1] - 3.9, true); B(parent, MAT.iron, 5.9, 0.08, 0.08, pc[0] - 0.2, 2.86, pc[1] + 3.9, true);
+  for (const [dx, dz] of [[-1.2, -1.8], [1.2, 1.8], [-1.2, 1.8], [1.2, -1.8]]) S(parent, lantern, 0.15, pc[0] + dx, 2.4, pc[1] + dz, 1.3);
+  for (const [tx, tz] of [[-19.5, 5.2], [-16.6, 6.4], [-19.8, 9.4], [-16.8, 10.8], [-19.4, 13.2]]) {
+    C(parent, MAT.iron, 0.5, 0.5, 0.04, tx, 0.74, tz, 14, false, true);
+    C(parent, MAT.iron, 0.05, 0.22, 0.74, tx, 0, tz, 6, false, true);
+    for (let k = 0; k < 4; k++) {
+      const a = k * Math.PI / 2 + 0.4, sx = tx + Math.cos(a) * 0.85, sz = tz + Math.sin(a) * 0.85;
+      B(parent, MAT.iron, 0.42, 0.05, 0.42, sx, 0.45, sz, true);
+      if (chance(0.45)) seatAt(shop.frame, sx, sz, 0.48, Math.atan2(tx - sx, tz - sz));
+    }
+  }
 }
 
 function buildGlobe(parent, shop) {
@@ -712,6 +873,7 @@ function buildShopFronts() {
   for (const shop of SHOP_SITES.values()) {
     const { id, record, frame } = shop;
     const parent = frameGroup(frame);
+    parent.userData.frame = frame;   // lets builders place seats in world space
     streets.add(parent);
     const board = SHOP_BUILDERS[record.style](parent, shop);
     shop.board = shop.boards[0];
@@ -723,7 +885,7 @@ function buildShopFronts() {
     };
     const frontage = record.kind === 'frontage';
     const tgt = world(0, frontage ? 2.6 : 2.05, board.z - 0.05);
-    const views = [
+    const views = record.views ? record.views.map(v => ({ name: SHOP_COPY[v.name], cam: world(...v.cam), tgt: world(...v.tgt) })) : [
       { name: SHOP_COPY.approach, cam: world(1.65, frontage ? 4.6 : 3.0, board.z + (frontage ? 15 : 13)), tgt },
       { name: SHOP_COPY.service, cam: world(-0.5, 2.25, board.z + 5.0), tgt: world(0, 1.65, board.z - 0.7) },
     ];
