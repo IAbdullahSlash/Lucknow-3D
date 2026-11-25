@@ -1,2 +1,4 @@
 # Preserve whitespace in the generated upstream shader strings.
 vendor/three-r160.js -whitespace linguist-generated=true
+# Archived map extracts are hashed byte for byte in data/map.js: never convert their line endings.
+tools/extracts/*.json -text
