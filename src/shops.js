@@ -711,9 +711,10 @@ function buildKebabchi(parent, shop) {
   const { width: w, depth: d } = shop.record, groundH = 3.3;
   B(parent, MAT.stone, w, 0.16, 0.5, 0, 0, 0.25);
   B(parent, SHOP_MAT.whiteWall, w, groundH, d, 0, 0, -d / 2);
-  B(parent, MAT.whiteW, w, 6.6, d, 0, groundH, -d / 2);
-  upperWindows(parent, w, 3.9, 2, 3, { frame: MAT.whiteD });
-  B(parent, MAT.whiteD, w + 0.2, 0.3, 0.3, 0, 9.6, 0.05, true);
+  // single storey under a cream roof, as on the imagery; the fascia stands up as a parapet
+  B(parent, MAT.cream, w + 0.15, 0.28, d + 0.15, 0, groundH, -d / 2);
+  B(parent, MAT.whiteW, w, 1.25, 0.25, 0, groundH, -0.12);
+  B(parent, MAT.whiteD, w + 0.2, 0.12, 0.34, 0, groundH + 1.25, -0.1, true);
   // Dark-framed glass front with Mughal arches onto the chandelier-lit room.
   B(parent, SHOP_MAT.maroonD, w - 0.1, groundH - 0.3, 0.12, 0, 0.16, 0.06, true);
   for (const x of [-2.3, 0, 2.3]) {

@@ -354,6 +354,24 @@ function buildChota() {
     const [x, z] = toWorld(F, centre - first - namedBays[index] * step, edge - 0.95);
     LABELS.push({ id: 'poi' + cell, poi: true, en: SHOPS[cell][0], hi: SHOPS[cell][1], pos: [x, 4.4, z] });
   }
+  // the strip of low shops along the far side of the chowk, facing the gate, with Kebabchi in it
+  {
+    const kb = SHOP_CATALOG['kebabchi-lucknow'], gap = [kb.anchor[0] - kb.width / 2 - 0.25, kb.anchor[0] + kb.width / 2 + 0.25], { x0, x1, z, d } = CHOWK_ROW;
+    const strip = grp(g, 0, z, 0);
+    for (let x = x0; x < x1 - 2.5;) {
+      let w = Math.min(rr(3.4, 5.6), x1 - x);
+      if (x < gap[1] && x + w > gap[0]) { if (gap[0] - x > 2.5) w = gap[0] - x; else { x = gap[1]; continue; } }
+      const cx = x + w / 2, h = rr(3.2, 4.0), dd = d - rr(0, 1.2);
+      B(strip, pick([MAT.whiteD, MAT.whiteW, MAT.cream, MAT.aged, MAT.whiteD]), w - 0.12, h, dd, cx, 0, -dd / 2);
+      B(strip, pick([MAT.whiteD, MAT.cream, MAT.creamD]), w, 0.18, dd + 0.2, cx, h, -dd / 2, true);
+      rectDecal(strip, chance(0.4) ? MAT.recess : MAT.shutter, w - 0.9, Math.min(2.3, h - 1.1), cx, 0.07, 0.01);
+      signBoard(strip, w - 0.45, cx, Math.min(h - 0.95, 2.5), 0.03);
+      if (chance(0.45)) { const aw = B(strip, pick([MAT.cloth, MAT.fabricG, MAT.teal, MAT.gold]), w - 0.25, 0.06, 1.2, cx, Math.min(h - 1.0, 2.4), 0.62, true); aw.rotation.x = 0.24; }
+      x += w;
+    }
+    for (const [a, b] of [[x0, gap[0]], [gap[1], x1]]) MAPPED_SOLIDS.push({ feature: { p: rectWorld(F, a, z - d, b, z) }, height: 4 });
+    bake(strip);                                   // the precinct group was baked above; this strip is merged on its own
+  }
   // Naubat Khana across the open ground, facing the gate
   const n = frameGroup({ x: toWorld(F, 0, -66)[0], z: toWorld(F, 0, -66)[1], rot: F.rot });
   B(n, MAT.stone, 31, 0.7, 14); B(n, MAT.whiteW, 28, 5.4, 12, 0, 0.7, 0); arcadeBox(n, 0, 0, 28, 12, 0.9, 4, 5, 2, { cusps: 3, lit: 0.4 }); B(n, MAT.whiteD, 29, 0.45, 13, 0, 6.1, 0, true);

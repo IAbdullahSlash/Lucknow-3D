@@ -137,8 +137,8 @@ const SHOP_CATALOG = {
       hi: 'हुसैनाबाद मेन रोड की दुकान 38, छोटे इमामबाड़े के दरवाज़े के सामने चौक के पार। नारंगी “K” वाला सफ़ेद रोशन बोर्ड, नीचे मेहराबदार शीशे के दरवाज़े और अंदर झाड़-फ़ानूस, सामने सीख कबाब की अंगीठी।',
       ur: 'حسین آباد مین روڈ کی دکان 38، چھوٹے امام باڑے کے دروازے کے سامنے چوک کے پار۔ نارنجی “K” والا سفید روشن بورڈ، نیچے محراب دار شیشے کے دروازے اور اندر جھاڑ فانوس، سامنے سیخ کباب کی انگیٹھی۔',
     },
-    placement: 'photographed', style: 'kebabchi', kind: 'frontage', frame: 'chota', anchor: [39.4, -61.6], facing: 0,
-    area: 'Opposite Chota Imambara, Husainabad Main Road', sign: ['#f7f4ee', '#cf5a1b'], width: 7.0, depth: 7.0, kerb: 0.03,
+    placement: 'photographed', style: 'kebabchi', kind: 'frontage', frame: 'chota', anchor: [39.3, -45.1], facing: 0,
+    area: 'Opposite Chota Imambara, Husainabad Main Road', sign: ['#f7f4ee', '#cf5a1b'], width: 7.6, depth: 6.2, kerb: 0.03,
     arrival: [-0.6, 3.4], reserve: [4.8, -0.5, 4.6], hours: [12, 23.5],
   },
   'irani-chai': {

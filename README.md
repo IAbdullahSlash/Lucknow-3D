@@ -89,7 +89,7 @@ python3 -m venv .venv
 .venv/bin/python -m unittest discover -s tools -p 'test_build_map.py'
 ```
 
-The candidate records its source timestamp, the extract and query hashes, and typed OSM IDs. Keep the candidate separate until you have checked the building footprints, waterways, pilot route and landmark views in a copy of the app. The checked-in extract predates this metadata.
+The candidate records its source timestamp, the extract and query hashes, and typed OSM IDs. Keep the candidate separate until you have checked the building footprints, waterways, pilot route and landmark views in a copy of the app. The checked-in map was built on 26 November 2026 from the extract archived in `tools/extracts/overpass-2026-11-25T2054Z.json` (OpenStreetMap as of 25 November 2026, 20:54 UTC).
 
 To rebuild the local Three.js bundle from the locked npm packages, run `npm ci --prefix tools/vendor` and `npm run build --prefix tools/vendor`.
 

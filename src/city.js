@@ -183,7 +183,10 @@ const FOOD_SQUARE = [[157.6, 67.7], [181.5, 62.2], [187.2, 82.0], [158.4, 88.6],
 /** Durgadevi Marg's centre line beside the food court, from the same map. */
 const durgadeviX = z => 127.4 + (z - 8.9) * 0.2414;
 
-const CHOWK = [-229, -56, -368, -124, -398, -74, -256, -4];                      // the open ground between the two Husainabad gateways
+const CHOWK = [-229, -56, -368, -124, -398, -74, -256, -4];
+// The strip of low shops on the far side of Husainabad Chowk, facing the Chota Imambara gate (Chota frame, metres),
+// measured on Google zoom-20 imagery: fronts on z = -45, about 7 m deep, from x -20 to 86. Kebabchi stands in it.
+const CHOWK_ROW = { x0: -20, x1: 86, z: -45, d: 7 };                      // the open ground between the two Husainabad gateways
 const SATK_BLOCK = [-224, -24, -216, -46, -224, -66, -241, -88, -252, -106, -205, -110, -188, -118, -150, -140, -138, -100, -158, -62, -177, -37, -196, -12];
 {
   const OPENK = /college|education|hospital|Mosque|worship|monument|museum|grass|meadow|farmland|fountain|toilets|water_tower/i, SOFT = /college|education|hospital/i;
@@ -197,6 +200,7 @@ const SATK_BLOCK = [-224, -24, -216, -46, -224, -66, -241, -88, -252, -106, -205
   addOpen(circlePoly(FRAME.gateE.x, FRAME.gateE.z, 24), 'gateE'); addOpen(circlePoly(FRAME.gateW.x, FRAME.gateW.z, 24), 'gateW');
   addOpen([520, 300, 668, 348, 660, 376, 512, 330], 'naubat-bara');
   addOpen(rectWorld(FRAME.chota, -17, -76, 17, -56), 'naubat-chota');
+  addOpen(rectWorld(FRAME.chota, CHOWK_ROW.x0 - 2, CHOWK_ROW.z - CHOWK_ROW.d - 1.5, CHOWK_ROW.x1 + 2, CHOWK_ROW.z + 1.5), 'chowk-row');
 }
 
 /* ───────────── roads ───────────── */

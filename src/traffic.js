@@ -88,11 +88,29 @@ function prepTraffic() {
   }
   NET.nodes.forEach((nd, n) => {
     const edges = new Set([...nd.out, ...nd.inn].map(L => L.e));
-    if (edges.size >= 3) { let r = 0; for (const e of edges) r = Math.max(r, e.w / 2); nd.J = { n, x: nd.x, z: nd.z, r: r + 1, occ: [], appr: [], cache: new Map(), paths: new Map() }; TR.junctions.push(nd.J); }
+    if (edges.size >= 3) { let r = 0; for (const e of edges) r = Math.max(r, e.w / 2); nd.r = r + 1; nd.isJ = true; }
     const weight = L => ({ primary: 5, secondary: 4, main: 3, tertiary: 3, residential: 0.8, minor: 0.4 })[L.cls];
     if (nd.exit && (nd.out.length || nd.inn.length)) TR.exits.push({ n, out: nd.out, w: weight(nd.out[0] || nd.inn[0]) });
     else if (!nd.exit && nd.out.length && nd.inn.length && nd.inn.some(L => L.cls === 'residential') && inFocus(nd.x, nd.z, -20)) TR.locals.push(n);
   });
+  // junction points joined by short links (the mapped corners of one crossing) act as a single junction:
+  // a vehicle takes the whole cluster at once and holds it until it has driven out of the far side
+  const up = new Map(), root = n => { while (up.get(n) !== n) { up.set(n, up.get(up.get(n))); n = up.get(n); } return n; };
+  NET.nodes.forEach((nd, n) => { if (nd.isJ) up.set(n, n); });
+  const members = n => [...up.keys()].filter(k => root(k) === root(n));
+  for (const L of TR.links) {
+    if (L.len > 20 || !up.has(L.from) || !up.has(L.to) || root(L.from) === root(L.to)) continue;
+    const all = [...members(L.from), ...members(L.to)]; let span = 0;
+    for (const a of all) for (const b of all) span = Math.max(span, Math.hypot(NET.nodes[a].x - NET.nodes[b].x, NET.nodes[a].z - NET.nodes[b].z));
+    if (span < 45) up.set(root(L.from), root(L.to));
+  }
+  const groups = new Map();
+  for (const n of up.keys()) { const r = root(n); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(n); }
+  for (const list of groups.values()) {
+    const J = { n: list[0], nodes: new Set(list), x: 0, z: 0, r: 0, occ: [], appr: [], cache: new Map(), paths: new Map() };
+    for (const n of list) { const nd = NET.nodes[n]; J.x += nd.x / list.length; J.z += nd.z / list.length; J.r = Math.max(J.r, nd.r); nd.J = J; }
+    TR.junctions.push(J);
+  }
   TR.corridor = TR.links.filter(L => L.e.main && L.len > 20);       // the heritage road, which most trips pass along
   buildStands();
 }
@@ -272,7 +290,8 @@ function startMidRoute(v, anywhere) {
     let tot = 0; for (const L of v.route) tot += L.len;
     let r = R() * tot, i = 0; while (i < v.route.length - 1 && r > v.route[i].len) r -= v.route[i++].len;
     const L = v.route[i], s = clamp(r, 1, L.len - 1);
-    if (NET.nodes[L.to].J && s > L.len - stopBack(L) - v.len) continue;            // not in the queue for a junction
+    const Jl = NET.nodes[L.to].J;
+    if (Jl && (inJ(Jl, L.from) || s > L.len - stopBack(L) - v.len)) continue;      // not inside a junction or queuing for one
     if (v.stand) { const j = v.route.indexOf(v.stand.L); if (j < i || (j === i && s > v.stand.s - 4)) v.stand = null; }
     const p = linkAt(L, s, _lb);
     if ((!anywhere && !unseen(p[0], p[1], 6, VEH_FAR)) || !spotFree(L, s, v)) continue;
@@ -362,10 +381,26 @@ function bez(P, u, out) {
   out[3] = 3 * a * a * (P[3] - P[1]) + 6 * a * u * (P[5] - P[3]) + 3 * u * u * (P[7] - P[5]);
   return out;
 }
-/** the path a typical car takes through junction J from link A to link B, as points */
-function movePath(J, A, B) {
-  const key = A.id + '>' + B.id; let pts = J.paths.get(key);
+const inJ = (J, n) => J.nodes.has(n);
+/** the movement v is about to make through junction J: from its link to the first link that leaves J */
+function moveOf(v, J) {
+  let k = v.ri + 1; while (k < v.route.length - 1 && inJ(J, v.route[k].to)) k++;
+  const B = v.route[Math.min(k, v.route.length - 1)];
+  if (v.mv && v.mv.A === v.L && v.mv.B === B) return v.mv;
+  return { A: v.L, B, via: v.route.slice(v.ri + 1, k) };
+}
+/** the path a typical car takes through junction J for movement m, as points */
+function movePath(J, m) {
+  const { A, B } = m, key = A.id + '>' + B.id; let pts = J.paths.get(key);
   if (pts) return pts;
+  if (m.via && m.via.length) {                     // through a cluster: along the lanes of the links inside it
+    const q = [0, 0, 0, 0]; pts = [];
+    for (let s0 = Math.max(0, A.len - 6); s0 <= A.len; s0 += 3) pts.push(...lanePoint(A, s0, laneLat(A, 0, 1.7), q).slice(0, 2));
+    for (const I of m.via) for (let s0 = 0; s0 <= I.len; s0 += 3) pts.push(...lanePoint(I, s0, laneLat(I, 0, 1.7), q).slice(0, 2));
+    for (let s0 = 0; s0 <= Math.min(6, B.len); s0 += 3) pts.push(...lanePoint(B, s0, laneLat(B, 0, 1.7), q).slice(0, 2));
+    J.paths.set(key, pts);
+    return pts;
+  }
   const t = turnInfo(A, B), lane = t.th > 0.5 && t.cross < 0 ? 1 : 0, latA = laneLat(A, A.wide ? lane : 0, 1.7), latB = laneLat(B, B.wide ? lane : 0, 1.7);
   const g = curveGeom(A, B, latA, latB, 4.5, A.len * 0.5), q = [0, 0, 0, 0];
   pts = [...lanePoint(A, Math.max(0, g.s0 - 3), latA, q).slice(0, 2)];
@@ -384,7 +419,7 @@ function conflict(J, m1, m2) {
   if (m1.B === m2.B) return true;                  // both joining the same lane
   const key = m1.A.id + ',' + m1.B.id + ',' + m2.A.id + ',' + m2.B.id; let c = J.cache.get(key);
   if (c === undefined) {
-    const a = movePath(J, m1.A, m1.B), b = movePath(J, m2.A, m2.B); c = false;
+    const a = movePath(J, m1), b = movePath(J, m2); c = false;
     for (let i = 0; i + 3 < a.length && !c; i += 2) for (let j = 0; j + 3 < b.length; j += 2) if (segSeg(a[i], a[i + 1], a[i + 2], a[i + 3], b[j], b[j + 1], b[j + 2], b[j + 3]) < 1.8) { c = true; break; }
     J.cache.set(key, c); J.cache.set(m2.A.id + ',' + m2.B.id + ',' + m1.A.id + ',' + m1.B.id, c);
   }
@@ -394,7 +429,8 @@ function conflict(J, m1, m2) {
     from any other road coming in (two one-way roads merging at a shallow angle meet well before the node) */
 function stopBack(L) {
   if (L.stop !== undefined) return L.stop;
-  const J = NET.nodes[L.to].J; let d = J ? J.r + 0.4 : 0;
+  const nd = NET.nodes[L.to], J = nd.J; let d = J ? nd.r + 0.4 : 0;
+  if (J && inJ(J, L.from)) return (L.stop = Math.min(nd.r * 0.5, L.len * 0.5));   // inside a cluster
   if (J) {
     const la = laneLat(L, 0, 1.7), a = [0, 0, 0, 0], b = [0, 0, 0, 0];
     for (const M of NET.nodes[L.to].inn) {
@@ -412,8 +448,10 @@ function stopBack(L) {
 const stopGap = v => v.L.len - stopBack(v.L) - (v.s + v.len / 2);
 /** is there room beyond the junction to get clear of it? Don't block the box. */
 function exitRoom(v, J) {
-  let need = J.r + v.len + 2;
-  for (let k = v.ri + 1; k < v.route.length && need > 0; k++) {
+  let k0 = v.ri + 1; while (k0 < v.route.length && inJ(J, v.route[k0].to)) k0++;
+  if (k0 >= v.route.length) return true;
+  let need = NET.nodes[v.route[k0].from].r + v.len + 2;
+  for (let k = k0; k < v.route.length && need > 0; k++) {
     const M = v.route[k], la = laneLat(M, M.wide ? v.lane : 0, v.wid);
     for (const u of M.q) if (u !== v && u.v < 1.5 && u.s - u.len / 2 < need && (u.mode === UTURN || Math.abs(u.lat - la) < (u.wid + v.wid) / 2 + 0.35)) return false;
     need -= M.len;
@@ -422,10 +460,10 @@ function exitRoom(v, J) {
 }
 /** may `v` enter junction J now? Not while a crossing movement is inside, nor ahead of someone with right of way */
 function canGo(v, J) {
-  for (const o of J.occ) if (o !== v && conflict(J, v.mv, o.jmv)) return false;
+  for (const o of J.occ) if (o !== v && o.jmv && conflict(J, v.mv, o.jmv)) return false;
   if (!exitRoom(v, J)) return false;
   for (const u of J.appr) {
-    if (u === v || !conflict(J, v.mv, u.mv)) continue;
+    if (u === v || !u.on || !u.L || !conflict(J, v.mv, u.mv)) continue;            // (someone retired earlier this frame is skipped)
     const ut = Math.max(0, stopGap(u)) / Math.max(u.v, 0.8);
     if (ut > 4 && u.wait <= 0) continue;
     if (u.L.rank > v.L.rank + 0.1) { if (v.wait > 12 && ut > 1.6) continue; return false; }     // the bigger road goes first
@@ -454,13 +492,19 @@ function safety(v, term) {
       if (u === v || !u.on) continue;
       if (v.jg && v.stuck > 3 && !u.jg && u.mode === DRIVE && u.v < 0.3 && u.mv && NET.nodes[u.L.to].J === v.jg && stopGap(u) > -0.5) continue;   // they wait for us: no deadlock
       const dx = u.x - v.x, dz = u.z - v.z, ah = dx * fx + dz * fz;
-      if (ah <= 0 || ah > look + u.len / 2) continue;
+      if (ah <= -u.len / 2 || ah > look + u.len / 2) continue;
       const ux = Math.sin(u.yaw), uz = Math.cos(u.yaw), c = Math.abs(ux * fx + uz * fz), sn = Math.sqrt(Math.max(0, 1 - c * c));
-      if (Math.abs(dx * fz - dz * fx) > v.wid / 2 + u.len / 2 * sn + u.wid / 2 * c + 0.25) continue;
+      // nearest part of u's body ahead: its middle, nose or tail (a long carriage can sit beside us with its nose in front)
+      let near = 1e9;
+      for (const k of [0, 0.45, -0.45]) {
+        const px = dx + ux * u.len * k, pz = dz + uz * u.len * k, a2 = px * fx + pz * fz;
+        if (a2 > 0 && Math.abs(px * fz - pz * fx) < v.wid / 2 + u.wid / 2 * c + u.len * 0.05 * sn + 0.3) near = Math.min(near, a2);
+      }
+      if (near > 1e8) continue;
       const bh = -dx * ux - dz * uz;                                   // does u have v in front too? Then whoever is further into the other's path goes first
       if (bh > 0 && bh < u.len / 2 + 2.5 + u.v * 1.2 + v.len / 2 && Math.abs(dx * uz - dz * ux) < u.wid / 2 + v.len / 2 * sn + v.wid / 2 * c + 0.25
           && (bh > ah + 1 || (Math.abs(bh - ah) <= 1 && precedence(u) < pv))) continue;
-      term(Math.max(0.05, ah - v.len / 2 - (u.len / 2 * c + u.wid / 2 * sn)), Math.max(0, u.v * (ux * fx + uz * fz)));
+      term(Math.max(0.05, Math.min(ah - v.len / 2 - (u.len / 2 * c + u.wid / 2 * sn), near - v.len / 2 - 0.3)), Math.max(0, u.v * (ux * fx + uz * fz)));
     }
   }
 }
@@ -546,7 +590,7 @@ function drive(v, dt, P, pa) {
   // junction: wait at the line until it is our turn
   const J = next && NET.nodes[L.to].J;
   if (J && v.jg !== J) {
-    if (!v.mv || v.mv.A !== L || v.mv.B !== next) v.mv = { A: L, B: next };
+    v.mv = moveOf(v, J);
     const g = stopGap(v);
     if (g < 25 && v.arr < 0) v.arr = TR.clock;
     if (g < 30) {
@@ -583,13 +627,13 @@ function advance(v) {
     const A = v.L, B = v.route[v.ri + 1];
     if (!B) { if (!endOfRoute(v)) return; continue; }
     const J = NET.nodes[A.to].J;
-    if (J && v.jg !== J) { v.mv = { A, B }; grant(v, J); }
+    if (J && v.jg !== J) { v.mv = moveOf(v, J); grant(v, J); }
     const over = v.s - A.len; quitLink(v); v.ri++; joinLink(v, B, Math.min(over, B.len - 0.01));
     v.lat = v.latT = v.cv && v.cv.B === B ? v.cv.latB : laneLat(B, B.wide ? v.lane : 0, v.wid);
     v.mv = null; v.arr = -1; v.wait = 0; v.ot = null;
   }
   if (!v.on) return;
-  if (v.jg) { const onB = v.L === v.jgB; if ((onB && v.s > v.jg.r + v.len / 2 + 0.5) || (!onB && v.L !== v.jmv.A)) release(v); }
+  if (v.jg) { const J = v.jg, f = inJ(J, v.L.from), t = inJ(J, v.L.to); if (!t && (!f || v.s > NET.nodes[v.L.from].r + v.len / 2 + 0.5)) release(v); }   // out of the far side
   if (v.cv) { const c = v.cv, u = (v.L === c.A ? v.s - c.s0 : c.A.len - c.s0 + v.s) / c.D; if (u >= 1 || (v.L !== c.A && v.L !== c.B)) v.cv = null; }
 }
 /** at the end of the route: leave the map, or (in view, in the old city) carry on to somewhere else */
@@ -675,7 +719,7 @@ function updateTraffic(dt, t) {
   for (const v of V) {                                         // who is coming up to each junction
     if (!v.on || v.mode !== DRIVE) continue;
     const next = v.route[v.ri + 1], J = next && NET.nodes[v.L.to].J;
-    if (J && v.jg !== J && stopGap(v) < 30) { if (!v.mv || v.mv.A !== v.L || v.mv.B !== next) v.mv = { A: v.L, B: next }; J.appr.push(v); }
+    if (J && v.jg !== J && stopGap(v) < 30) { v.mv = moveOf(v, J); J.appr.push(v); }
   }
   gridBuild(V);
   let n = 0;
