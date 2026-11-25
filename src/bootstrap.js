@@ -42,7 +42,7 @@
   function loadScript(file) {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = file + '?v=35';
+      script.src = file + '?v=38';
       script.onload = resolve;
       script.onerror = () => reject(new Error('Could not load ' + file + '.'));
       document.head.append(script);
@@ -58,7 +58,7 @@
   try {
     for (const file of [
       'data/places.js', 'data/map.js', 'vendor/three-r160.js', 'src/core.js',
-      'src/solar.js', 'src/sky.js', 'src/city.js', 'src/monuments.js', 'src/shops.js', 'src/life.js', 'src/navigation.js', 'src/ui.js',
+      'src/solar.js', 'src/sky.js', 'src/city.js', 'src/monuments.js', 'src/shops.js', 'src/life.js', 'src/traffic.js', 'src/crowd.js', 'src/navigation.js', 'src/ui.js',
     ]) {
       await loadScript(file);
       if (failed) return;

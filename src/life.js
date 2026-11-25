@@ -106,98 +106,11 @@ function vehicleModel(type, color) {
 }
 const lightMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
 
-/* ───────────── traffic simulation on the street graph ───────────── */
-const EXITS = [];
-const MIX_MAIN = ['hatch', 'hatch', 'hatch', 'hatch', 'sedan', 'sedan', 'suv', 'suv', 'auto', 'auto', 'auto', 'auto', 'tempo', 'tempo', 'tempo', 'erick', 'erick', 'erick', 'erick', 'erick', 'erick', 'bike', 'bike', 'bike', 'bike', 'bike', 'bike', 'bike', 'bike', 'scooter', 'scooter', 'scooter', 'scooter', 'scooter', 'scooter', 'cycle', 'cycle', 'rick', 'rick', 'bus', 'citybus', 'traveller', 'loader', 'loader', 'thela'];
-const MIX_LANE = ['bike', 'bike', 'bike', 'bike', 'scooter', 'scooter', 'scooter', 'scooter', 'erick', 'erick', 'erick', 'auto', 'auto', 'cycle', 'cycle', 'cycle', 'rick', 'rick', 'hatch', 'thela'];
-const edgeMajor = e => e.main || /primary|secondary|tertiary/.test(e.k);
-function laneOf(e, v) { return (e.w >= 9 || e.one) ? v.lane : 0; }
-function laneOffset(e, v) { return e.one ? (v.lane ? 0.22 : -0.22) * e.w : e.w >= 9 ? (v.lane ? 0.36 : 0.13) * e.w : Math.min(0.25 * e.w, e.w / 2 - 0.55 * (VDEF[v.type].len > 3 ? 1 : 0.5)); }
-function enterEdge(v, e, d, s) { if (v.e) { const q = v.e.q[v.d > 0 ? 0 : 1], i = q.indexOf(v); if (i >= 0) q.splice(i, 1); } v.e = e; v.d = d; v.s = s; v.wait = 0; e.q[d > 0 ? 0 : 1].push(v); chooseNext(v); }
-function chooseNext(v) {
-  const e = v.e, node = NET.nodes[v.d > 0 ? e.b : e.a], ni = v.d > 0 ? e.b : e.a, def = VDEF[v.type], end = polyAt(e.pl, v.d > 0 ? e.len : 0), tx = end[2] * v.d, tz = end[3] * v.d;
-  let tot = 0; const cand = [];
-  for (const ei of node.e) {
-    const f = NET.edges[ei]; if (!f.veh || f === e || f.w < def.minW || (def.heritage && !f.main)) continue;
-    const d = f.a === ni ? 1 : -1; if (f.one && d < 0) continue; if (f.a === f.b) continue;
-    const st = polyAt(f.pl, d > 0 ? 0 : f.len), dot = (st[2] * d) * tx + (st[3] * d) * tz; if (dot < -0.75) continue;
-    const w = (f.main ? 9 : edgeMajor(f) ? 4.5 : f.k === 'residential' ? 1 : 0.5) * (1 + 2.2 * Math.max(0, dot)) * (f.len < 12 ? 0.6 : 1);
-    cand.push([f, d, w, dot]); tot += w;
-  }
-  if (!cand.length) { v.next = null; v.turn = 1; return; }
-  let r = R() * tot; for (const c of cand) { r -= c[2]; if (r <= 0) { v.next = c; v.turn = 0.4 + 0.6 * Math.max(0, c[3]); return; } }
-  v.next = cand[0]; v.turn = 1;
-}
-function placeAtExit(v) {
-  for (let k = 0; k < 20; k++) { const ni = rpick(EXITS), nd = NET.nodes[ni], e = NET.edges[nd.e.find(i => NET.edges[i].veh)], d = e.a === ni ? 1 : -1; if ((e.one && d < 0) || e.w < VDEF[v.type].minW || (VDEF[v.type].heritage && !e.main)) continue; enterEdge(v, e, d, 0); v.snap = true; return true; }
-  return false;
-}
-function spawnVehicles() {
-  NET.nodes.forEach((n, i) => { if (n.exit) EXITS.push(i); });
-  for (const e of NET.edges) { e.q = [[], []]; let near = true; for (let i = 0; i < e.pl.p.length; i += 2) if (mainProject(e.pl.p[i], e.pl.p[i + 1]).d > 16) { near = false; break; } if (near && /tertiary/.test(e.k) && e.veh) { e.main = true; if (!e.one) e.w = 14; } }
-  const vehE = NET.edges.filter(e => e.veh), wsum = []; let acc = 0;
-  for (const e of vehE) { acc += e.len * (e.main ? 9 : edgeMajor(e) ? 3.2 : e.k === 'residential' ? 0.8 : 0.35); wsum.push(acc); }
-  const pickEdge = () => { const r = R() * acc; let lo = 0, hi = wsum.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (wsum[m] < r) lo = m + 1; else hi = m; } return vehE[lo]; };
-  const mainE = vehE.filter(e => e.main), N = Math.round(250 * Q.cars);
-  const add = (type, e) => {
-    const def = VDEF[type]; if (!e || e.w < def.minW) return null;
-    const color = rpick(def.colors), model = vehicleModel(type, color), mesh = new THREE.Mesh(model.geo, def.shiny ? propMatShiny : propMat); mesh.castShadow = true; mesh.matrixAutoUpdate = false; mesh.frustumCulled = false; scene.add(mesh);
-    let lm = null; if (model.lights) { lm = new THREE.Mesh(model.lights, lightMat); lm.matrixAutoUpdate = false; lm.frustumCulled = false; lm.visible = false; scene.add(lm); }
-    const v = { type, def, mesh, lm, wheels: model.wheels, w0: [], horse: model.horse, l0: -1, len: def.len, lane: def.lane, vmax: def.v * (0.85 + R() * 0.3), v: 0, x: 0, z: 0, yaw: 0, ph: R() * 6, roll: 0, e: null, d: 1, s: 0, next: null, turn: 1, wait: 0, snap: true, on: true, id: LIFE.vehicles.length };
-    for (const w of model.wheels) { if (w[4]) { v.w0.push(nSpoke); SPOKE.setColorAt(nSpoke, _c.set(def.spoke || 0x444444)); nSpoke++; } else v.w0.push(nTyre++); }
-    if (model.horse) { v.l0 = nLeg; for (let k = 0; k < 4; k++) ALEG.setColorAt(nLeg + k, _c.set(model.horse[1]).multiplyScalar(0.8)); nLeg += 4; }
-    const d = e.one ? 1 : (R() < 0.5 ? 1 : -1); enterEdge(v, e, d, R() * e.len); LIFE.vehicles.push(v); return v;
-  };
-  for (let i = 0; i < N; i++) { const e = pickEdge(), major = edgeMajor(e); add(rpick(major ? MIX_MAIN : MIX_LANE), e); }
-  for (let i = 0; i < 26; i++) add(i % 5 < 3 ? 'tonga' : 'baggi', rpick(mainE));          // the heritage road's horse carriages
-  if (SPOKE.instanceColor) SPOKE.instanceColor.needsUpdate = true; if (ALEG.instanceColor) ALEG.instanceColor.needsUpdate = true;
-}
-const GATES = [FRAME.gateE, FRAME.gateW], _pp = [0, 0, 0, 0];
+/* traffic itself (routes, lanes, junctions, stands) lives in traffic.js */
+const _pp = [0, 0, 0, 0];
 function quadLegs(i0, px, py, pz, cy, sy, zc, ph, amp, sc = 1, fat = 1) {
   const a = ALEG.instanceMatrix.array;
   for (let k = 0; k < 4; k++) { const fx = (k & 1 ? 0.2 : -0.2) * sc, fz = zc + (k < 2 ? 0.62 : -0.6) * sc, phase = ph + ((k === 0 || k === 3) ? 0 : Math.PI); setLimb(a, i0 + k, px, py, pz, cy, sy, fx, 1.04 * sc, fz, Math.sin(phase) * amp, 0.13 * sc * fat, 1.04 * sc, 0.15 * sc * fat); }
-}
-function updateTraffic(dt, t) {
-  const V = LIFE.vehicles, P = LIFE.player, nOn = Math.round(V.length * busyAt('traffic', TIME.hour)), ta = TYRE.instanceMatrix.array, sa = SPOKE.instanceMatrix.array, lit = TIME.night > 0.35;
-  for (let i = 0; i < V.length; i++) {
-    const v = V[i], on = i < nOn || (v.def.heritage && v.ph / 6 < Math.min(1, busyAt('crowd', TIME.hour) * 1.4));   // tongas work while visitors are about
-    if (on !== v.on) { v.on = on; v.mesh.visible = on; if (v.lm) v.lm.visible = false; if (!on) { const q = v.e.q[v.d > 0 ? 0 : 1], k = q.indexOf(v); if (k >= 0) q.splice(k, 1); v.w0.forEach((w, k2) => hideInst(v.wheels[k2][4] ? sa : ta, w)); if (v.l0 >= 0) for (let k2 = 0; k2 < 4; k2++) hideInst(ALEG.instanceMatrix.array, v.l0 + k2); } else { v.e.q[v.d > 0 ? 0 : 1].push(v); v.snap = true; } }
-    if (!on) continue;
-    const e = v.e, li = laneOf(e, v), q = e.q[v.d > 0 ? 0 : 1];
-    // gap to the vehicle ahead in the same lane (looking onto the next edge when this one is clear)
-    let gap = 1e9;
-    for (const u of q) if (u !== v && laneOf(e, u) === li && u.s > v.s) { const g = u.s - v.s - (u.len + v.len) / 2; if (g < gap) gap = g; }
-    if (gap > 1e8 && v.next) { const f = v.next[0], q2 = f.q[v.next[1] > 0 ? 0 : 1]; for (const u of q2) if (laneOf(f, u) === laneOf(f, v)) { const g = e.len - v.s + u.s - (u.len + v.len) / 2; if (g < gap) gap = g; } }
-    const rem = e.len - v.s;
-    let target = Math.min(v.vmax * (edgeMajor(e) ? 1 : 0.62), Math.max(0, (gap - 1.3) * 0.9));
-    if (rem < 9) target = Math.min(target, v.vmax * Math.max(v.turn, 0.25 + rem / 12));
-    if (rem < 8 && !edgeMajor(e) && v.next && edgeMajor(v.next[0]) && v.wait < 4) {                 // give way when joining a bigger road
-      const ni = v.d > 0 ? e.b : e.a; let busy = false;
-      for (const ei of NET.nodes[ni].e) { const f = NET.edges[ei]; if (!edgeMajor(f) || !f.veh) continue; for (let k = 0; k < 2 && !busy; k++) for (const u of f.q[k]) { const toNode = (k === 0) === (f.b === ni) ? f.len - u.s : u.s; if (toNode < 12 && u.v > 0.6) { busy = true; break; } } if (busy) break; }
-      if (busy) { target = 0; v.wait += dt; }
-    }
-    if (P && P.active) { const dx = P.x - v.x, dz = P.z - v.z, fx = Math.sin(v.yaw), fz = Math.cos(v.yaw), ah = dx * fx + dz * fz; if (ah > 0 && ah < v.len / 2 + 6.5 && Math.abs(dx * fz - dz * fx) < 1.7) target = 0; }
-    v.v += clamp(target - v.v, -9 * dt, 2.4 * dt); if (v.v < 0) v.v = 0;
-    v.s += v.v * dt;
-    if (v.s >= e.len) {
-      const over = v.s - e.len;
-      if (v.next) enterEdge(v, v.next[0], v.next[1], Math.min(over, v.next[0].len * 0.5));
-      else { const nd = NET.nodes[v.d > 0 ? e.b : e.a]; if ((nd.exit && EXITS.length > 1 && placeAtExit(v)) || false) { /* re-entered elsewhere */ } else if (!e.one) enterEdge(v, e, -v.d, 0); else if (!placeAtExit(v)) v.s = e.len - 0.01; }
-    }
-    // pose: point on the lane line, eased so corners are rounded
-    const E = v.e, a = polyAt(E.pl, v.d > 0 ? v.s : E.len - v.s, _pp), tx = a[2] * v.d, tz = a[3] * v.d; let off = laneOffset(E, v);
-    if (E.main && v.lane === 1 && !E.one) for (const g of GATES) { const dd = Math.hypot(a[0] - g.x, a[1] - g.z); if (dd < 30) off += 3.21 * smooth(1 - dd / 30); }
-    const gx = a[0] + tz * off, gz = a[1] - tx * off;
-    if (v.snap) { v.x = gx; v.z = gz; v.yaw = Math.atan2(tx, tz); v.snap = false; }
-    else { const k = 1 - Math.exp(-dt * 7); v.x += (gx - v.x) * k; v.z += (gz - v.z) * k; let dy = Math.atan2(tx, tz) - v.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; v.yaw += dy * (1 - Math.exp(-dt * 5)); }
-    const cy = Math.cos(v.yaw), sy = Math.sin(v.yaw), bob = v.horse ? Math.abs(Math.sin(t * 7.5 + v.ph)) * 0.035 * Math.min(1, v.v) : 0, m = v.mesh.matrix.elements;
-    m[0] = cy; m[2] = -sy; m[8] = sy; m[10] = cy; m[12] = v.x; m[13] = bob; m[14] = v.z; v.mesh.matrixWorld.copy(v.mesh.matrix);
-    if (v.lm) { v.lm.visible = lit; if (lit) { v.lm.matrix.copy(v.mesh.matrix); v.lm.matrixWorld.copy(v.mesh.matrix); } }
-    v.roll += v.v * dt;
-    for (let k = 0; k < v.wheels.length; k++) { const w = v.wheels[k]; setLimb(w[4] ? sa : ta, v.w0[k], v.x, 0, v.z, cy, sy, w[0], w[2], w[1], v.roll / w[2], w[3], w[2], w[2]); }
-    if (v.l0 >= 0) quadLegs(v.l0, v.x, bob, v.z, cy, sy, v.horse[0], v.roll * 2.6 + v.ph, 0.5 * Math.min(1, v.v / 1.5));
-  }
-  LIFE.nVeh = nOn;
 }
 
 /* ───────────── parked vehicles, standing horses and vendor carts (all static, merged) ───────────── */
@@ -322,8 +235,9 @@ function posePerson(p, t) {
   if (p.legs) { setLimb(PP.leg.instanceMatrix.array, i * 2, p.x, y, p.z, cy, sy, -0.11 * s, 0.86 * s, 0, legA, s, s, s); setLimb(PP.leg.instanceMatrix.array, i * 2 + 1, p.x, y, p.z, cy, sy, 0.11 * s, 0.86 * s, 0, legB, s, s, s); }
   else if (p.sit) { setLimb(PP.leg.instanceMatrix.array, i * 2, p.x, y, p.z, cy, sy, -0.11 * s, 0.86 * s, 0, -1.48, s * 1.3, s * 0.9, s * 1.3); setLimb(PP.leg.instanceMatrix.array, i * 2 + 1, p.x, y, p.z, cy, sy, 0.11 * s, 0.86 * s, 0, -1.48, s * 1.3, s * 0.9, s * 1.3); }
   const shoulder = 0.28 * s * (p.robe ? p.rw * 0.92 : 1);
+  if (p.photo) armA = -1.3;                                   // both hands up, holding a phone to the monument
   const rightArm = p.shop ? -0.86 + 0.23 * Math.sin(t * 2.7 + p.ph)
-    : p.wave ? -2.6 + Math.sin(t * 9) * 0.3 : p.sit ? armA : -armA;
+    : p.photo ? -1.45 : p.wave ? -2.6 + Math.sin(t * 9) * 0.3 : p.sit ? armA : -armA;
   setLimb(PP.arm.instanceMatrix.array, i * 2, p.x, y, p.z, cy, sy, -shoulder, 1.4 * s, 0, armA, s, s, s);
   setLimb(PP.arm.instanceMatrix.array, i * 2 + 1, p.x, y, p.z, cy, sy, shoulder, 1.4 * s, 0, rightArm, s, s, s);
   setLimb(PP.head.instanceMatrix.array, i, p.x, y, p.z, cy, sy, 0, 1.58 * s, 0, 0, s, s, s);
@@ -332,23 +246,18 @@ function posePerson(p, t) {
 }
 function hidePerson(p) { const i = p.i; hideInst(PP.robe.instanceMatrix.array, i); hideInst(PP.torso.instanceMatrix.array, i); for (const k of [0, 1]) { hideInst(PP.leg.instanceMatrix.array, i * 2 + k); hideInst(PP.arm.instanceMatrix.array, i * 2 + k); } hideInst(PP.head.instanceMatrix.array, i); hideInst(PP.hair.instanceMatrix.array, i); if (p.bag >= 0) hideInst(PP.bag.instanceMatrix.array, p.bag); }
 const footEdges = [];
-function pedNext(p) {
-  const e = p.e, ni = p.d > 0 ? e.b : e.a, node = NET.nodes[ni], cand = []; let tot = 0;
-  for (const ei of node.e) { const f = NET.edges[ei]; if (f === e || f.bridge || f.k === 'primary') continue; const w = f.main ? 5 : f.foot || f.prom ? 3 : f.k === 'service' ? 1.4 : 1; cand.push([f, f.a === ni ? 1 : -1, w]); tot += w; }
-  if (!cand.length) { p.d = -p.d; p.s = 0; return; }
-  let r = R() * tot; for (const c of cand) { r -= c[2]; if (r <= 0) { p.e = c[0]; p.d = c[1]; p.s = 0; break; } }
-  p.off = pedOffset(p.e, p.side, p.j);
-}
-const pedOffset = (e, side, j) => e.main ? side * (mainHalfAt(e) + 1.2 + j * 1.4) : e.veh ? side * (e.w / 2 - 0.15 + j * 0.5) : side * e.w * 0.32 * j;
+const pedOffset = (e, side, j) => e.main ? side * ((e.one ? e.w / 2 : mainHalfAt(e)) + 1.2 + j * 1.4) : e.veh ? side * (e.w / 2 - 0.15 + j * 0.5) : side * e.w * 0.32 * j;
 function hasFootpath(e) { if (e.fp === undefined) { const m = mainProject(e.pl.p[0], e.pl.p[1]).s; e.fp = !!e.main && m > S_PARK0 + 2 && !(m > S_DUAL1 - 8 && m < S_RUMI1 + 6); } return e.fp; }
 const mainHalfAt = e => { const m = mainProject(e.pl.p[0], e.pl.p[1]); return mainHalf(m.s); };
 function spawnPeople() {
   for (const e of NET.edges) if (e.ped && !e.bridge && e.k !== 'primary' && e.len > 6) footEdges.push(e);
-  const wsum = []; let acc = 0; for (const e of footEdges) { const mp = mainProject(e.pl.p[0], e.pl.p[1]); acc += e.len * (e.main ? 7 : e.prom ? 6 : mp.d < 160 ? 1.6 : mp.d < 420 ? 0.55 : 0.2); wsum.push(acc); }
-  const pickEdge = () => { const r = R() * acc; let lo = 0, hi = wsum.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (wsum[m] < r) lo = m + 1; else hi = m; } return footEdges[lo]; };
   const scale = Q.people;
-  for (let i = 0, n = Math.round(800 * scale); i < n; i++) { const p = newPerson(); if (!p) break; p.mode = 1; p.e = pickEdge(); p.d = R() < 0.5 ? 1 : -1; p.s = R() * p.e.len; p.side = R() < 0.5 ? 1 : -1; p.j = R(); p.off = pedOffset(p.e, p.side, p.j); p.moving = true; p.snap = true; }
-  for (const zn of ZONES) for (let i = 0, n = Math.max(1, Math.round(zn.n * scale * 1.6)); i < n; i++) { const p = newPerson(); if (!p) break; p.mode = 2; p.zone = zn; p.y = zn.y; const w = toWorld(zn.f, lerp(zn.x0, zn.x1, R()), lerp(zn.z0, zn.z1, R())); p.x = w[0]; p.z = w[1]; const tt = toWorld(zn.f, lerp(zn.x0, zn.x1, R()), lerp(zn.z0, zn.z1, R())); p.tx = tt[0]; p.tz = tt[1]; p.wait = R() < 0.45 ? R() * 12 : 0; p.yaw = R() * TAU; }
+  spawnWalkers(scale);                                        // people going places on foot: crowd.js
+  for (const zn of ZONES) for (let i = 0, n = Math.max(1, Math.round(zn.n * scale * 1.6)); i < n; i++) {   // moved onto open ground once the walkable map exists
+    const p = newPerson(); if (!p) break;
+    const w = toWorld(zn.f, lerp(zn.x0, zn.x1, R()), lerp(zn.z0, zn.z1, R()));
+    p.mode = 2; p.zone = zn; p.y = zn.y; p.x = p.tx = w[0]; p.z = p.tz = w[1]; p.wait = R() < 0.45 ? R() * 12 : 0; p.yaw = R() * TAU; p.look = zoneLook(zn);
+  }
   for (const st of SEATS) { if (R() > 0.55 + 0.4 * scale) continue; const p = newPerson(R() < 0.3 ? 2 : undefined); if (!p) break; p.mode = 3; p.sit = true; p.x = st[0]; p.y = st[1]; p.z = st[2]; p.yaw = st[3]; }
   for (const [x, z, yaw, type] of VENDORS) {
     const v = newPerson(R() < 0.75 ? (R() < 0.5 ? 0 : 1) : 3); if (!v) break; v.mode = 3; const back = type === 'candy' || type === 'balloon' ? 0 : -0.95; v.x = x + Math.sin(yaw) * back; v.z = z + Math.cos(yaw) * back; v.yaw = v.yaw0 = yaw; v.vend = true;
@@ -404,31 +313,34 @@ let _pf = 0;
 function updatePeople(dt, t) {
   const A = LIFE.people, nOn = Math.round(A.length * busyAt('crowd', TIME.hour)), cx = camera.position.x, cz = camera.position.z, P = LIFE.player, pa = !!(P && P.active); _pf++;
   const market = marketActivity(TIME.hour);
+  let shown = 0;
   for (let i = 0; i < A.length; i++) {
     const p = A[i];
+    if (p.walker) continue;                                   // walkers are moved by crowd.js
     const on = p.market ? (p.market.stall.shop?.activity ?? market) > p.market.threshold
       : p.shop ? p.shop.activity > 0.36 : (i * 7919) % A.length < nOn;
-    if (on !== p.on) { p.on = on; if (!on) hidePerson(p); else p.dirty = true; }
-    if (!on) continue;
+    if (on !== p.on && (p.market || p.shop || unseen(p.x, p.z, 2, PED_FAR))) { p.on = on; if (!on) hidePerson(p); else p.dirty = true; }   // nobody pops up in view
+    if (!p.on) continue;
+    shown++;
     const far = Math.abs(p.x - cx) + Math.abs(p.z - cz) > 420; if (far && (i + _pf) % 4) continue; const d = far ? dt * 4 : dt;
     if (p.market) {
       updateMarketCustomer(p, d, t);
     } else if (p.shop) {
       posePerson(p, t);
-    } else if (p.mode === 1) {
-      p.s += p.sp * d; if (p.s >= p.e.len) pedNext(p);
-      const a = polyAt(p.e.pl, p.d > 0 ? p.s : p.e.len - p.s, _pp), tx = a[2] * p.d, tz = a[3] * p.d; let gx = a[0] + tz * p.off, gz = a[1] - tx * p.off;
-      if (pa) {      // bend the path sideways round the walker, starting a few steps ahead
-        const ax = gx - P.x, az = gz - P.z, along = ax * tx + az * tz, lat = ax * tz - az * tx;
-        if (Math.abs(along) < 2.8 && Math.abs(lat) < 1.35) { const push = (1.35 - Math.abs(lat)) * smooth(1.25 - Math.abs(along) / 2.8 * 1.25) * (lat > 0.03 ? 1 : lat < -0.03 ? -1 : p.i & 1 ? 1 : -1); gx += tz * push; gz -= tx * push; }
-      }
-      if (p.snap) { p.x = gx; p.z = gz; p.snap = false; } else { const k = Math.min(1, d * 3); p.x += (gx - p.x) * k; p.z += (gz - p.z) * k; }
-      p.yaw = Math.atan2(tx, tz); p.y = Math.abs(p.off) > 7.2 && hasFootpath(p.e) ? 0.16 : 0; p.ph += p.sp * d * 4.6; posePerson(p, t);
     } else if (p.mode === 2) {
-      if (p.wait > 0) { p.wait -= d; if (pa && giveWay(p, P, 1.25, d)) { p.ph += d * 6; p.moving = true; posePerson(p, t); } else if (p.moving || p.dirty) { p.moving = false; p.dirty = false; posePerson(p, t); } continue; }
+      if (p.wait > 0) {                                       // standing about: turn to look at the monument, maybe take a photo
+        p.wait -= d;
+        let turned = false;
+        if (p.look) { let dy = Math.atan2(p.look[0] - p.x, p.look[1] - p.z) - p.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; if (Math.abs(dy) > 0.02) { p.yaw += dy * Math.min(1, d * 2); turned = true; } }
+        if (p.wait <= 0 && p.photo) { p.photo = false; turned = true; }
+        if (pa && giveWay(p, P, 1.25, d)) { p.ph += d * 6; p.moving = true; posePerson(p, t); } else if (p.moving || p.dirty || turned) { p.moving = false; p.dirty = false; posePerson(p, t); }
+        continue;
+      }
       const dx = p.tx - p.x, dz = p.tz - p.z, dd = Math.hypot(dx, dz);
-      if (dd < 0.35) { const zn = p.zone, w = toWorld(zn.f, lerp(zn.x0, zn.x1, R()), lerp(zn.z0, zn.z1, R())); p.tx = w[0]; p.tz = w[1]; if (R() < 0.5) p.wait = 2 + R() * 14; }
-      else { p.x += dx / dd * p.sp * 0.85 * d; p.z += dz / dd * p.sp * 0.85 * d; p.yaw = Math.atan2(dx, dz); p.ph += p.sp * d * 4; p.moving = true; }
+      if (dd < 0.35) {                                        // somewhere new that can be walked to in a straight line
+        const w = strollTarget(p); if (w) { p.tx = w[0]; p.tz = w[1]; }
+        if (!w || R() < 0.55) { p.wait = 3 + R() * 18; p.photo = !!p.look && R() < 0.22; }
+      } else { p.x += dx / dd * p.sp * 0.8 * d; p.z += dz / dd * p.sp * 0.8 * d; p.yaw = Math.atan2(dx, dz); p.ph += p.sp * d * 4; p.moving = true; }
       if (pa) giveWay(p, P, 1.25, d);
       posePerson(p, t);
     } else {
@@ -440,7 +352,9 @@ function updatePeople(dt, t) {
       if (p.dirty !== false) { p.dirty = false; posePerson(p, t); }
     }
   }
-  LIFE.nPeople = nOn;
+  updateWalkers(dt, t);
+  for (const g of CROWD.groups) if (g.on) { shown += g.members.length; if (pa) for (const p of g.members) if (giveWay(p, P, 1.3, dt)) posePerson(p, t); }
+  LIFE.nPeople = shown;
 }
 
 /* ───────────── birds, kites, fountains, smoke ───────────── */

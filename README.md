@@ -66,7 +66,9 @@ Use `H` for photo mode, `P` to save a screenshot, `M` for the minimap, `L` to cy
 | `src/city.js` | Ground, roads, footpaths, river, houses grown along the real lanes, trees, lamps, wires |
 | `src/monuments.js` | The hand-modelled monuments, each in its surveyed position and orientation |
 | `src/shops.js` | Featured shopfronts, street fittings, counter lights and service schedules |
-| `src/life.js` | Traffic on the street graph, horses, people, stray cows, dogs and goats, vendors, birds, kites, fountains |
+| `src/life.js` | Vehicle and people models, pony rides, stray cows, dogs and goats, vendors, birds, kites, fountains |
+| `src/traffic.js` | Vehicles on real trips across the street graph: keeping left, following and overtaking, right of way at junctions, auto, bus and tonga stands |
+| `src/crowd.js` | People walking to the monuments, shops and lanes: pavements, street corners, crossings at junctions, family groups, strollers in the squares |
 | `src/navigation.js` | Walkable floors, water, bridge decks and building collisions |
 | `src/ui.js` | Explore / walk / tour, labels, minimap, options, sound, main loop |
 
@@ -99,6 +101,7 @@ To rebuild the local Three.js bundle from the locked npm packages, run `npm ci -
 - Ordinary houses are generated along the real lanes; individual buildings are not real.
 - Chai Mahal uses the tea-shop point in the checked-in OpenStreetMap extract. The five other featured shops use illustrated placements and façades. Opening, service and closing follow scene schedules.
 - Rumi Darwaza is shown as it is now: closed to vehicles, with traffic looping round its north end.
+- Traffic and crowds are simulated, not counted. Vehicles keep left, take turns at junctions and stop at stands placed outside the main monuments; people walk on the pavements and cross at junctions. Numbers follow the time of day.
 - The short history notes in the app are summaries and should be checked before being quoted.
 
 ## Credits
