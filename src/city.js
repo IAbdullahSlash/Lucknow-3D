@@ -77,15 +77,19 @@ const SHOPS = [
 const SHOP_IDS = Object.keys(SHOP_CATALOG);
 const SIGN_ROWS = 32;
 const shopCell = name => SHOPS.findIndex(shop => shop[0] === name);
-const genericCell = () => ri(SHOPS.length + SHOP_IDS.length, SIGN_ROWS * 4 - 1);
+const genericCell = () => ri(SHOPS.length + SHOP_IDS.length + FRONT_SIGNS.length, SIGN_ROWS * 4 - 1);
 const signUV = c => { const u0 = (c % 4) / 4, v1 = 1 - ((c / 4) | 0) / SIGN_ROWS; return [u0, v1 - 1 / SIGN_ROWS, u0 + 0.25, v1]; };
 /** give the real names to the house fronts nearest to where those businesses stand */
 function nameShops() {
+  const front = h => [h.x + h.vx * (h.hd + 0.4), h.z + h.vz * (h.hd + 0.4)], surveyed = new Map(HOUSES.filter(h => h.poi).map(h => [h.poi, h]));
   SHOPS.forEach((q, i) => {
-    if (q[4] !== 0) return; let best = null, bd = 48;
-    for (const h of HOUSES) { if (h.inst || h.sign !== undefined) continue; const d = Math.hypot(h.x - q[2], h.z - q[3]) + (h.shop ? 0 : 6); if (d < bd) { bd = d; best = h; } }
-    if (best) { best.shop = true; best.sign = i; q[5] = [best.x + best.vx * (best.hd + 0.4), best.z + best.vz * (best.hd + 0.4)]; } else q[4] = 1;
+    if (q[4] !== 0) return;
+    if (surveyed.has(q[0])) { q[5] = front(surveyed.get(q[0])); return; }     // found on Street View: its label goes on that front
+    let best = null, bd = 48;
+    for (const h of HOUSES) { if (h.inst || h.real || h.sign !== undefined) continue; const d = Math.hypot(h.x - q[2], h.z - q[3]) + (h.shop ? 0 : 6); if (d < bd) { bd = d; best = h; } }
+    if (best) { best.shop = true; best.sign = i; q[5] = front(best); } else q[4] = 1;
   });
+  for (const h of HOUSES) for (const [en, hi, y] of h.labels || []) { const [x, z] = front(h); LABELS.push({ id: 'front' + LABELS.length, poi: true, en, hi, pos: [x, y, z] }); }
 }
 
 /* ground layers: same plane, separated by polygon offset so nothing shimmers */
@@ -188,8 +192,16 @@ const CHOWK = [-229, -56, -368, -124, -398, -74, -256, -4];
 // measured on Google zoom-20 imagery: fronts on z = -45, about 7 m deep, from x -20 to 86. Kebabchi stands in it.
 const CHOWK_ROW = { x0: -20, x1: 86, z: -45, d: 7 };                      // the open ground between the two Husainabad gateways
 const SATK_BLOCK = [-224, -24, -216, -46, -224, -66, -241, -88, -252, -106, -205, -110, -188, -118, -150, -140, -138, -100, -158, -62, -177, -37, -196, -12];
+/** a point on the south side of the heritage road, `off` metres from its centre line */
+const southAt = (s, off) => { const a = polyAt(MAIN, s); return [a[0] - a[3] * off, a[1] + a[2] * off]; };
+/** a band along the south side of the heritage road from s0 to s1, o0 to o1 metres beyond the road edge */
+function southBand(s0, s1, o0, o1) {
+  const near = [], far = [];
+  for (let s = s0; ; s = Math.min(s + 4, s1)) { const h = mainHalf(s); near.push(...southAt(s, h + o0)); far.unshift(...southAt(s, h + o1)); if (s >= s1) break; }
+  return near.concat(far);
+}
 {
-  const OPENK = /college|education|hospital|Mosque|worship|monument|museum|grass|meadow|farmland|fountain|toilets|water_tower/i, SOFT = /college|education|hospital/i;
+  const OPENK = /college|education|hospital|Mosque|worship|monument|museum|grass|meadow|farmland|fountain|toilets|water_tower|wastewater/i, SOFT = /college|education|hospital/i;
   MAP.green.forEach(g => addOpen(g.p, g.n, false, g.holes)); MAP.water.forEach(w => addOpen(w.p, w.n, false, w.holes));
   MAP.areas.forEach(a => { if (OPENK.test(a.k)) addOpen(a.p, a.n, SOFT.test(a.k), a.holes); });
   MAP.buildings.forEach(b => addOpen(inflate(b.p, 3), b.n));
@@ -201,6 +213,7 @@ const SATK_BLOCK = [-224, -24, -216, -46, -224, -66, -241, -88, -252, -106, -205
   addOpen([520, 300, 668, 348, 660, 376, 512, 330], 'naubat-bara');
   addOpen(rectWorld(FRAME.chota, -17, -76, 17, -56), 'naubat-chota');
   addOpen(rectWorld(FRAME.chota, CHOWK_ROW.x0 - 2, CHOWK_ROW.z - CHOWK_ROW.d - 1.5, CHOWK_ROW.x1 + 2, CHOWK_ROW.z + 1.5), 'chowk-row');
+  for (const [s0, s1, depth, kind] of FRONT_GROUNDS) addOpen(southBand(s0, s1, 0.3, depth), kind);   // walled grounds on Hussainabad Trust Road
 }
 
 /* ───────────── roads ───────────── */
@@ -315,8 +328,13 @@ function obbHit(a, b) {
   }
   return true;
 }
+function addHouse(h) {
+  const k = Math.floor(h.x / 16) * 4096 + Math.floor(h.z / 16); let l = HGRID.get(k); if (!l) HGRID.set(k, l = []); l.push(h); HOUSES.push(h);
+  COLLIDERS.push({ x: h.x, z: h.z, ax: h.ux, az: h.uz, bx: h.vx, bz: h.vz, hw: h.hw, hd: h.hd, yb: 0, yt: h.h });
+  return h;
+}
 function tryHouse(x, z, w, d, rot, cfg) {
-  if (!inFocus(x, z)) return null;
+  if (!inFocus(x, z) || (cfg.main && inFrontage(x, z))) return null;
   const c = Math.cos(rot), s = Math.sin(rot), h = { x, z, hw: w / 2, hd: d / 2, ux: c, uz: -s, vx: s, vz: c, rot };
   if (blocksPilotTrail(h) || SHOP_PLOTS.some(plot => obbHit(h, plot))) return null;
   const Bd = MAP.bounds;
@@ -329,9 +347,52 @@ function tryHouse(x, z, w, d, rot, cfg) {
   for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const l = HGRID.get((gx + i) * 4096 + gz + j); if (l) for (const o of l) if (obbHit(h, o)) return null; }
   h.floors = pick(cfg.floors); h.h = h.floors * 3.15 + 0.95 + rr(0, 0.35); h.shop = chance(cfg.shop); h.style = chance(0.2) ? 1 : chance(0.16) ? 2 : 0;
   h.front = cfg.main ? 2 : cfg.shop > 0.5 ? 1 : 0;
-  const k = gx * 4096 + gz; let l = HGRID.get(k); if (!l) HGRID.set(k, l = []); l.push(h); HOUSES.push(h);
-  COLLIDERS.push({ x, z, ax: h.ux, az: h.uz, bx: h.vx, bz: h.vz, hw: h.hw, hd: h.hd, yb: 0, yt: h.h });
-  return h;
+  return addHouse(h);
+}
+
+/* ───────────── Hussainabad Trust Road as surveyed (data/frontage.js) ───────────── */
+const FRONT_SIGNS = [];                     // sign cells after SHOPS and the featured shops
+const FRONT_SPAN = [FRONTAGE[0][0] - 1, FRONTAGE[FRONTAGE.length - 1][1] + 1];
+const FRONT_SET = 3.35;                     // shop fronts stand at the back of the 3.3 m footpath
+/** inside the surveyed row: procedural main-road houses stay out */
+function inFrontage(x, z) { const mp = mainProject(x, z); return mp.side < 0 && mp.s > FRONT_SPAN[0] && mp.s < FRONT_SPAN[1] && mp.d < mainHalf(mp.s) + 24; }
+const frontSign = sign => { FRONT_SIGNS.push(sign); return SHOPS.length + SHOP_IDS.length + FRONT_SIGNS.length - 1; };
+const titleCase = t => t.split(' ').map(w => w.length <= 2 || w.includes('.') ? w : w[0] + w.slice(1).toLowerCase()).join(' ');
+/** is the ground t metres behind the shop-front line at s free of roads and the featured shops? */
+function frontClear(s, t) {
+  const [x, z] = southAt(s, mainHalf(s) + FRONT_SET + t);
+  return roadGap(x, z) > 0.3 && !SHOP_PLOTS.some(p => Math.abs((x - p.x) * p.ux + (z - p.z) * p.uz) < p.hw && Math.abs((x - p.x) * p.vx + (z - p.z) * p.vz) < p.hd);
+}
+/** a block from s0 to s1 along the road and t0 to t1 behind the shop-front line, facing the road */
+function frontBlock(s0, s1, t0, t1, props) {
+  const sc = (s0 + s1) / 2, a = polyAt(MAIN, sc), rot = Math.atan2(a[3], -a[2]), [x, z] = southAt(sc, mainHalf(sc) + FRONT_SET + (t0 + t1) / 2);
+  const h = { x, z, hw: (s1 - s0) / 2 - 0.06, hd: (t1 - t0) / 2, ux: Math.cos(rot), uz: -Math.sin(rot), vx: Math.sin(rot), vz: Math.cos(rot), rot, real: true, front: 0, style: 0, shop: false, ...props };
+  h.h = h.floors * 3.15 + 0.95;
+  return addHouse(h);
+}
+function buildFrontage() {
+  const tint = c => c === 'brick' ? 0xffffff : parseInt(c.slice(1), 16), named = new Set();
+  const fascia = new Set(FRONTAGE.filter(r => r[4]).map(r => titleCase(r[4][0])));
+  const label = (h, board, y) => { const en = titleCase(board[0]); if (!named.has(en)) { named.add(en); h.labels.push([en, board[1], y]); } };
+  for (const [a0, a1, floors, wall, sign, x = {}] of FRONTAGE) {
+    let s0 = a0, s1 = a1;
+    // the map draws some lanes wider than they are: give way to them rather than lose the plot
+    const ok = s => frontClear(s, 0.4) && frontClear(s, 4);
+    for (let k = 0; k < 10 && s1 - s0 > 1.4 && !ok(s0 + 0.3); k++) s0 += 0.4;
+    for (let k = 0; k < 10 && s1 - s0 > 1.4 && !ok(s1 - 0.3); k++) s1 -= 0.4;
+    const across = [s0 + 0.3, (s0 + s1) / 2, s1 - 0.3];
+    if (!across.every(s => frontClear(s, 0.4))) { console.warn('frontage plot blocked by the map', a0, a1); continue; }
+    let depth = 1; while (depth < 16 && across.every(s => frontClear(s, depth + 0.5))) depth += 0.5;
+    const split = x.back && depth >= 7.5, d0 = split ? Math.min(5.5, depth * 0.45) : depth;
+    const front = frontBlock(s0, s1, 0, d0, { floors, style: wall === 'brick' ? 1 : 0, tint: tint(wall), shop: true, front: 2, awn: x.awn, poi: x.poi, labels: [] });
+    if (sign) { front.sign = frontSign(sign); if (!x.poi) label(front, sign, 5.3); }
+    const top = split ? frontBlock(s0, s1, d0 + 0.25, depth, { floors: x.back, style: 1, tint: 0xffffff }) : front;
+    if (x.roof) { top.roofSign = frontSign(x.roof); if (!x.poi && !fascia.has(titleCase(x.roof[0]))) label(front, x.roof, top.h + 2); }   // a roof board for a shop further on is not its label
+  }
+  // buildings standing inside the walled grounds
+  frontBlock(484, 499, 18, 26, { floors: 1, tint: 0xf3efe6 });       // the zonal office
+  frontBlock(726, 742, 3, 10, { floors: 1, tint: 0xf6f4ee });        // the campus office on the road
+  frontBlock(760, 767, 0.4, 8, { floors: 2, tint: 0xe7a3c4 });       // the pink house at the corner of Nimbu Park
 }
 function rowAlong(pl, side, setback, cfg) {
   let s = rr(0.5, 4); const a = [0, 0, 0, 0];
@@ -349,6 +410,7 @@ function buildHouses() {
   const order = { main: 0, primary: 1, secondary: 1, tertiary: 1, tertiary_link: 1, primary_link: 1, secondary_link: 1, residential: 2, living_street: 2, service: 3 };
   const roads = MAP.roads.filter(r => r._in && !/footway|path|steps/.test(r.k) && !r.b && !r._prom).sort((a, b) => (a._main ? 0 : order[a.k]) - (b._main ? 0 : order[b.k]));
   const rows = Q.houses >= 1 ? 3 : 2;
+  buildFrontage();
   // shops facing the open ground between the gateways
   rowAlong(polyline([-231, -57, -368, -125]), -1, 0.5, { w0: 4.5, w1: 8, d0: 7, d1: 10, rows: 2, floors: [1, 2, 2, 3], shop: 1, main: true });
   for (const r of roads) {
@@ -430,11 +492,13 @@ function drawSigns() {
     x.textAlign = 'center'; x.textBaseline = 'middle';
     for (let i = 0; i < SIGN_ROWS * 4; i++) {
       const cx = (i % 4) * 256, cy = ((i / 4) | 0) * 64;
-      const real = SHOPS[i], feature = SHOP_CATALOG[SHOP_IDS[i - SHOPS.length]];
+      const real = SHOPS[i], feature = SHOP_CATALOG[SHOP_IDS[i - SHOPS.length]], surveyed = FRONT_SIGNS[i - SHOPS.length - SHOP_IDS.length];
       let a, b, bg, fg;
       if (feature) {
         [a, b] = [feature.name.en, feature.name.hi];
         [bg, fg] = feature.sign;
+      } else if (surveyed) {
+        [a, b, bg, fg] = surveyed;
       } else if (real) {
         [a, b] = real;
         [bg, fg] = real[4] === 4 ? ['#14553a', '#ffffff'] : BG[(i * 3 + 1) % BG.length];
@@ -461,7 +525,7 @@ function buildHouseMeshes() {
   for (const [k, list] of buckets) {
     const st = (k / 100) | 0, fl = ((k % 100) / 10) | 0, sh = k % 10;
     const im = new THREE.InstancedMesh(box, [facade(st, fl, false), roof, facade(st, fl, sh)], list.length);
-    list.forEach((h, i) => { o.position.set(h.x, 0, h.z); o.rotation.y = h.rot; o.scale.set(h.hw * 2, h.h, h.hd * 2); o.updateMatrix(); im.setMatrixAt(i, o.matrix); h.tint = st === 1 ? pick([0xffffff, 0xf2e6dc, 0xe6d6cc]) : pick(HOUSE_TINTS); im.setColorAt(i, col.set(h.tint)); });
+    list.forEach((h, i) => { o.position.set(h.x, 0, h.z); o.rotation.y = h.rot; o.scale.set(h.hw * 2, h.h, h.hd * 2); o.updateMatrix(); im.setMatrixAt(i, o.matrix); if (h.tint === undefined) h.tint = st === 1 ? pick([0xffffff, 0xf2e6dc, 0xe6d6cc]) : pick(HOUSE_TINTS); im.setColorAt(i, col.set(h.tint)); });
     im.castShadow = im.receiveShadow = true; im.frustumCulled = false; scene.add(im);
   }
   NIGHTFX.push(n => { for (const m of houseMats) m.emissiveIntensity = n * 0.95; });
@@ -483,22 +547,29 @@ function buildHouseMeshes() {
   tarp.forEach((q, i) => { o.position.set(q[0], q[1], q[2]); o.rotation.set(0.08, q[3], 0.05); o.scale.set(q[4] * 1.1, 1, q[5] * 0.9); o.updateMatrix(); tp.setMatrixAt(i, o.matrix); }); o.rotation.set(0, 0, 0); tp.castShadow = true; tp.frustumCulled = false; scene.add(tp);
 
   // signboards and awnings on shop fronts
-  const pos = [], uv = [], nor = [], awn = [], goods = [];
+  const pos = [], uv = [], nor = [], awn = [], goods = [], AWN = [0xb3261e, 0x1f7a8c, 0xe2a400, 0x2e7d4f, 0xd35400, 0x1b6ca8, 0xe9e2d0, 0x8a2f4f];
+  const board = (h, hw, y0, off, cell) => { const fx = h.x + h.vx * (h.hd + off), fz = h.z + h.vz * (h.hd + off), q = signUV(cell), y1 = y0 + hw * 0.5, c = [[-hw, y0, q[0], q[1]], [hw, y0, q[2], q[1]], [hw, y1, q[2], q[3]], [-hw, y1, q[0], q[3]]]; for (const i of [0, 1, 2, 0, 2, 3]) { pos.push(fx + h.ux * c[i][0], c[i][1], fz + h.uz * c[i][0]); uv.push(c[i][2], c[i][3]); nor.push(h.vx, 0, h.vz); } };
   for (const h of HOUSES) {
+    if (h.roofSign !== undefined) board(h, Math.min(h.hw * 0.95, 2.3), h.h + 0.2, -0.15, h.roofSign);     // boards standing on the roof, as surveyed
     if (!h.shop) continue;
-    const board = (hw, y0, off, cell) => { const fx = h.x + h.vx * (h.hd + off), fz = h.z + h.vz * (h.hd + off), q = signUV(cell), y1 = y0 + hw * 0.5, c = [[-hw, y0, q[0], q[1]], [hw, y0, q[2], q[1]], [hw, y1, q[2], q[3]], [-hw, y1, q[0], q[3]]]; for (const i of [0, 1, 2, 0, 2, 3]) { pos.push(fx + h.ux * c[i][0], c[i][1], fz + h.uz * c[i][0]); uv.push(c[i][2], c[i][3]); nor.push(h.vx, 0, h.vz); } };
-    board(Math.min(h.hw * 0.9, 2.6), 2.95, 0.14, h.sign !== undefined ? h.sign : genericCell());
-    if (h.front === 2 && h.floors < 4 && chance(0.2)) board(Math.min(h.hw * 0.95, 3.2), h.h + 0.25, -0.2, h.sign !== undefined ? h.sign : genericCell());      // rooftop hoarding
-    if (chance(h.front === 2 ? 0.75 : 0.4)) awn.push(h);
-    if (chance(h.front === 2 ? 0.6 : 0.3)) for (let k = 0, n = ri(1, 4); k < n; k++) goods.push([h.x + h.vx * (h.hd + 0.5 + rr(0, 0.5)) + h.ux * rr(-h.hw * 0.8, h.hw * 0.8), h.z + h.vz * (h.hd + 0.5 + rr(0, 0.5)) + h.uz * rr(-h.hw * 0.8, h.hw * 0.8), h.rot, h.front === 2 ? 0.16 : 0]);
+    const goodsOut = () => { for (let k = 0, n = ri(1, 4); k < n; k++) goods.push([h.x + h.vx * (h.hd + 0.5 + rr(0, 0.5)) + h.ux * rr(-h.hw * 0.8, h.hw * 0.8), h.z + h.vz * (h.hd + 0.5 + rr(0, 0.5)) + h.uz * rr(-h.hw * 0.8, h.hw * 0.8), h.rot, h.front === 2 ? 0.16 : 0]); };
+    if (h.real) {                         // the surveyed row: only the boards and awnings seen on Street View
+      if (h.sign !== undefined) board(h, Math.min(h.hw * 0.95, 2.4), 2.95, 0.14, h.sign);
+      if (h.awn) awn.push([h, parseInt(h.awn.slice(1), 16)]);
+      if (chance(0.5)) goodsOut();
+      continue;
+    }
+    board(h, Math.min(h.hw * 0.9, 2.6), 2.95, 0.14, h.sign !== undefined ? h.sign : genericCell());
+    if (h.front === 2 && h.floors < 4 && chance(0.2)) board(h, Math.min(h.hw * 0.95, 3.2), h.h + 0.25, -0.2, h.sign !== undefined ? h.sign : genericCell());      // rooftop hoarding
+    if (chance(h.front === 2 ? 0.75 : 0.4)) awn.push([h, pick(AWN)]);
+    if (chance(h.front === 2 ? 0.6 : 0.3)) goodsOut();
   }
   const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); sg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); sg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   const signMat = new THREE.MeshStandardMaterial({ map: signAtlas, emissiveMap: signAtlas, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.7 });
   const sm = new THREE.Mesh(sg, signMat); sm.matrixAutoUpdate = false; scene.add(sm); signMats.push(signMat);
   NIGHTFX.push(n => { signMat.emissiveIntensity = n * 0.12; });
-  const AWN = [0xb3261e, 0x1f7a8c, 0xe2a400, 0x2e7d4f, 0xd35400, 0x1b6ca8, 0xe9e2d0, 0x8a2f4f];
   const am = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.07, 1.9), M(0xffffff, { roughness: 0.8 }), awn.length);
-  awn.forEach((h, i) => { o.position.set(h.x + h.vx * (h.hd + 0.9), 2.62, h.z + h.vz * (h.hd + 0.9)); o.rotation.set(0.26, h.rot, 0, 'YXZ'); o.scale.set(h.hw * 1.8, 1, 1); o.updateMatrix(); am.setMatrixAt(i, o.matrix); am.setColorAt(i, col.set(pick(AWN))); });
+  awn.forEach(([h, c], i) => { o.position.set(h.x + h.vx * (h.hd + 0.9), 2.62, h.z + h.vz * (h.hd + 0.9)); o.rotation.set(0.26, h.rot, 0, 'YXZ'); o.scale.set(h.hw * 1.8, 1, 1); o.updateMatrix(); am.setMatrixAt(i, o.matrix); am.setColorAt(i, col.set(c)); });
   o.rotation.set(0, 0, 0, 'XYZ'); am.castShadow = true; am.frustumCulled = false; scene.add(am);
   // crates, sacks and tins set out in front of the shops
   const gm = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), M(0xffffff, { roughness: 0.9 }), goods.length), GC = [0x8a5a33, 0xd9b44a, 0xc0392b, 0x2e7d4f, 0x2f6fc4, 0xcfc6ba, 0xa9713f, 0xe07a1f];
@@ -519,11 +590,14 @@ const RESERVED_BUILDING_SITES = {
   food: rectWorld(FRAME.food, -40, -65, 56, 60),
 };
 const MAPPED_SOLIDS = [];
+// Mapped blocks whose height and colour were read off Street View (October 2025): the grey campus on Hussainabad Trust Road.
+const MAPPED_LOOK = { 'way/1469979488': { levels: 3, grey: true }, 'way/1469979489': { levels: 3, grey: true }, 'way/1469979490': { levels: 3, grey: true } };
 function buildMappedBuildings() {
   const reserved = Object.values(RESERVED_BUILDING_SITES);
   const wall = M(0xe6dcc4, { map: canvasTex(128, 128, (x, w, h) => { x.fillStyle = '#efe9db'; x.fillRect(0, 0, w, h); x.fillStyle = '#4a5560'; x.fillRect(22, 30, 36, 52); x.fillRect(74, 30, 36, 52); x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(0, 0, w, 5); x.fillStyle = 'rgba(255,255,255,.4)'; x.fillRect(39, 30, 2, 52); x.fillRect(91, 30, 2, 52); }, 6.4, 3.3) });
   const roofFlat = M(0xb9b1a3);
   const distantWall = M(0xc2b8a3);
+  const greyWall = wall.clone(); greyWall.color.set(0x8f9398);
   const cg = new THREE.Group();
   for (const h of HOUSES) if (h.inst) { _box(cg, wall, h.hw * 2, h.h, h.hd * 2, h.x, 0, h.z).rotation.y = h.rot; _box(cg, roofFlat, h.hw * 2 + 0.6, 0.45, h.hd * 2 + 0.6, h.x, h.h, h.z).rotation.y = h.rot; }
   bake(cg);
@@ -535,11 +609,12 @@ function buildMappedBuildings() {
     const shape = new THREE.Shape(ringVectors(b.p));
     shape.holes = (b.holes || []).map(hole => new THREE.Path(ringVectors(hole)));
     const mappedHeight = /^\d+(\.\d+)?\s*m?$/.test(b.h || '') ? parseFloat(b.h) : 0;
-    const levels = Number(b.l) || (detailed ? ri(2, 4) : 2);
+    const look = MAPPED_LOOK[b.osm] || {};
+    const levels = look.levels || Number(b.l) || (detailed ? ri(2, 4) : 2);
     const height = clamp(mappedHeight || levels * 3.3 + 1, 2.5, 60);
     const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
     geo.rotateX(Math.PI / 2); geo.translate(0, height, 0);
-    const mesh = new THREE.Mesh(geo, detailed ? [roofFlat, wall] : distantWall);
+    const mesh = new THREE.Mesh(geo, detailed ? [roofFlat, look.grey ? greyWall : wall] : distantWall);
     mesh.castShadow = detailed;
     mesh.receiveShadow = true;
     mesh.matrixAutoUpdate = false;
@@ -549,6 +624,11 @@ function buildMappedBuildings() {
 }
 
 /* ───────────── trees ───────────── */
+function houseNear(x, z, m) {
+  const gx = Math.floor(x / 16), gz = Math.floor(z / 16);
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const h of HGRID.get((gx + i) * 4096 + gz + j) || []) if (Math.abs((x - h.x) * h.ux + (z - h.z) * h.uz) < h.hw + m && Math.abs((x - h.x) * h.vx + (z - h.z) * h.vz) < h.hd + m) return true;
+  return false;
+}
 function scatterTrees() {
   const noTree = (x, z) => {
     if (roadGap(x, z) < 1.6 || talabDepthAt(x, z) !== null) return true;
@@ -564,7 +644,15 @@ function scatterTrees() {
     const bb = polyBounds(g.p), n = Math.round((bb[1] - bb[0]) * (bb[3] - bb[2]) / (g.n === 'Gulab Vatika' ? 420 : 300));
     for (let i = 0; i < n; i++) { const x = rr(bb[0], bb[1]), z = rr(bb[2], bb[3]); if (featureContains(x, z, g) && inFocus(x, z, 90) && !noTree(x, z)) treeSpots.push([x, z, chance(g.n ? 0.2 : 0.1) ? 2 : chance(0.3) ? 1 : 0, rr(0.85, 1.45)]); }
   }
-  for (const a of MAP.areas) if (/college|education|hospital|Mosque|worship/.test(a.k)) {
+  // the walled grounds on Hussainabad Trust Road are full of trees on the imagery
+  for (const [s0, s1, depth, kind] of FRONT_GROUNDS) {
+    const n = Math.round((s1 - s0) * depth / (kind === 'park' ? 260 : 120));
+    for (let i = 0; i < n; i++) {
+      const s = rr(s0 + 2, s1 - 2), [x, z] = southAt(s, mainHalf(s) + FRONT_SET + rr(2.5, depth - 4));
+      if (roadGap(x, z) > 2.2 && !houseNear(x, z, 1.8) && !MAP.buildings.some(b => featureContains(x, z, b))) treeSpots.push([x, z, chance(0.3) ? 1 : 0, rr(0.95, 1.5)]);
+    }
+  }
+  for (const a of MAP.areas) if (/college|education|hospital|Mosque|worship|wastewater/.test(a.k)) {
     const bb = polyBounds(a.p), n = Math.round((bb[1] - bb[0]) * (bb[3] - bb[2]) / 900);
     for (let i = 0; i < n; i++) { const x = rr(bb[0], bb[1]), z = rr(bb[2], bb[3]); if (featureContains(x, z, a) && inFocus(x, z, 40) && roadGap(x, z) > 2 && !MAP.buildings.some(b => featureContains(x, z, b))) treeSpots.push([x, z, chance(0.3) ? 1 : 0, rr(0.9, 1.5)]); }
   }
@@ -572,7 +660,8 @@ function scatterTrees() {
   const a = [0, 0, 0, 0];
   for (let s = S_PARK0 + 10; s < MAIN.len - 10; s += 19) for (const side of [1, -1]) {
     if ((s > S_DUAL1 - 10 && s < S_RUMI1 + 6) || chance(0.3)) continue;
-    polyAt(MAIN, s + rr(-3, 3), a); const off = mainHalf(s) + 2.6, x = a[0] + a[3] * side * off, z = a[1] - a[2] * side * off;
+    const st = s + rr(-3, 3); polyAt(MAIN, st, a); const off = mainHalf(s) + 2.6, x = a[0] + a[3] * side * off, z = a[1] - a[2] * side * off;
+    if (side < 0 && (Math.abs(st - FRONT_FEATURES.kiosk) < 4.5 || Math.abs(st - FRONT_FEATURES.gate) < 4.5)) continue;   // keep clear of the corner kiosk and the lane gate
     if (roadGap(x, z) > 1.2) treeSpots.push([x, z, chance(0.22) ? 2 : 0, rr(0.8, 1.15)]);
   }
   // a few courtyard trees in the dense fabric
@@ -614,6 +703,70 @@ function planStreetFurniture() {
   for (const q of [[-250, -50], [-300, -76], [-352, -104], [-376, -74], [-320, -46], [-272, -22]]) LAMPS.push([q[0], q[1], rr(0, TAU), 1]);
   for (const q of [[352, 300], [376, 330], [444, 296], [462, 316]]) LAMPS.push([q[0], q[1], rr(0, TAU), 1]);
 }
+/** the surveyed south side of Hussainabad Trust Road: kerb screens, the lane gate, the corner kiosk and the walls of the grounds */
+function buildFrontageDetail(g) {
+  const at = (s, off) => southAt(s, mainHalf(s) + off);
+  const facing = s => { const a = polyAt(MAIN, s); return Math.atan2(a[3], -a[2]); };       // local +z toward the road
+  const { gate, kiosk, jali } = FRONT_FEATURES;
+  // low sandstone lattice screens on the kerb, a short run between each pair of shop doors
+  for (let s = jali[0]; s < jali[1] - 2.6; s += 6.2) {
+    const m = s + 1.3; if (Math.abs(m - gate) < 4.5 || Math.abs(m - kiosk) < 4.5) continue;
+    const [x0, z0] = at(s, 0.32), [x1, z1] = at(s + 2.6, 0.32), [xm, zm] = at(m, 0.32);
+    if (roadGap(x0, z0) < 0.1 || roadGap(x1, z1) < 0.1 || nearShopEntrance(xm, zm, 0.6) || LAMPS.some(l => Math.hypot(l[0] - xm, l[1] - zm) < 2)) continue;
+    railing(g, x0, z0, x1, z1, 0.92, true);
+  }
+  // the white gate over the lane at s 323: a cusped arch, two small minarets and the pair of fish of the Awadh crest
+  {
+    const [x, z] = at(gate, FRONT_SET + 0.45), k = grp(g, x, z, facing(gate));
+    gateSlab(k, MAT.white, 5.6, 5.3, 0.9, [{ x: 0, w: 3.3, h: 4.3, cusps: 3 }]);
+    B(k, MAT.whiteD, 6.0, 0.32, 1.1, 0, 5.3, 0, true);
+    merlons(k, MAT.white, -2.5, 2.5, 5.62, 0, 7, 0.42, 0.5, 0.6);
+    for (const sx of [-2.6, 2.6]) minaret(k, MAT.white, MAT.white, 1.5, 0.24, sx, 5.62, 0, 1);
+    const fish = new THREE.Shape(); fish.moveTo(-0.5, 0); fish.quadraticCurveTo(-0.1, 0.26, 0.32, 0.05); fish.lineTo(0.55, 0.2); fish.lineTo(0.5, 0); fish.lineTo(0.55, -0.2); fish.lineTo(0.32, -0.05); fish.quadraticCurveTo(-0.1, -0.26, -0.5, 0);
+    const fg = new THREE.ShapeGeometry(fish, 6);
+    for (const sx of [-1, 1]) { const f = new THREE.Mesh(fg, MAT.stone); f.position.set(sx * 2.05, 4.6, 0.47); f.scale.set(-sx * 0.95, 0.95, 1); f.rotation.z = sx * 0.12; k.add(f); }
+  }
+  // the octagonal sandstone kiosk with jali windows and a dome, on the corner of Khun Khun Ji Road
+  {
+    const [x, z] = at(kiosk, 1.75), k = grp(g, x, z, facing(kiosk));
+    C(k, MAT.pinkD, 1.62, 1.68, 0.3, 0, 0, 0, 8, true);
+    C(k, MAT.pink, 1.3, 1.3, 2.7, 0, 0.3, 0, 8, true);
+    for (let i = 0; i < 8; i++) decal(grp(k, 0, 0, Math.PI / 8 + i * TAU / 8), 0.66, 1.75, 0, 0.62, 1.15, { mat: MAT.jaali, trim: MAT.trim, cusps: 3 });
+    C(k, MAT.pinkD, 1.55, 1.42, 0.24, 0, 3.0, 0, 8, true, true);
+    C(k, MAT.pink, 1.02, 1.08, 0.36, 0, 3.24, 0, 8, true, true);
+    dome(k, MAT.pink, 1.02, 0, 3.6, 0, 1.05, MAT.pinkD);
+  }
+  // the walls of the grounds behind the footpath: murals on yellow at the zonal office, cream and railings at the campus, red lattice at Nimbu Park
+  const yellow = M(0xe5bf48, { map: TEX.plaster }), mural = new THREE.MeshStandardMaterial({ roughness: 0.9, map: canvasTex(1024, 128, (x, w, h) => {
+    const bg = ['#7cc2ea', '#f3a3a3', '#9fd89a', '#f7d774', '#c2a6e8', '#f5b27a', '#8fd6c9', '#f0c1d9'];
+    for (let i = 0; i < 8; i++) {
+      const x0 = i * 128; x.fillStyle = bg[i]; x.fillRect(x0, 0, 128, h);
+      x.fillStyle = '#2f5e8f'; x.fillRect(x0, h - 10, 128, 10);
+      for (let k = 0; k < 2; k++) { const cx = x0 + 34 + k * 56; x.fillStyle = ['#c0392b', '#1f6fb5', '#27885a', '#8e44ad'][(i + k) % 4]; x.fillRect(cx - 9, 52, 18, 40); x.fillStyle = '#e0b48a'; x.beginPath(); x.arc(cx, 42, 9, 0, TAU); x.fill(); }
+      x.fillStyle = '#2e7d4f'; x.fillRect(x0 + 100, 70, 14, 22); x.fillStyle = '#1b1b1b'; x.font = 'bold 16px "Nirmala UI","Segoe UI",sans-serif'; x.textAlign = 'center'; x.fillText(i % 2 ? 'स्वच्छ लखनऊ' : 'स्वच्छता ही सेवा', x0 + 64, 22);
+    }
+  }, 0) });
+  for (const [s0, s1, , kind] of FRONT_GROUNDS) {
+    const opening = { office: [474, 6], campus: [683, 6], park: [792, 3] }[kind], from = kind === 'park' ? 768 : s0;
+    for (let s = from, i = 0; s < s1 - 0.5; s += 3, i++) {
+      const e = Math.min(s + 3, s1); if (e > opening[0] - opening[1] / 2 && s < opening[0] + opening[1] / 2) continue;
+      const [x0, z0] = at(s, FRONT_SET + 0.15), [x1, z1] = at(e, FRONT_SET + 0.15);
+      if (roadGap(x0, z0) < 0.4 || roadGap(x1, z1) < 0.4) continue;
+      if (kind === 'park') { railing(g, x0, z0, x1, z1, 1.15, true); continue; }
+      const len = Math.hypot(x1 - x0, z1 - z0), w = grp(g, (x0 + x1) / 2, (z0 + z1) / 2, Math.atan2(-(z1 - z0), x1 - x0));
+      if (kind === 'office') {
+        B(w, yellow, len + 0.02, 1.6, 0.25, 0, 0, 0); B(w, MAT.whiteD, len + 0.04, 0.1, 0.32, 0, 1.6, 0, true);
+        const pm = new THREE.Mesh(new THREE.PlaneGeometry(len - 0.3, 1.05), mural), uvs = pm.geometry.attributes.uv, u0 = (i % 4) / 4;
+        for (let j = 0; j < 4; j++) uvs.setX(j, u0 + uvs.getX(j) * 0.25);
+        pm.position.set(0, 0.85, -0.14); pm.rotation.y = Math.PI; w.add(pm);      // the murals face the road
+      } else {
+        B(w, MAT.whiteD, len + 0.02, 0.9, 0.25, 0, 0, 0); B(w, MAT.iron, len, 0.05, 0.05, 0, 1.85, 0, true); B(w, MAT.iron, len, 0.04, 0.04, 0, 1.3, 0, true);
+        for (let q = 0; q < 2; q++) B(w, MAT.iron, 0.05, 0.95, 0.05, -len / 2 + 0.1 + q * len / 2, 0.9, 0, true);
+      }
+    }
+    for (const d of [-1, 1]) { const s = opening[0] + d * (opening[1] / 2 + 0.3), [x, z] = at(s, FRONT_SET + 0.15); if (roadGap(x, z) > 0.4) B(grp(g, x, z, facing(s)), kind === 'office' ? yellow : MAT.pink, 0.6, 2.2, 0.6, 0, 0, 0); }
+  }
+}
 /** low sandstone wall on the park side, bunting, benches, bins and kerbside two-wheelers along the Rumi Darwaza – Chota Imambara road */
 function buildStreetDetail() {
   const g = new THREE.Group(), a = [0, 0, 0, 0], b = [0, 0, 0, 0], bin = M(0x2e7d4f, { roughness: 0.6 });
@@ -627,12 +780,14 @@ function buildStreetDetail() {
     if (s > S_DUAL1 - 8 && s < S_RUMI1 + 8) continue; polyAt(MAIN, s, a);
     for (const side of [1, -1]) {
       const h = mainHalf(s), px = (o2, ds = 0) => { polyAt(MAIN, s + ds, b); return [b[0] + b[3] * side * o2, b[1] - b[2] * side * o2, Math.atan2(-b[3] * side, b[2] * side)]; };
-      const q = px(h + 2.7, 3); if (roadGap(q[0], q[1]) > 1 && !nearShopEntrance(q[0], q[1], 1.15) && i % 2 === (side > 0 ? 0 : 1)) { const bg = grp(g, q[0], q[1], q[2]); B(bg, MAT.pink, 2.2, 0.12, 0.6, 0, 0.5, 0, true); B(bg, MAT.pinkD, 0.28, 0.36, 0.5, -0.8, 0.16, 0, true); B(bg, MAT.pinkD, 0.28, 0.36, 0.5, 0.8, 0.16, 0, true); SEATS.push([q[0], 0.62, q[1], q[2]]); }
+      const shopRow = side < 0 && s > FRONT_SPAN[0] - 4 && s < FRONT_SPAN[1] + 4;     // no benches against the surveyed shop fronts
+      const q = px(h + 2.7, 3); if (!shopRow && roadGap(q[0], q[1]) > 1 && !nearShopEntrance(q[0], q[1], 1.15) && i % 2 === (side > 0 ? 0 : 1)) { const bg = grp(g, q[0], q[1], q[2]); B(bg, MAT.pink, 2.2, 0.12, 0.6, 0, 0.5, 0, true); B(bg, MAT.pinkD, 0.28, 0.36, 0.5, -0.8, 0.16, 0, true); B(bg, MAT.pinkD, 0.28, 0.36, 0.5, 0.8, 0.16, 0, true); SEATS.push([q[0], 0.62, q[1], q[2]]); }
       const d = px(h + 0.75, 9); if (roadGap(d[0], d[1]) > 0.3 && !nearShopEntrance(d[0], d[1], 0.35)) C(g, bin, 0.26, 0.22, 0.8, d[0], 0.16, d[1], 8, false, true);
       if (side < 0 || s > S_RUMI1) for (let k = 0, n = ri(1, 4); k < n; k++) { const v = px(h - 0.7, -6 + k * 1.1 + rr(-0.2, 0.2)); PARKED.push([v[0], v[1], v[2] + rr(-0.25, 0.25), pick(['scooter', 'bike', 'scooter', 'cycle'])]); }
       if (side < 0 && i % 3 === 1) { const v = px(h + 1.5, 12); if (roadGap(v[0], v[1]) > 0.8) VENDORS.push([v[0], v[1], v[2], pick(['fruit', 'chaat', 'juice', 'tea', 'corn'])]); }
     }
   }
+  buildFrontageDetail(g);
   bake(g);
   const p = painter(), FL = [0x1c8a4a, 0xf39c12, 0xf4f4f0, 0xc0392b, 0x1f6fb5, 0x8e24aa];   // bunting strung across the road
   for (let s = S_PARK0 + 22, i = 0; s < MAIN.len - 20; s += 34, i++) {

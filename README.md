@@ -58,6 +58,7 @@ Use `H` for photo mode, `P` to save a screenshot, `M` for the minimap, `L` to cy
 | --- | --- |
 | `data/map.js` | Streets, river, parks and landmark footprints, generated from OpenStreetMap |
 | `data/places.js` | Heritage walk, featured shops, translations and arrival coordinates |
+| `data/frontage.js` | The buildings along Hussainabad Trust Road as surveyed from Street View: plot widths, storeys, colours, shop boards, walled grounds ([survey](docs/frontage-survey.md)) |
 | `tools/build_map.py` | Converts an Overpass API export into `data/map.js` (query in `tools/overpass_query.txt`) |
 | `src/bootstrap.js` | Local script loading and the text guides on startup failure |
 | `src/core.js` | Renderer, options, textures, materials, geometry helpers, collision records |
@@ -98,7 +99,8 @@ To rebuild the local Three.js bundle from the locked npm packages, run `npm ci -
 - Street layout, river, parks and the positions and orientations of the landmarks come from OpenStreetMap.
 - Monuments were modelled by hand against current satellite and street-level imagery. They are stylised, not surveyed.
 - Most detail is concentrated between the Husainabad gateways and Bara Imambara. The minimap marks the approximate extent. A few mapped building footprints provide simpler context outside it.
-- Ordinary houses are generated along the real lanes; individual buildings are not real.
+- The south side of Hussainabad Trust Road from the east gateway to Khun Khun Ji Road follows Street View (October 2025) plot by plot: widths, storeys, wall colours and the shop boards that can be read, with the sandstone kerb screens, the arched lane gate and the corner kiosk. Further east, the walled zonal office, the government campus and Nimbu Park replace generated houses. See [the survey](docs/frontage-survey.md).
+- Elsewhere, ordinary houses are generated along the real lanes; individual buildings are not real.
 - Chai Mahal uses the tea-shop point in the checked-in OpenStreetMap extract. The five other featured shops use illustrated placements and façades. Opening, service and closing follow scene schedules.
 - Rumi Darwaza is shown as it is now: closed to vehicles, with traffic looping round its north end.
 - Traffic and crowds are simulated, not counted. Vehicles keep left, take turns at junctions and stop at stands placed outside the main monuments; people walk on the pavements and cross at junctions. Numbers follow the time of day.

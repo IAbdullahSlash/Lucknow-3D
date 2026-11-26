@@ -126,7 +126,7 @@ const SHOP_CATALOG = {
       hi: 'घंटाघर के सामने छोटा कैफ़े, गहरे सलेटी बोर्ड पर सुनहरी लिखावट। सामने छपे हुए ठेले से चाय-कॉफ़ी मिलती है, बड़ी चौरंगी छतरी के नीचे और लाल जाली के पास।',
       ur: 'گھنٹہ گھر کے سامنے چھوٹا کیفے، گہرے سرمئی بورڈ پر سنہری حروف۔ سامنے چھپے ہوئے ٹھیلے سے چائے اور کافی ملتی ہے، بڑی چورنگی چھتری کے نیچے اور سرخ جالی کے پاس۔',
     },
-    placement: 'photographed', style: 'turkish', kind: 'frontage', anchor: [-63.97, 80.89], facing: 2.69274,
+    placement: 'photographed', style: 'turkish', kind: 'frontage', anchor: [-59.23, 83.26], facing: 2.69274,
     area: 'Opposite Ghanta Ghar, Husainabad', sign: ['#353430', '#e3c78a'], width: 4.6, depth: 6.6,
     arrival: [0.4, 3.4], reserve: [3.6, -0.5, 4.9], hours: [9, 24],
   },
