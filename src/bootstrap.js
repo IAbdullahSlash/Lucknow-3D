@@ -42,7 +42,7 @@
   function loadScript(file) {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = file + '?v=44';
+      script.src = file + '?v=46';
       script.onload = resolve;
       script.onerror = () => reject(new Error('Could not load ' + file + '.'));
       document.head.append(script);

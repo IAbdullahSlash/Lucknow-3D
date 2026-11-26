@@ -363,7 +363,7 @@ const KITES = []; let kiteLines = null;
 function spawnSky() {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0.45, 0, 0, -0.35, 1.3, 0.1, -0.15, 0, 0, 0.45, -1.3, 0.1, -0.15, 0, 0, -0.35], 3)); g.computeVertexNormals();
   const tw = toWorld(FRAME.park, TALAB.cx, TALAB.cz), ch = toWorld(FRAME.chota, 0, 129), bh = toWorld(FRAME.bara, 0, 273);
-  const flocks = [[0, 60, 0, 22, 1], [tw[0], 14, tw[1], 34, 1], [ch[0], 30, ch[1], 28, 1], [bh[0], 36, bh[1], 46, 1], [FRAME.rumi.x, 30, FRAME.rumi.z, 28, 1], [FRAME.asfi.x, 40, FRAME.asfi.z, 30, 1], [-203, 26, -88, 18, 1], [100, 120, 100, 260, 3.2], [-300, 140, 60, 220, 3.2]];
+  const flocks = [[0, 60, 0, 22, 1], [tw[0], 14, tw[1], 34, 1], [ch[0], 30, ch[1], 28, 1], [bh[0], 36, bh[1], 46, 1], [FRAME.rumi.x, 30, FRAME.rumi.z, 28, 1], [FRAME.asfi.x, 40, FRAME.asfi.z, 30, 1], [-211, 26, -98, 18, 1], [100, 120, 100, 260, 3.2], [-300, 140, 60, 220, 3.2]];
   for (let i = 0; i < 150; i++) { const f = flocks[i < 132 ? i % 7 : 7 + (i % 2)]; BIRDS.push({ f, r: f[3] * (0.5 + R() * 0.8), h: -5 + R() * 14, a: R() * TAU, w: (0.28 + R() * 0.22) * (i % 2 ? 1 : -1) / (f[4] > 1 ? 4 : 1), ph: R() * 6, s: f[4] }); }
   birdIM = new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial({ color: 0x70747c, side: THREE.DoubleSide }), BIRDS.length); birdIM.frustumCulled = false; scene.add(birdIM);
   const cols = [0xff3b3b, 0xffd60a, 0x2ec4b6, 0xff7b00, 0x9b5de5, 0xf15bb5, 0x00bbf9, 0xffffff, 0x70e000, 0xff006e], geo = new THREE.PlaneGeometry(2.6, 2.6).rotateZ(Math.PI / 4);
