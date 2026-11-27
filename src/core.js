@@ -10,7 +10,7 @@ const TAU = Math.PI * 2;
 /* ───────────── user options (persisted) ───────────── */
 const OPT = {
   quality: 'medium', shadows: true, labels: 'en', shopTags: true, minimap: true, weather: 'haze',
-  festive: false, sound: false, volume: 0.6, walkSpeed: 1,
+  festive: false, festival: 'auto', sound: false, volume: 0.6, walkSpeed: 1,
 };
 let _saved = {}; try { _saved = JSON.parse(localStorage.getItem('hussainabad-options') || '{}'); } catch (e) { /* private mode */ } Object.assign(OPT, _saved);
 for (const k of ['traffic', 'crowd', 'carriages', 'kites', 'birds', 'fov', 'cycleMin', 'lookSens']) delete OPT[k];   // settings that were retired
@@ -19,7 +19,7 @@ if (!_saved.labelsChosen) OPT.labels = 'en';
 // a phone with little memory or few cores starts light; whatever the user picks afterwards is kept
 if (!_saved.quality && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820 && ((navigator.deviceMemory || 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4)) OPT.quality = 'low';
 const BENCHMARK = window.LUCKNOW_BENCHMARK;
-if (BENCHMARK) Object.assign(OPT, { quality: BENCHMARK.quality, shadows: true, sound: false, weather: 'clear', festive: false, minimap: true, labels: 'en', shopTags: true, walkSpeed: 1 });
+if (BENCHMARK) Object.assign(OPT, { quality: BENCHMARK.quality, shadows: true, sound: false, weather: 'clear', festive: false, festival: 'off', minimap: true, labels: 'en', shopTags: true, walkSpeed: 1 });
 const FOV = 42;
 function saveOptions() { if (!BENCHMARK) try { localStorage.setItem('hussainabad-options', JSON.stringify(OPT)); } catch (e) { /* ignore */ } }
 const QUALITY = {

@@ -643,6 +643,8 @@ function buildOptions() {
   h('Sky & weather');
   seg('Weather', Object.entries(WEATHER).map(([k, w]) => [k, w.name]), () => OPT.weather, v => setWeather(v));
   check('Festive illumination at night', () => OPT.festive, v => { OPT.festive = v; if (v && TIME.night < 0.3) toast('The lights come on after dark. Try the Night button.'); });
+  seg('Festival days', [['auto', 'By date'], ['muharram', '1 Muharram'], ['eid', 'Eid'], ['off', 'Off']], () => OPT.festival, v => { OPT.festival = v; saveOptions(); FEST.key = ''; });
+  note('“By date” follows the Hijri calendar as kept in Lucknow; the moon sighting can move it by a day. On 1 Muharram the Shahi Zari procession goes from the Bara to the Chota Imambara, 7 pm to midnight. On Eid the congregation prays at the Asfi Mosque at 11 am.');
 
   note('Crowds and traffic follow the clock: near-empty before dawn, busiest in the evening.');
 
@@ -892,6 +894,8 @@ async function startScene() {
   await step('monuments', 'Raising the monuments…', buildMonuments);
   await step('vegetation', 'Planting trees and lighting the lamps…', () => { gFlush(); scatterTrees(); buildTrees(); planStreetFurniture(); buildStreetDetail(); buildLamps(); buildWires(); });
   await step('life', 'Calling out the tongas, rickshaws and crowds…', buildLife);
+  await step('night', 'Switching on the floodlights…', buildNight);
+  await step('festival', 'Checking the Hijri calendar…', buildFestival);
   await step('navigation', 'Preparing walkable ground…', () => {
     buildNav();
     buildPilotLegs();

@@ -175,7 +175,7 @@ function applyTime(dt, T) {
   renderer.toneMappingExposure = 1.0 + night * 0.17;
 
   // night dressing
-  for (const m of FLOOD) m.emissiveIntensity = TIME.lamps * 0.11;
+  for (const m of FLOOD) m.emissiveIntensity = TIME.lamps * 0.02;     // a faint skyglow; the floodlights proper are in night.js
   MAT.recessLit.emissiveIntensity = TIME.lamps * 0.65; MAT.gold.emissiveIntensity = night * 0.17; MAT.dial.emissiveIntensity = TIME.lamps * 0.92;
   MAT.stain.emissiveIntensity = MAT.stainR.emissiveIntensity = night * 0.68; MAT.glass.emissiveIntensity = night * 0.20;
   for (const m of ENVMATS) m.envMapIntensity = lerp(0.84, 0.12, night) * (1 - 0.3 * wx.cover);
@@ -193,7 +193,9 @@ const BUSY = {
   crowd: [[0, 0.1], [3, 0.04], [5, 0.07], [7, 0.34], [10, 0.66], [13, 0.72], [16, 0.86], [18.5, 1], [21, 0.96], [22.5, 0.62], [24, 0.1]],
   traffic: [[0, 0.12], [3, 0.05], [5, 0.1], [7, 0.45], [9.5, 0.95], [12, 0.7], [15, 0.75], [18, 1], [20.5, 0.85], [22.5, 0.45], [24, 0.12]],
 };
-function busyAt(kind, h) { const k = BUSY[kind]; h = ((h % 24) + 24) % 24; for (let i = 1; i < k.length; i++) if (h <= k[i][0]) { const a = k[i - 1], b = k[i], t = (h - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * (t * t * (3 - 2 * t)); } return k[0][1]; }
+function busyAt(kind, h) { const k = BUSY[kind]; h = ((h % 24) + 24) % 24; for (let i = 1; i < k.length; i++) if (h <= k[i][0]) { const a = k[i - 1], b = k[i], t = (h - a[0]) / (b[0] - a[0]); return festBusy(kind, h, a[1] + (b[1] - a[1]) * (t * t * (3 - 2 * t))); } return festBusy(kind, h, k[0][1]); }
+/** festival days bring more people out (festival.js may replace this) */
+let festBusy = (kind, h, v) => v;
 // A scene schedule, shared by the food-court customers and their sound.
 function marketActivity(hour) {
   return smooth((hour - 11) / 3) * (1 - smooth((hour - 21.5) / 1.5));

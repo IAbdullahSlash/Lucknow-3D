@@ -692,13 +692,23 @@ function buildTrees() {
 }
 
 /* ───────────── lamps, masts, poles and wires ───────────── */
-const LAMPS = [];        // [x, z, rotY, kind]  kind 0 heritage swan-neck, 1 double, 2 high mast, 3 garden post
+const BUNTING = { normal: null, muharram: null };
+const LAMPS = [];        // [x, z, rotY, kind]  kind 0 heritage swan-neck, 1 double, 2 high mast, 3 garden post, 4 avenue lamp on a granite pedestal
 function planStreetFurniture() {
   const a = [0, 0, 0, 0];
   for (let s = S_PARK0 + 6, i = 0; s < MAIN.len - 6; s += 15, i++) {
     if (s > S_DUAL1 - 4 && s < S_RUMI1) continue;
-    const side = i % 2 ? 1 : -1; polyAt(MAIN, s, a); const off = mainHalf(s) + 0.7, x = a[0] + a[3] * side * off, z = a[1] - a[2] * side * off;
+    const side = i % 2 ? 1 : -1; if (side > 0 && s < S_DUAL1) continue;      // the park side of the avenue has the pedestal lamps below
+    polyAt(MAIN, s, a); const off = mainHalf(s) + 0.7, x = a[0] + a[3] * side * off, z = a[1] - a[2] * side * off;
     if (roadGap(x, z) > 0.2 && !nearShopEntrance(x, z, 0.65)) LAMPS.push([x, z, Math.atan2(-a[3] * side, a[2] * side), i % 5 === 0 ? 1 : 0]);
+  }
+  // The heritage-zone street lamp (Archohm's design, 2016): two bronze arms on a 2.25 m red granite pedestal, curving
+  // like halves of the Rumi Darwaza arch, the taller over the road and the shorter over the footpath. They line the
+  // park side of the avenue from the Clock Tower park to the gate.
+  for (let s = S_PARK0 + 16; s < S_DUAL1 - 4; s += 24) {
+    polyAt(MAIN, s, a); const off = mainHalf(s) + 0.9, x = a[0] + a[3] * off, z = a[1] - a[2] * off;
+    if (roadGap(x, z) < 0.3 || nearShopEntrance(x, z, 0.8) || COLLIDERS.some(c => Math.abs((x - c.x) * c.ax + (z - c.z) * c.az) < c.hw + 0.9 && Math.abs((x - c.x) * c.bx + (z - c.z) * c.bz) < c.hd + 0.9)) continue;
+    LAMPS.push([x, z, Math.atan2(-a[3], a[2]), 4]);
   }
   for (const q of [[-250, -50], [-300, -76], [-352, -104], [-376, -74], [-320, -46], [-272, -22]]) LAMPS.push([q[0], q[1], rr(0, TAU), 1]);
   for (const q of [[352, 300], [376, 330], [444, 296], [462, 316]]) LAMPS.push([q[0], q[1], rr(0, TAU), 1]);
@@ -789,12 +799,19 @@ function buildStreetDetail() {
   }
   buildFrontageDetail(g);
   bake(g);
-  const p = painter(), FL = [0x1c8a4a, 0xf39c12, 0xf4f4f0, 0xc0392b, 0x1f6fb5, 0x8e24aa];   // bunting strung across the road
-  for (let s = S_PARK0 + 22, i = 0; s < MAIN.len - 20; s += 34, i++) {
-    if (s > S_DUAL0 - 10 && s < S_RUMI1 + 16) continue; polyAt(MAIN, s, a); const h = mainHalf(s) + 0.6, ry = Math.atan2(a[2], a[3]);
-    for (let k = 0; k <= 22; k++) { const t = k / 22, off = (t * 2 - 1) * h, y = 6.3 - Math.sin(t * Math.PI) * 0.9, x = a[0] + a[3] * off, z = a[1] - a[2] * off; if (k < 22) p.box(h * 2 / 22 + 0.05, 0.03, 0.03, x + a[3] * h / 22, y - (Math.sin((t + 1 / 44) * Math.PI) - Math.sin(t * Math.PI)) * 0.9, z - a[2] * h / 22, 0x2a2a2a, ry); if (k > 0 && k < 22) p.box(0.36, 0.42, 0.02, x, y - 0.26, z, FL[(k + i) % FL.length], ry); }
-  }
-  if (p.count) { const m = new THREE.Mesh(p.done(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, side: THREE.DoubleSide })); m.castShadow = true; m.matrixAutoUpdate = false; scene.add(m); }
+  // bunting strung across the road; Muharram replaces it with black, green and red pennants (festival.js)
+  const bunting = FL => {
+    const p = painter();
+    for (let s = S_PARK0 + 22, i = 0; s < MAIN.len - 20; s += 34, i++) {
+      if (s > S_DUAL0 - 10 && s < S_RUMI1 + 16) continue; polyAt(MAIN, s, a); const h = mainHalf(s) + 0.6, ry = Math.atan2(a[2], a[3]);
+      for (let k = 0; k <= 22; k++) { const t = k / 22, off = (t * 2 - 1) * h, y = 6.3 - Math.sin(t * Math.PI) * 0.9, x = a[0] + a[3] * off, z = a[1] - a[2] * off; if (k < 22) p.box(h * 2 / 22 + 0.05, 0.03, 0.03, x + a[3] * h / 22, y - (Math.sin((t + 1 / 44) * Math.PI) - Math.sin(t * Math.PI)) * 0.9, z - a[2] * h / 22, 0x2a2a2a, ry); if (k > 0 && k < 22) p.box(0.36, 0.42, 0.02, x, y - 0.26, z, FL[(k + i) % FL.length], ry); }
+    }
+    if (!p.count) return null;
+    const m = new THREE.Mesh(p.done(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, side: THREE.DoubleSide })); m.castShadow = true; m.matrixAutoUpdate = false; scene.add(m); return m;
+  };
+  BUNTING.normal = bunting([0x1c8a4a, 0xf39c12, 0xf4f4f0, 0xc0392b, 0x1f6fb5, 0x8e24aa]);
+  BUNTING.muharram = bunting([0x121212, 0x14532d, 0x121212, 0x7f1d1d, 0x121212, 0x14532d, 0x121212]);
+  if (BUNTING.muharram) BUNTING.muharram.visible = false;
   // carts and tea stalls where lanes meet, so the back streets are not empty
   NET.nodes.forEach((nd, ni) => { if (nd.e.length < 3 || !inFocus(nd.x, nd.z, -20) || mainProject(nd.x, nd.z).d < 22 || !chance(0.34)) return; const e = NET.edges[nd.e[0]], q = polyAt(e.pl, e.a === ni ? Math.min(5, e.len) : Math.max(0, e.len - 5)), off = e.w / 2 - 0.2; VENDORS.push([q[0] + q[3] * off, q[1] - q[2] * off, Math.atan2(-q[3], q[2]), pick(['tea', 'fruit', 'chaat', 'corn', 'juice'])]); if (chance(0.6)) PARKED.push([q[0] - q[3] * off, q[1] + q[2] * off, rr(0, TAU), pick(['scooter', 'bike', 'cycle'])]); });
 }
@@ -809,26 +826,51 @@ function buildLamps() {
     { pole: [pole(5.6, 0.12), base, arm(1), arm(-1)], lamp: [...lant(1), ...lant(-1)], pts: [[0, 6.1, 1.7], [0, 6.1, -1.7]] },
     { pole: [pole(13, 0.2), base, new THREE.BoxGeometry(1.8, 0.12, 0.12).translate(0, 12.9, 0)], lamp: [new THREE.BoxGeometry(0.5, 0.2, 0.4).translate(-0.7, 12.75, 0), new THREE.BoxGeometry(0.5, 0.2, 0.4).translate(0.7, 12.75, 0)], pts: [[0, 12.6, 0]] },
     { pole: [pole(2.9, 0.07), new THREE.CylinderGeometry(0.14, 0.2, 0.3, 6).translate(0, 0.15, 0)], lamp: [new THREE.SphereGeometry(0.22, 8, 6).translate(0, 3.05, 0)], pts: [[0, 3.05, 0]] },
+    avenueLamp(),
   ];
   const lampMat = M(0xfff2d0, { emissive: 0xffc878, emissiveIntensity: 0 });
   kinds.forEach((k, ki) => {
     const list = LAMPS.filter(l => l[3] === ki); if (!list.length) return;
-    const pm = new THREE.InstancedMesh(mergeGeometries(k.pole.map(ni)), MAT.iron, list.length), lm = new THREE.InstancedMesh(mergeGeometries(k.lamp.map(ni)), lampMat, list.length);
-    list.forEach((l, i) => { o.position.set(l[0], 0, l[1]); o.rotation.y = l[2]; o.updateMatrix(); pm.setMatrixAt(i, o.matrix); lm.setMatrixAt(i, o.matrix); for (const q of k.pts) { const c = Math.cos(l[2]), s = Math.sin(l[2]); lampSpots.push([l[0] + s * q[2], q[1], l[1] + c * q[2], ki === 2 ? 2 : 1]); } });
-    pm.castShadow = true; pm.frustumCulled = lm.frustumCulled = false; scene.add(pm, lm);
+    const parts = [[k.pole, k.poleMat || MAT.iron, true], [k.lamp, lampMat, false], ...(k.extra || [])].map(([geos, mat, cast]) => { const m = new THREE.InstancedMesh(mergeGeometries(geos.map(ni)), mat, list.length); m.castShadow = cast; m.frustumCulled = false; scene.add(m); return m; });
+    list.forEach((l, i) => {
+      o.position.set(l[0], 0, l[1]); o.rotation.y = l[2]; o.updateMatrix(); for (const m of parts) m.setMatrixAt(i, o.matrix);
+      const c = Math.cos(l[2]), s = Math.sin(l[2]);
+      for (const q of k.pts) lampSpots.push([l[0] + s * q[2] + c * q[0], q[1], l[1] + c * q[2] - s * q[0], ki === 2 ? 2 : 1, ki, q[3] || 1]);
+      if (k.col) COLLIDERS.push({ x: l[0], z: l[1], ax: c, az: -s, bx: s, bz: c, hw: k.col[0], hd: k.col[0], yb: 0, yt: k.col[1] });
+    });
   });
-  const haloMat = new THREE.PointsMaterial({ map: glowTex, size: 7.5, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffd9a0 });
-  const halo = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(lampSpots.flatMap(l => [l[0], l[1], l[2]]), 3)), haloMat); halo.frustumCulled = false; scene.add(halo);
-  const poolMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffb45a, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -40 });
-  const pool = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), poolMat, lampSpots.length);
-  lampSpots.forEach((l, i) => { const s = l[3] === 2 ? 52 : l[1] < 4 ? 11 : 24; o.position.set(l[0], 0.06, l[2]); o.rotation.y = 0; o.scale.set(s, 1, s); o.updateMatrix(); pool.setMatrixAt(i, o.matrix); }); pool.frustumCulled = false; pool.renderOrder = 2; scene.add(pool);
+  // a glow round each lamp head: warm for the heritage lamps, cool for the LED plaza lamps and masts
+  const hc = lampSpots.flatMap(l => l[4] === 1 || l[4] === 2 ? [0.82, 0.9, 1] : [1, 0.84, 0.62]);
+  const haloMat = new THREE.PointsMaterial({ map: glowTex, size: 7.5, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, vertexColors: true });
+  const halo = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(lampSpots.flatMap(l => [l[0], l[1], l[2]]), 3)).setAttribute('color', new THREE.Float32BufferAttribute(hc, 3)), haloMat); halo.frustumCulled = false; scene.add(halo);
   NIGHTFX.push(() => {
     const light = TIME.lamps;
     lampMat.emissiveIntensity = light * 1.75;
     haloMat.opacity = light * 0.72;
-    poolMat.opacity = light * 0.25;
-    halo.visible = pool.visible = light > 0.02;
+    halo.visible = light > 0.02;
   });
+}
+/** the heritage-zone lamp: red granite pedestal, two bronze arms of unequal height ending in hanging jaali lanterns */
+let lanternMat = null;
+function avenueLamp() {
+  const V = (x, y, z) => new THREE.Vector3(x, y, z), granite = M(0x9c5045, { roughness: 0.42, metalness: 0.05 }), bronze = M(0x3b2f27, { roughness: 0.5, metalness: 0.55 });
+  if (!lanternMat) {
+    const dots = (bg, fg) => canvasTex(64, 64, (x, w, h) => { x.fillStyle = bg; x.fillRect(0, 0, w, h); x.fillStyle = fg; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { x.beginPath(); x.arc(c * 16 + 8 + (r % 2) * 8, r * 16 + 8, 4.2, 0, TAU); x.fill(); } }, 0);
+    const map = dots('#3b2f27', '#d9b27a'), glow = dots('#000000', '#ffffff'); map.repeat.set(6, 2); glow.repeat.set(6, 2);
+    lanternMat = M(0xffffff, { map, emissiveMap: glow, emissive: 0xffc27a, emissiveIntensity: 0, roughness: 0.55, metalness: 0.4 });
+    NIGHTFX.push(() => { lanternMat.emissiveIntensity = TIME.lamps * 2.2; });
+  }
+  const bell = new THREE.LatheGeometry([[0.001, 0.08], [0.05, 0.06], [0.07, 0], [0.16, -0.08], [0.29, -0.24], [0.33, -0.38], [0.31, -0.48], [0.22, -0.53], [0.001, -0.54]].map(p => new THREE.Vector2(p[0], p[1])), 12);
+  const pole = [], lamp = [], shell = [], pts = [];
+  for (const [h, dir, dx, scale] of [[10.4, 1, 0.13, 1], [8.2, -1, -0.13, 0.8]]) {
+    pole.push(new THREE.CylinderGeometry(0.075, 0.1, h - 3.85, 8).translate(dx, 2.25 + (h - 3.85) / 2, 0), new THREE.CylinderGeometry(0.13, 0.13, 0.25, 8).translate(dx, 2.37, 0));
+    pole.push(new THREE.TubeGeometry(new THREE.CubicBezierCurve3(V(dx, h - 1.6, 0), V(dx, h - 0.2, 0), V(dx, h + 0.15, dir * 1.1), V(dx, h - 0.35, dir * 1.75)), 10, 0.07, 6));
+    shell.push(bell.clone().translate(dx, h - 0.4, dir * 1.75));
+    lamp.push(new THREE.CircleGeometry(0.22, 10).rotateX(Math.PI / 2).translate(dx, h - 0.93, dir * 1.75));
+    pts.push([dx, h - 0.8, dir * 1.75, scale]);
+  }
+  const ped = [new THREE.BoxGeometry(0.92, 0.12, 0.92).translate(0, 0.06, 0), new THREE.BoxGeometry(0.74, 2.0, 0.74).translate(0, 1.12, 0), new THREE.BoxGeometry(0.86, 0.13, 0.86).translate(0, 2.185, 0)];
+  return { pole, poleMat: bronze, lamp, pts, col: [0.46, 2.25], extra: [[ped, granite, true], [shell, lanternMat, true]] };
 }
 function buildWires() {
   const poles = [], pos = [], a = [0, 0, 0, 0];

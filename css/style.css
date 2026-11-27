@@ -87,6 +87,9 @@ body.scene-failed :is(#stage,#labels,#ui,#restoreView){display:none}
 #sceneHour{width:clamp(70px,11vw,150px);accent-color:var(--gold);margin:0 4px}
 #timebar button{background:transparent;backdrop-filter:none;padding:7px 10px}
 #timebar button.on{background:var(--gold)}
+#festival{position:fixed;left:50%;bottom:74px;transform:translateX(-50%);padding:6px 8px 6px 14px;display:flex;gap:10px;align-items:center;font:600 12.5px var(--sans);width:max-content;max-width:calc(100vw - 20px)}
+#festival[hidden],#festival button[hidden]{display:none}
+body.walk #festival{opacity:.55}
 
 #mapWrap{position:fixed;right:16px;bottom:96px;padding:5px;display:none;line-height:0}
 #mapWrap.show{display:block}
@@ -172,6 +175,7 @@ body.touch #hint{display:none}
   #options .ohead{position:sticky;top:0;z-index:1;padding:12px 0 6px;background:rgba(20,15,22,.92)}
   #options input[type=range]{width:120px}
   #mapWrap{bottom:calc(86px + var(--sab));right:10px} #minimap{width:112px;height:112px} body.card-open #mapWrap{top:calc(92px + var(--sat));bottom:auto}
+  #festival{bottom:calc(58px + var(--sab));font-size:11px;padding:4px 6px 4px 10px;gap:6px}
   #timebar{bottom:calc(12px + var(--sab));padding:4px 6px;gap:3px;max-width:calc(100vw - 12px)}
   #timebar button,body.touch #timebar button{padding:6px 6px;font-size:10.5px;letter-spacing:0;min-height:30px}
   .timeReadout{flex-basis:100%;min-height:24px} #sceneHour{width:min(43vw,160px)}

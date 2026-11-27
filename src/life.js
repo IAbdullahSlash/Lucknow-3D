@@ -221,7 +221,7 @@ function newPerson(kind) {
   else if (k === 3) { body = rpick(BRIGHT); legc = R() < 0.5 ? body : rpick([0xf2efe6, 0x16161a, ...BRIGHT]); hair = R() < 0.5 ? rpick(BRIGHT) : 0x15100c; hs = R() < 0.5 ? 1.12 : 1.04; }
   else if (k === 4) { body = rpick(BRIGHT); legc = body; hair = 0x15100c; hs = 1.06; }
   else { body = R() < 0.6 ? 0xf5f5f5 : rpick(SHIRTS); legc = rpick([0x1f2a44, 0x4a4a52, 0x5d4037]); hair = 0x15100c; if (nBag < 300 && R() < 0.7) { p.bag = nBag++; PP.bag.setColorAt(p.bag, _c.set(rpick([0xe91e63, 0x1e88e5, 0xfdd835, 0x43a047, 0xd32f2f]))); } }
-  p.hs = hs;
+  p.hs = hs; p.col = [body, legc, k === 4 ? skin : body];
   (p.robe ? PP.robe : PP.torso).setColorAt(i, _c.set(body)); PP.leg.setColorAt(i * 2, _c.set(legc)); PP.leg.setColorAt(i * 2 + 1, _c.set(legc));
   const arm = k === 4 ? skin : body; PP.arm.setColorAt(i * 2, _c.set(arm)); PP.arm.setColorAt(i * 2 + 1, _c.set(arm)); PP.head.setColorAt(i, _c.set(skin)); PP.hair.setColorAt(i, _c.set(hair));
   LIFE.people.push(p); return p;
@@ -245,6 +245,24 @@ function posePerson(p, t) {
   if (p.bag >= 0) setLimb(PP.bag.instanceMatrix.array, p.bag, p.x, y, p.z, cy, sy, 0, 1.16 * s, -0.2 * s, 0, s, s, s);
 }
 function hidePerson(p) { const i = p.i; hideInst(PP.robe.instanceMatrix.array, i); hideInst(PP.torso.instanceMatrix.array, i); for (const k of [0, 1]) { hideInst(PP.leg.instanceMatrix.array, i * 2 + k); hideInst(PP.arm.instanceMatrix.array, i * 2 + k); } hideInst(PP.head.instanceMatrix.array, i); hideInst(PP.hair.instanceMatrix.array, i); if (p.bag >= 0) hideInst(PP.bag.instanceMatrix.array, p.bag); }
+/** Festival dress. In Muharram most grown-ups wear black; at Eid most men's shirts become white or pastel kurtas
+    and children are in bright new clothes. null puts everyone back in their own clothes. */
+function dressPeople(kind) {
+  for (const p of LIFE.people) {
+    if (!p.col) continue;
+    let [body, legc, arm] = p.col; const h = ((p.i * 2654435761) >>> 0) / 4294967296, kid = p.k === 5;
+    if (kind === 'muharram' && h < (kid ? 0.45 : 0.8)) {
+      body = h < 0.07 ? 0x1d2a22 : 0x121214; arm = body;
+      if (p.legs && h < 0.55) legc = 0x141416;
+    } else if (kind === 'eid') {
+      if (p.k === 0 && h < 0.75) { body = KURTA[p.i % KURTA.length]; legc = 0xf2efe6; arm = body; }
+      else if (kid) { body = BRIGHT[p.i % BRIGHT.length]; arm = body; }
+    }
+    (p.robe ? PP.robe : PP.torso).setColorAt(p.i, _c.set(body));
+    for (const k of [0, 1]) { PP.leg.setColorAt(p.i * 2 + k, _c.set(legc)); PP.arm.setColorAt(p.i * 2 + k, _c.set(arm)); }
+  }
+  for (const im of [PP.robe, PP.torso, PP.leg, PP.arm]) if (im.instanceColor) im.instanceColor.needsUpdate = true;
+}
 const footEdges = [];
 const pedOffset = (e, side, j) => e.main ? side * ((e.one ? e.w / 2 : mainHalfAt(e)) + 1.2 + j * 1.4) : e.veh ? side * (e.w / 2 - 0.15 + j * 0.5) : side * e.w * 0.32 * j;
 function hasFootpath(e) { if (e.fp === undefined) { const m = mainProject(e.pl.p[0], e.pl.p[1]).s; e.fp = !!e.main && m > S_PARK0 + 2 && !(m > S_DUAL1 - 8 && m < S_RUMI1 + 6); } return e.fp; }
@@ -317,6 +335,7 @@ function updatePeople(dt, t) {
   for (let i = 0; i < A.length; i++) {
     const p = A[i];
     if (p.walker) continue;                                   // walkers are moved by crowd.js
+    if (p.held) { if (p.on) { p.on = false; hidePerson(p); } continue; }   // cleared off ground a festival needs (the Eid rows)
     const on = p.market ? (p.market.stall.shop?.activity ?? market) > p.market.threshold
       : p.shop ? p.shop.activity > 0.36 : (i * 7919) % A.length < nOn;
     if (on !== p.on && (p.market || p.shop || unseen(p.x, p.z, 2, PED_FAR))) { p.on = on; if (!on) hidePerson(p); else p.dirty = true; }   // nobody pops up in view

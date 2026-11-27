@@ -664,7 +664,7 @@ function buildFestive() {
   const pts = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(FESTIVE, 3)), mat); pts.frustumCulled = false; scene.add(pts);
   let tw = 0;
   UPDATERS.push((dt, t) => { tw = 0.82 + 0.18 * Math.sin(t * 3.1); });
-  NIGHTFX.push(n => { const on = OPT.festive && n > 0.25; pts.visible = on; if (on) mat.opacity = Math.min(1, (n - 0.25) * 2.2) * tw; });
+  NIGHTFX.push(n => { const on = (OPT.festive || (typeof FEST !== 'undefined' && FEST.lights)) && n > 0.25; pts.visible = on; if (on) mat.opacity = Math.min(1, (n - 0.25) * 2.2) * tw; });
 }
 function buildMonuments() {
   buildPark(); buildSatkhanda(); buildHGate(FRAME.gateE, 'gateE'); buildHGate(FRAME.gateW, 'gateW'); buildChota(); buildRumi(); buildBara(); buildOuterMosques(); buildFoodCourt(); buildKiosks();

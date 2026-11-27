@@ -48,7 +48,9 @@ Visit `http://localhost:8123`. If 3D startup fails, the page offers a retry, the
 
 Select a shop's name tag in the scene to open its card: Tunday Kababi, Globe Cafe 24x7, Turkish Cafe, Kebabchi, the three Irani tea and food stalls, Chai Mahal and Kamar Sheermal. Choose **At the counter** for a closer view or **Walk here** to arrive on foot. Places lists the landmarks, including the Husainabad Food Court.
 
-The time bar uses Lucknow local time. Select **Live**, choose a solar preset, or use the slider to set a minute by hand. Crowds, traffic, shop shutters and the counter lighting follow the selected time. **Options** (`O`) includes English, Hindi and Urdu labels, five weather presets, festive illumination, walking pace, quality, shadows and optional street sound.
+The time bar uses Lucknow local time. Select **Live**, choose a solar preset, or use the slider to set a minute by hand. Crowds, traffic, shop shutters and the counter lighting follow the selected time. **Options** (`O`) includes English, Hindi and Urdu labels, five weather presets, festive illumination, festival days, walking pace, quality, shadows and optional street sound.
+
+**Festival days** follow the Hijri date, or can be chosen in Options. In the first ten days of Muharram the precinct is in mourning: black clothes, black and green bunting, *Labbaik Ya Hussain* banners on the gateways, sabeels along the road and the Imambaras lit. On 1 Muharram the Shahi Zari procession leaves the Bara Imambara at 7 pm and passes through Rumi Darwaza to the Chota Imambara by midnight, and the road is closed to traffic while it passes. At Eid the congregation prays row on row at the Asfi Mosque at 11 am. A banner over the time bar names the day, with a button that takes you to the procession or the mosque.
 
 Use `H` for photo mode, `P` to save a screenshot, `M` for the minimap, `L` to cycle label languages, and `T` for the tour. Show controls restores the interface in photo mode. With reduced motion enabled, the tour starts paused and viewpoint changes are immediate.
 
@@ -64,12 +66,14 @@ Use `H` for photo mode, `P` to save a screenshot, `M` for the minimap, `L` to cy
 | `src/core.js` | Renderer, options, textures, materials, geometry helpers, collision records |
 | `src/solar.js` | Lucknow civil time and dated solar positions |
 | `src/sky.js` | Sky, haze, rain, wet ground and night lighting |
-| `src/city.js` | Ground, roads, footpaths, river, houses grown along the real lanes, trees, lamps, wires |
+| `src/city.js` | Ground, roads, footpaths, river, houses grown along the real lanes, trees, the heritage-zone street lamps, wires |
 | `src/monuments.js` | The hand-modelled monuments, each in its surveyed position and orientation |
 | `src/shops.js` | Featured shopfronts, street fittings, counter lights and service schedules |
 | `src/life.js` | Vehicle and people models, pony rides, stray cows, dogs and goats, vendors, birds, kites, fountains |
 | `src/traffic.js` | Vehicles on real trips across the street graph: keeping left, following and overtaking, right of way at junctions, auto, bus and tonga stands |
 | `src/crowd.js` | People walking to the monuments, shops and lanes: pavements, street corners, crossings at junctions, family groups, strollers in the squares |
+| `src/night.js` | After dark: floodlit monuments, pools of lamplight on the paving and lit shopfronts ([notes](docs/night-lighting.md)) |
+| `src/festival.js` | Muharram and Eid by the Hijri date: the Shahi Zari procession, mourning dress and sabeels, the Eid prayer at the Asfi Mosque ([notes](docs/festivals.md)) |
 | `src/navigation.js` | Walkable floors, water, bridge decks and building collisions |
 | `src/ui.js` | Explore / walk / tour, labels, minimap, options, sound, main loop |
 
@@ -103,7 +107,9 @@ To rebuild the local Three.js bundle from the locked npm packages, run `npm ci -
 - Elsewhere, ordinary houses are generated along the real lanes; individual buildings are not real.
 - Chai Mahal uses the tea-shop point in the checked-in OpenStreetMap extract. The five other featured shops use illustrated placements and façades. Opening, service and closing follow scene schedules.
 - Rumi Darwaza is shown as it is now: closed to vehicles, with traffic looping round its north end.
-- Traffic and crowds are simulated, not counted. Vehicles keep left, take turns at junctions and stop at stands placed outside the main monuments; people walk on the pavements and cross at junctions. Numbers follow the time of day.
+- At night the monuments are floodlit as in 2025–26 photos: the Clock Tower amber from its base and balconies, Rumi Darwaza's half-dome glowing inside a paler frame, Satkhanda in cool white. The avenue lamps on their granite pedestals follow the heritage-zone design. Fixture positions are inferred from the photos, not surveyed. See [the notes](docs/night-lighting.md).
+- The Muharram procession follows press accounts of its order of march and its route, but its figures are generic and its pace is scheduled, not timed from the real event. Hijri dates come from the arithmetic calendar and can be a day off the moon sighting. See [the notes](docs/festivals.md).
+- Traffic and crowds are simulated, not counted. Vehicles keep left, take turns at junctions and stop at stands placed outside the main monuments; people walk on the pavements and cross at junctions. Numbers follow the time of day. Each stand sits where its waiting line fits clear of the junctions, so the Clock Tower's tonga and auto stand is about 25 m further west along the road than the closest spot, well clear of the Khun Khun Ji Road junction. See [the junction notes](docs/traffic-junctions.md).
 - The short history notes in the app are summaries and should be checked before being quoted.
 
 ## Credits
