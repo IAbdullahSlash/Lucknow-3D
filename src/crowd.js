@@ -294,6 +294,7 @@ function trafficClear(e, s, x, z, patience) {
       if (!u.on && !u.ghost) continue;
       const ahead = sc - u.s;
       if (Math.abs(ahead) < u.len / 2 + 2.2) return false;                         // right there
+      if (u.mode === DRIVE && u.stall > 4 && ahead > 0 && ahead < u.len / 2 + 9) return false;   // a driver waiting just short of the crossing gets a turn (a stream of people kept one standing for minutes)
       if (ahead > 0 && ahead < 40 && (ahead - u.len / 2) / Math.max(u.v, 0.1) < horizon) return false;
     }
   }
