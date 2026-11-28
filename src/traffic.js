@@ -7,7 +7,7 @@
 
 const TR = {
   links: [], junctions: [], stands: [], exits: [], locals: [], corridor: [], pool: [], hpool: [],
-  clock: 0, jamAt: 0, spawnAt: 0, hspawnAt: 0, cursor: 0, target: 0, htarget: 0, active: 0,
+  clock: 0, frame: 0, K: 1, jamAt: 0, jamM: 12, courtesy: 20, spawnAt: 0, hspawnAt: 0, cursor: 0, target: 0, htarget: 0, active: 0,
   crossers: [],                         // people on a carriageway, as x, z pairs; written by crowd.js each frame
   blockers: [],                         // a procession on the road, as x, z pairs; written by festival.js each frame
   closedOn: false,                      // the heritage road is shut to vehicles (the Muharram procession)
@@ -42,10 +42,17 @@ const _la = [0, 0, 0, 0], _lb = [0, 0, 0, 0], _lc = [0, 0, 0, 0];
 function linkAt(L, s, out = _la) {
   polyAt(L.e.pl, L.d > 0 ? s : L.len - s, out);
   if (L.d < 0) { out[2] = -out[2]; out[3] = -out[3]; }
+  if (L.sh0 || L.sh1) {                                        // a dual carriageway's branch, moved over to its own side where it meets the single road
+    const sh = L.sh0 * Math.max(0, 1 - s / SPLIT_BLEND) + L.sh1 * Math.max(0, 1 - (L.len - s) / SPLIT_BLEND);
+    out[0] += out[3] * sh; out[1] -= out[2] * sh;
+  }
   return out;
 }
+const SPLIT_BLEND = 15;
+/** ...and its two lanes drawn closer together there, so the outer one stays on the road */
+const latK = (L, s) => 1 - 0.4 * (Math.max(0, 1 - s / SPLIT_BLEND) * (L.sh0 ? 1 : 0) + Math.max(0, 1 - (L.len - s) / SPLIT_BLEND) * (L.sh1 ? 1 : 0));
 /** the point `lat` metres to the left of a link's centre line (traffic keeps left) */
-function lanePoint(L, s, lat, out = _la) { linkAt(L, s, out); out[0] += out[3] * lat; out[1] -= out[2] * lat; return out; }
+function lanePoint(L, s, lat, out = _la) { linkAt(L, s, out); if (L.sh0 || L.sh1) lat *= latK(L, s); out[0] += out[3] * lat; out[1] -= out[2] * lat; return out; }
 /** lane 1 is the kerb lane for slow vehicles, lane 0 the faster one nearer the middle */
 function laneLat(L, lane, wid) {
   const w = L.e.w;
@@ -78,7 +85,7 @@ function prepTraffic() {
       if (e.one && d < 0) continue;
       const c = roadClass(e), k = ROAD_CLASS[c];
       const L = { id: TR.links.length, e, d, from: d > 0 ? e.a : e.b, to: d > 0 ? e.b : e.a, len: e.len, q: [], cls: c, rank: k.rank, limit: k.limit, cf: k.cf,
-        wide: e.one ? e.w >= 6 : e.w >= 9, opp: null, turns: new Map(), t0: [0, 0], t1: [0, 0], jam: 0 };
+        wide: e.one ? e.w >= 6 : e.w >= 9, opp: null, turns: new Map(), t0: [0, 0], t1: [0, 0], jam: 0, closed: false, stop: undefined, sh0: 0, sh1: 0 };
       const h = Math.min(4, L.len), a = linkAt(L, 0, _lb), b = linkAt(L, h, _lc);
       let dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; L.t0 = [dx / l, dz / l];
       const c1 = linkAt(L, L.len - h, _lb), c2 = linkAt(L, L.len, _lc);
@@ -87,6 +94,18 @@ function prepTraffic() {
       NET.nodes[L.from].out.push(L); NET.nodes[L.to].inn.push(L);
     }
     if (e.lk[0] && e.lk[1]) { e.lk[0].opp = e.lk[1]; e.lk[1].opp = e.lk[0]; }
+  }
+  // Where a dual carriageway meets a single road, the map joins both branches' centre lines to the road's at one point,
+  // so each branch's inner lane crossed the centre line there and the two streams ran through each other for 12 m (the
+  // food court junction worked like a scissors crossing). Near that point each branch moves over to its own half.
+  for (const L of TR.links) {
+    if (!L.e.one) continue;
+    for (const atEnd of [false, true]) {
+      const n = atEnd ? L.to : L.from, nd = NET.nodes[n];
+      const C = (atEnd ? nd.out : nd.inn).find(M => !M.e.one && M.wide && M.e !== L.e && (atEnd ? turnInfo(L, M) : turnInfo(M, L)).th < 0.7);   // the single road, carrying on (wide enough for a lane each way)
+      const pair = (atEnd ? nd.out : nd.inn).some(M => M.e.one && M.e !== L.e && (atEnd ? L.t1[0] * M.t0[0] + L.t1[1] * M.t0[1] : M.t1[0] * L.t0[0] + M.t1[1] * L.t0[1]) < -0.3);   // the other branch, going the other way
+      if (C && pair) L[atEnd ? 'sh1' : 'sh0'] = 0.245 * C.e.w;
+    }
   }
   NET.nodes.forEach((nd, n) => {
     const edges = new Set([...nd.out, ...nd.inn].map(L => L.e));
@@ -113,6 +132,7 @@ function prepTraffic() {
     for (const n of list) { const nd = NET.nodes[n]; J.x += nd.x / list.length; J.z += nd.z / list.length; J.r = Math.max(J.r, nd.r); nd.J = J; }
     TR.junctions.push(J);
   }
+  TR.K = TR.links.length + 1;                                   // for numeric cache keys of link pairs
   TR.corridor = TR.links.filter(L => L.e.main && L.len > 20);       // the heritage road, which most trips pass along
   buildStands();
 }
@@ -208,6 +228,8 @@ function findRoute(v, start, goalLink, goalNode = -1) {
   return null;
 }
 const _pop = [0, 0];
+/** does route r come back along a road it has already driven, the other way? (a loop to turn round) */
+const backtracks = r => { const seen = new Set(); for (const L of r) { if (L.opp && seen.has(L.opp)) return true; seen.add(L); } return false; };
 const routeCost = (v, r) => { let c = 0; for (let i = 1; i < r.length; i++) c += linkCost(v, r[i]) + 8 * (1 - turnInfo(r[i - 1], r[i]).dot); return c; };
 function pickWeighted(list, wfn) { let tot = 0; for (const x of list) tot += wfn(x); let r = R() * tot; for (const x of list) { r -= wfn(x); if (r <= 0) return x; } return list[list.length - 1]; }
 /** choose where this vehicle is going from (start, s0), maybe calling at a stand on the way */
@@ -237,11 +259,12 @@ function planTrip(v, start, s0) {
       for (let t = 0; t < 3 && !r; t++) {
         const via = pickWeighted(TR.corridor, L => L.len); if (via === start) continue;
         const a = findRoute(v, start, via), b = a && findRoute(v, via, null, dest), c = a && b ? a.concat(b.slice(1)) : null;
-        if (c && (!d || routeCost(v, c) <= cd * 1.4 + 100)) r = c;
+        if (c && !backtracks(c) && (!d || routeCost(v, c) <= cd * 1.4 + 100)) r = c;
       }
       if (!r) r = d;
     }
     if (!r) r = findRoute(v, start, null, dest);
+    if (r && !st && k < 4 && backtracks(r)) continue;            // somewhere that needs no loop round the block to reach (those loops fed the Clock Tower junction)
     if (r) { v.route = r; v.ri = 0; v.stand = st; v.dest = dest; return true; }
   }
   return false;
@@ -273,6 +296,7 @@ function makeVehicle(type, heritage) {
     heritage, local: LOCAL_TYPES.has(type), route: null, ri: 0, L: null, s: 0, lat: 0, latT: 0, latV: 0, cv: null,
     jg: null, jmv: null, jgB: null, mv: null, arr: -1, wait: 0, mode: DRIVE, timer: 0, stand: null, served: false, lastStand: null,
     ot: null, pk: null, ghost: null, ut: null, utWait: 0, think: R(), snap: true, stuck: 0, stall: 0, dest: -1,
+    head: true, jgAt: 0, arcF: -1, arcM: null, arcJ: null, arcV: 0,   // declared up front: fields added later change the object's shape and slow every lookup
   };
   for (const w of model.wheels) {
     if (w[4]) { v.w0.push(nSpoke); SPOKE.setColorAt(nSpoke, _c.set(def.spoke || 0x444444)); hideInst(SPOKE.instanceMatrix.array, nSpoke++); }
@@ -433,7 +457,7 @@ function moveOf(v, J) {
 }
 /** the path a typical car takes through junction J for movement m, as points */
 function movePath(J, m) {
-  const { A, B } = m, key = A.id + '>' + B.id; let pts = J.paths.get(key);
+  const { A, B } = m, key = A.id * TR.K + B.id; let pts = J.paths.get(key);
   if (pts) return pts;
   if (m.via && m.via.length) {                     // through a cluster: along the lanes of the links inside it
     const q = [0, 0, 0, 0]; pts = [];
@@ -459,18 +483,25 @@ function segSeg(ax, az, bx, bz, cx, cz, dx, dz) {
 function conflict(J, m1, m2) {
   if (m1.A === m2.A) return false;                 // one behind the other: the vehicle ahead is simply followed
   if (m1.B === m2.B) return true;                  // both joining the same lane
-  const key = m1.A.id + ',' + m1.B.id + ',' + m2.A.id + ',' + m2.B.id; let c = J.cache.get(key);
+  const key = pairKey(m1, m2); let c = J.cache.get(key);
   if (c === undefined) {
     const a = movePath(J, m1), b = movePath(J, m2); c = false;
     for (let i = 0; i + 3 < a.length && !c; i += 2) for (let j = 0; j + 3 < b.length; j += 2) if (segSeg(a[i], a[i + 1], a[i + 2], a[i + 3], b[j], b[j + 1], b[j + 2], b[j + 3]) < 1.8) { c = true; break; }
-    J.cache.set(key, c); J.cache.set(m2.A.id + ',' + m2.B.id + ',' + m1.A.id + ',' + m1.B.id, c);
+    J.cache.set(key, c); J.cache.set(pairKey(m2, m1), c);
   }
   return c;
+}
+/** a number naming the pair of movements (m, n), for the junction caches (string keys were a large part of the cost) */
+const pairKey = (m, n) => ((m.A.id * TR.K + m.B.id) * TR.K + n.A.id) * TR.K + n.B.id;
+/** how far vehicle u has got along movement m's path through J, worked out once a frame */
+function arcOf(J, u, m) {
+  if (u.arcF !== TR.frame || u.arcM !== m || u.arcJ !== J) { u.arcF = TR.frame; u.arcM = m; u.arcJ = J; u.arcV = arcOn(movePath(J, m), u.x, u.z); }
+  return u.arcV;
 }
 /** how far along movement m's path (metres) its vehicle must get before it is out of the way of movement `other`:
     past the last place their paths cross or touch, or, for two movements into the same lane, past where they merge */
 function clearArc(J, m, other) {
-  const key = m.A.id + ',' + m.B.id + ',' + other.A.id + ',' + other.B.id; let c = J.clear.get(key);
+  const key = pairKey(m, other); let c = J.clear.get(key);
   if (c !== undefined) return c;
   const a = movePath(J, m), b = movePath(J, other), merge = m.B === other.B; let arc = 0; c = -1;
   for (let i = 0; i + 3 < a.length; i += 2) {
@@ -497,7 +528,7 @@ function arcOn(pts, x, z) {
 }
 /** how far along movement m's path its vehicle can get before it reaches the space it shares with movement `other` */
 function enterArc(J, m, other) {
-  const key = m.A.id + ',' + m.B.id + ',' + other.A.id + ',' + other.B.id; let c = J.enter.get(key);
+  const key = pairKey(m, other); let c = J.enter.get(key);
   if (c !== undefined) return c;
   const a = movePath(J, m), b = movePath(J, other); let arc = 0; c = 0;
   outer: for (let i = 0; i + 3 < a.length; i += 2) {
@@ -515,25 +546,25 @@ const reachTime = (d, v, a) => d <= 0 ? 0 : (-v + Math.sqrt(v * v + 2 * a * d)) 
     and a side street could wait minutes for a moment when no one held it. */
 function mustYield(J, v, o) {
   if (pastConflict(J, o, v.mv)) return false;
-  const aO = arcOn(movePath(J, o.jmv), o.x, o.z), aV = arcOn(movePath(J, v.mv), v.x, v.z), merge = v.mv.B === o.jmv.B;
+  const aO = arcOf(J, o, o.jmv), aV = arcOf(J, v, v.mv), merge = v.mv.B === o.jmv.B;
   if (merge && o.v > 1) {                       // into the same lane behind o, while it moves: fine if its tail is past the merge before v's nose gets there (a zip)
     const tTail = reachTime(clearArc(J, o.jmv, v.mv) + 1 - (aO - o.len / 2), o.v, o.k.a), tNose = reachTime(enterArc(J, v.mv, o.jmv) - (aV + v.len / 2), v.v, v.k.a);
     if (tNose > tTail + 0.6) return false;
   }
   const dO = enterArc(J, o.jmv, v.mv) - (aO + o.len / 2);
   if (dO < 1) return true;                                                     // in the shared space, or at its edge
-  if (o.stall > 3 && TR.clock - o.jgAt > 3 && o.v < 0.3) return false;        // held up short of it (people crossing, say) since its go: it will stop for us
+  if (o.stall > 3 && TR.clock - o.jgAt > 3 && o.v < 0.3 && o.L === o.jmv.A && stopGap(o) > -0.5) return false;   // held up at its line (people crossing, say) since its go: it will stop for us
   // ahead of o into its lane, v need only be in it (o then follows); crossing o's path, v must be through it
   const dV = (merge ? enterArc(J, v.mv, o.jmv) + v.len : clearArc(J, v.mv, o.jmv) + v.len / 2 + 1) - aV;
   const tO = reachTime(dO, o.v, o.k.a), tV = reachTime(dV, v.v, v.k.a);
   if (tO > tV + 1.2) return false;                                                 // a clear gap
-  if (v.wait > 20 && dO > o.v * o.v / 6 + 3 && tO > 0.5 * tV + 0.5) return false;   // a long wait at the line: nose in, where the one coming has room to slow
+  if (v.wait > TR.courtesy && dO > o.v * o.v / 6 + 3 && tO > 0.5 * tV + 0.5) return false;   // a long wait at the line: nose in, where the one coming has room to slow
   return true;
 }
 /** a vehicle inside junction J whose tail is already past every point where it could meet movement m: it is no
     longer in the way (if both join the same lane, the one behind simply follows). A big cluster used to stay shut to
     crossing traffic until each vehicle had driven right out of it, which a hand cart at walking pace took 20 s to do. */
-const pastConflict = (J, o, m) => arcOn(movePath(J, o.jmv), o.x, o.z) - o.len / 2 > clearArc(J, o.jmv, m) + 1;
+const pastConflict = (J, o, m) => arcOf(J, o, o.jmv) - o.len / 2 > clearArc(J, o.jmv, m) + 1;
 /** how far before its junction a link's traffic must wait: clear of the junction, and back where it still runs apart
     from any other road coming in (two one-way roads merging at a shallow angle meet well before the node) */
 function stopBack(L) {
@@ -598,7 +629,7 @@ function canGo(v, J) {
     if (ut > 4 && (u.wait <= 0 || stopGap(u) > 6)) continue;                  // far off, or standing well back from its line (held up by something else)
     // the bigger road goes first; after a long wait, nose in when it is held up itself or, longer still, into a shorter gap
     if (u.L.rank > v.L.rank + 0.1) { if (v.wait > 12 && (ut > 1.6 || (u.v < 0.3 && u.wait > 1.5) || (v.wait > 25 && ut > 1.2))) continue; return false; }
-    if (u.L.rank < v.L.rank - 0.1) { if (u.wait > 20 && u.v < 0.3 && v.v < 0.5 && stopGap(u) < 3) return false; continue; }   // standing in a queue anyway: let in a side street that has waited long (zip)
+    if (u.L.rank < v.L.rank - 0.1) { if (u.wait > TR.courtesy && u.v < 0.3 && stopGap(u) < 3 && (v.v < 0.5 || stopGap(v) > v.v * v.v / 4 + 2)) return false; continue; }   // standing, or able to stop easily: let in a side street that has waited long
     if (u.arr >= 0 && (v.arr < 0 || u.arr < v.arr - 0.05 || (Math.abs(u.arr - v.arr) <= 0.05 && u.id < v.id))) { if (v.wait > 14) continue; return false; }   // then first come, first served
   }
   return true;
@@ -758,7 +789,7 @@ function drive(v, dt, P, pa) {
   const J = next && NET.nodes[L.to].J;
   // given the go but held up before getting into the junction (people crossing, say): others now go past (mustYield),
   // so give it back and look again before moving, rather than drive in later across whoever went
-  if (v.jg && v.jg === J && v.stall > 3 && TR.clock - v.jgAt > 3 && v.v < 0.3 && v.jmv && v.jmv.A === L) release(v);
+  if (v.jg && v.jg === J && v.stall > 3 && TR.clock - v.jgAt > 3 && v.v < 0.3 && v.jmv && v.jmv.A === L && stopGap(v) > -0.5) release(v);   // (not once over the line: it is in the junction then, and others would wait on it while it waited on them)
   if (J && v.jg !== J) {
     v.mv = moveOf(v, J);
     const g = stopGap(v);
@@ -805,10 +836,20 @@ function advance(v) {
     const over = v.s - A.len; quitLink(v); v.ri++; joinLink(v, B, Math.min(over, B.len - 0.01));
     v.lat = v.latT = v.cv && v.cv.B === B ? v.cv.latB : laneLat(B, B.wide ? v.lane : 0, v.wid);
     v.mv = null; v.arr = -1; v.wait = 0; v.ot = null; v.pk = null;
+    replan(v);
   }
   if (!v.on) return;
   if (v.jg) { const J = v.jg, f = inJ(J, v.L.from), t = inJ(J, v.L.to); if (!t && (!f || v.s > NET.nodes[v.L.from].r + v.len / 2 + 0.5)) release(v); }   // out of the far side
   if (v.cv) { const c = v.cv, u = (v.L === c.A ? v.s - c.s0 : c.A.len - c.s0 + v.s) / c.D; if (u >= 1 || (v.L !== c.A && v.L !== c.B)) v.cv = null; }
+}
+/** turning into a road with a queue showing on the next few ahead: think again from here, as drivers do when they see
+    the jam (routes were only chosen at the start of a trip, so the queue for the food court kept growing) */
+function replan(v) {
+  if (v.heritage || v.dest < 0 || (v.stand && !v.served) || v.L.len < 15 || NET.nodes[v.L.to].out.length < 2) return;
+  let jam = 0; for (let k = v.ri + 1; k < Math.min(v.route.length, v.ri + 4); k++) jam += v.route[k].jam;
+  if (jam < TR.jamM * 6) return;                                   // fewer than about six standing: carry on
+  const r = findRoute(v, v.L, null, v.dest);
+  if (r && routeCost(v, r) < routeCost(v, v.route.slice(v.ri)) - 30) { v.route = r; v.ri = 0; }
 }
 /** at the end of the route: leave the map, or (in view, in the old city) carry on to somewhere else */
 function endOfRoute(v) {
@@ -869,7 +910,8 @@ function poseVehicle(v, dt, t, lit, ta, sa) {
     let tx = a[2], tz = a[3];
     const b = linkAt(L, v.s - w, _lb), c = linkAt(L, v.s + w, _lc), dx = c[0] - b[0], dz = c[1] - b[1], l = Math.hypot(dx, dz);
     if (l > 0.5) { tx = dx / l; tz = dz / l; }
-    x = cx + tz * v.lat; z = cz - tx * v.lat;
+    const lt = L.sh0 || L.sh1 ? v.lat * latK(L, v.s) : v.lat;
+    x = cx + tz * lt; z = cz - tx * lt;
     hx = v.v * tx + v.latV * tz; hz = v.v * tz - v.latV * tx;                     // steer into a lane change
     if (Math.hypot(hx, hz) < 0.05) { hx = tx; hz = tz; }
   }
@@ -887,10 +929,10 @@ function poseVehicle(v, dt, t, lit, ta, sa) {
 
 function updateTraffic(dt, t) {
   if (!(dt > 0)) return;                                       // a paused clock moves nothing
-  dt = Math.min(dt, 0.1); TR.clock += dt;
+  dt = Math.min(dt, 0.1); TR.clock += dt; TR.frame++;
   if (TR.clock >= TR.jamAt) {                                   // how queued each road is, for planning new trips: about 12 m of detour per vehicle standing
     TR.jamAt = TR.clock + 1;
-    for (const L of TR.links) { let n = 0; for (const u of L.q) if (u.mode === DRIVE && u.v < 1) n++; L.jam = n * 12; }
+    for (const L of TR.links) { let n = 0; for (const u of L.q) if (u.mode === DRIVE && u.v < 1) n++; L.jam = n * TR.jamM; }
   }
   viewUpdate();
   balanceTraffic(false);
@@ -902,9 +944,11 @@ function updateTraffic(dt, t) {
     if (J && v.jg !== J && stopGap(v) < 30) { v.mv = moveOf(v, J); J.appr.push(v); }
   }
   // only the front vehicle in each lane takes its turn: one queued behind it cannot go first, so it holds no one up
-  for (const J of TR.junctions) for (const u of J.appr) {
-    u.head = true;
-    for (const w of J.appr) if (w !== u && w.L === u.L && w.s > u.s && Math.abs(w.lat - u.lat) < (w.wid + u.wid) / 2 + 0.35) { u.head = false; break; }
+  for (const J of TR.junctions) {
+    const A = J.appr; if (!A.length) continue;
+    if (A.length === 1) { A[0].head = true; continue; }
+    for (const u of A) u.head = true;
+    for (let i = 0; i < A.length; i++) { const u = A[i]; for (let j = i + 1; j < A.length; j++) { const w = A[j]; if (w.L !== u.L || Math.abs(w.lat - u.lat) >= (w.wid + u.wid) / 2 + 0.35) continue; if (w.s > u.s) u.head = false; else w.head = false; } }
   }
   gridBuild(V);
   let n = 0;
